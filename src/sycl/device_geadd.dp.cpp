@@ -54,10 +54,7 @@ void geadd_func(
         scalar_t* rowB = &B[ i ];
 
         for (int64_t j = 0; j < n; ++j)
-            rowB[ j*ldb ] = (alpha * rowA[ j*lda ]) + (beta * rowB[ j*ldb ]);
-            // rowB[j * ldb] = dpct_operator_overloading::operator+(
-            //                     dpct_operator_overloading::operator*(alpha, rowA[j * lda]),
-            //                     dpct_operator_overloading::operator*(beta, rowB[j * ldb]));
+            rowB[ j*ldb ] = axpby( alpha, rowA[ j*lda ], beta, rowB[ j*ldb ] );
     }
 }
 

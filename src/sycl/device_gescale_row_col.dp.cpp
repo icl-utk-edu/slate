@@ -57,11 +57,10 @@ void gescale_row_col_batch_kernel(
          i += item_ct1.get_local_range(2)) {
         scalar_t* rowA = &tileA[ i ];
         scalar_t2 ri = R[ i ];
-        for (int64_t j = 0; j < n; ++j)
-            rowA[ j*lda ] = rowA[ j*lda ] * (ri * C[ j ]);
-            // rowA[j * lda] = dpct_operator_overloading::operator*(
-            //     rowA[j * lda],
-            //     dpct_operator_overloading::operator*(ri, C[j])));
+        for (int64_t j = 0; j < n; ++j) {
+            rowA[ j*lda ] = multiply_ax( multiply_ax(ri, C[ j ]), rowA[ j*lda ] );
+            // rowA[ j*lda ] = rowA[ j*lda ] * (ri * C[ j ]);
+        }
     }
 }
 

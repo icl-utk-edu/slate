@@ -35,8 +35,7 @@ void gescale_func(
          i += item_ct1.get_local_range(2)) {
         scalar_t* rowA = &A[ i ];
         for (int64_t j = 0; j < n; ++j)
-            rowA[ j*lda ] = rowA[ j*lda ] * mul;
-            // rowA[j * lda] = dpct_operator_overloading::operator*(rowA[j * lda], mul);
+            rowA[ j*lda ] = multiply_ax( mul, rowA[ j*lda ] );
     }
 }
 

@@ -353,7 +353,7 @@ inline double abs(double x)
 inline float abs(sycl::float2 x)
 {
 #ifdef DPCT_COMPATIBILITY_TEMP
-    // CUDA has a good implementation.
+    // Use DPCT routine
     return dpct::cabs<float>(x);
 #else
     // For HIP, use our implementation that scales per LAPACK.
@@ -389,7 +389,7 @@ inline float abs(sycl::float2 x)
 inline double abs(sycl::double2 x)
 {
 #ifdef DPCT_COMPATIBILITY_TEMP
-    // CUDA has a good implementation.
+    // Use DPCT routine
     return dpct::cabs<double>(x);
 #else
     // For HIP, use our implementation that scales per LAPACK.
@@ -424,7 +424,6 @@ inline double abs(sycl::double2 x)
 /// Square of number.
 /// @return x^2
 template <typename scalar_t>
-
 inline scalar_t sqr(scalar_t x)
 {
     return x*x;
@@ -435,7 +434,6 @@ inline scalar_t sqr(scalar_t x)
 /// On exit, scale1 and sumsq1 are updated such that:
 ///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
 template <typename real_t>
-
 void combine_sumsq(
     real_t& scale1, real_t& sumsq1,
     real_t  scale2, real_t  sumsq2 )
@@ -455,7 +453,6 @@ void combine_sumsq(
 /// On exit, scale and sumsq are updated such that:
 ///     scale^2 sumsq := scale^2 sumsq + (absx)^2
 template <typename real_t>
-
 void add_sumsq(
     real_t& scale, real_t& sumsq,
     real_t absx)
@@ -472,7 +469,6 @@ void add_sumsq(
 //------------------------------------------------------------------------------
 /// @return ceil( x / y ), for integer type T.
 template <typename T>
-
 inline constexpr T ceildiv(T x, T y)
 {
     return T((x + y - 1) / y);
@@ -481,7 +477,6 @@ inline constexpr T ceildiv(T x, T y)
 //------------------------------------------------------------------------------
 /// @return ceil( x / y )*y, i.e., x rounded up to next multiple of y.
 template <typename T>
-
 inline constexpr T roundup(T x, T y)
 {
     return T((x + y - 1) / y) * y;
@@ -491,850 +486,884 @@ inline constexpr T roundup(T x, T y)
 /// Overloaded copy and precision conversion.
 /// Sets b = a, converting from type TA to type TB.
 template <typename TA, typename TB>
-
 inline void copy(TA a, TB& b)
 {
     b = a;
 }
 
 /// Sets b = a, converting from complex-float to complex-double.
-
 inline void copy(sycl::float2 a, sycl::double2 &b)
 {
     b = sycl::double2(real(a), imag(a));
 }
 
 /// Sets b = a, converting from complex-double to complex-float.
-
 inline void copy(sycl::double2 a, sycl::float2 &b)
 {
     b = sycl::float2(real(a), imag(a));
 }
 
 /// Sets b = a, converting from float to complex-float.
-
 inline void copy(float a, sycl::float2 &b)
 {
     b = sycl::float2(a, 0);
 }
 
 /// Sets b = a, converting from double to complex-double.
-
 inline void copy(double a, sycl::double2 &b)
 {
     b = sycl::double2(a, 0);
 }
 
-//==============================================================================
-// CUDA doesn't provide operators, so define our own.
-// rocBLAS provides operators.
-//
-// complex-double
-
-#if defined( BLAS_HAVE_SYCL )
-
-// ---------- negate
-/*
-DPCT1011:83: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator-(const sycl::double2 &a)
+//------------------------------------------------------------------------------
+/// Overloaded versions of Ax+By on device, specified for complex
+template <typename T>
+inline T axpby(T alpha, T x, T beta, T y)
 {
-    return sycl::double2(-real(a), -imag(a));
+    return alpha*x + beta*y;
 }
-} // namespace dpct_operator_overloading
 
-/*
-DPCT1011:84: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator+(const sycl::double2 a, const sycl::double2 b)
+inline sycl::float2 axpby(sycl::float2 alpha, sycl::float2 x,
+                          sycl::float2 beta, sycl::float2 y)
 {
-    return sycl::double2(real(a) + real(b), imag(a) + imag(b));
+    return dpct::cmul<float>(alpha, x) + dpct::cmul<float>(beta, y);
 }
-} // namespace dpct_operator_overloading
 
-/*
-DPCT1011:85: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator+(const sycl::double2 a, const double s)
+inline sycl::double2 axpby(sycl::double2 alpha, sycl::double2 x,
+                           sycl::double2 beta, sycl::double2 y)
 {
-    return sycl::double2(real(a) + s, imag(a));
+    return dpct::cmul<double>(alpha, x) + dpct::cmul<double>(beta, y);
 }
-} // namespace dpct_operator_overloading
 
-/*
-DPCT1011:86: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
 
-inline sycl::double2 operator+(const double s, const sycl::double2 b)
+//------------------------------------------------------------------------------
+/// Overloaded versions of multiply on device, specified for complex
+template <typename scalar_t, typename scalar_t2>
+inline scalar_t multiply_ax(scalar_t2 alpha, scalar_t x)
 {
-    return sycl::double2(s + real(b), imag(b));
+    return alpha * x;
 }
-} // namespace dpct_operator_overloading
 
-/*
-DPCT1011:87: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 &operator += (sycl::double2 &a, const sycl::double2 b)
+inline sycl::float2 multiply_ax(sycl::float2 alpha, sycl::float2 x)
 {
-    a = sycl::double2(real(a) + real(b), imag(a) + imag(b));
-    return a;
+    return dpct::cmul<float>(alpha, x);
 }
-} // namespace dpct_operator_overloading
 
-/*
-DPCT1011:88: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 &operator += (sycl::double2 &a, const double s)
+inline sycl::double2 multiply_ax(sycl::double2 alpha, sycl::double2 x)
 {
-    a = sycl::double2(real(a) + s, imag(a));
-    return a;
+    return dpct::cmul<double>(alpha, x);
 }
-} // namespace dpct_operator_overloading
-
-// ---------- subtract
-/*
-DPCT1011:89: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator-(const sycl::double2 a, const sycl::double2 b)
-{
-    return sycl::double2(real(a) - real(b), imag(a) - imag(b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:90: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator-(const sycl::double2 a, const double s)
-{
-    return sycl::double2(real(a) - s, imag(a));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:91: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator-(const double s, const sycl::double2 b)
-{
-    return sycl::double2(s - real(b), -imag(b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:92: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 &operator -= (sycl::double2 &a, const sycl::double2 b)
-{
-    a = sycl::double2(real(a) - real(b), imag(a) - imag(b));
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:93: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 &operator -= (sycl::double2 &a, const double s)
-{
-    a = sycl::double2(real(a) - s, imag(a));
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-// ---------- multiply
-/*
-DPCT1011:94: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator*(const sycl::double2 a, const sycl::double2 b)
-{
-    return sycl::double2(real(a) * real(b) - imag(a) * imag(b),
-                         imag(a) * real(b) + real(a) * imag(b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:95: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator*(const sycl::double2 a, const double s)
-{
-    return sycl::double2(real(a) * s, imag(a) * s);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:96: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator*(const sycl::double2 a, const float s)
-{
-    return sycl::double2(real(a) * s, imag(a) * s);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:97: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator*(const double s, const sycl::double2 a)
-{
-    return sycl::double2(real(a) * s, imag(a) * s);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:98: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 &operator *= (sycl::double2 &a, const sycl::double2 b)
-{
-    a = sycl::double2(real(a) * real(b) - imag(a) * imag(b),
-                      imag(a) * real(b) + real(a) * imag(b));
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:99: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 &operator *= (sycl::double2 &a, const double s)
-{
-    a = sycl::double2(real(a) * s, imag(a) * s);
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-// ---------- divide
-/* From LAPACK DLADIV
- * Performs complex division in real arithmetic, avoiding unnecessary overflow.
- *
- *             a + i*b
- *  p + i*q = ---------
- *             c + i*d
- */
-/*
-DPCT1011:100: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator/(const sycl::double2 x, const sycl::double2 y)
-{
-    double a = real(x);
-    double b = imag(x);
-    double c = real(y);
-    double d = imag(y);
-    double e, f, p, q;
-    if (abs( d ) < abs( c )) {
-        e = d / c;
-        f = c + d*e;
-        p = ( a + b*e ) / f;
-        q = ( b - a*e ) / f;
-    }
-    else {
-        e = c / d;
-        f = d + c*e;
-        p = (  b + a*e ) / f;
-        q = ( -a + b*e ) / f;
-    }
-    return sycl::double2(p, q);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:101: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator/(const sycl::double2 a, const double s)
-{
-    return sycl::double2(real(a) / s, imag(a) / s);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:102: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 operator/(const double a, const sycl::double2 y)
-{
-    double c = real(y);
-    double d = imag(y);
-    double e, f, p, q;
-    if (abs( d ) < abs( c )) {
-        e = d / c;
-        f = c + d*e;
-        p =  a   / f;
-        q = -a*e / f;
-    }
-    else {
-        e = c / d;
-        f = d + c*e;
-        p =  a*e / f;
-        q = -a   / f;
-    }
-    return sycl::double2(p, q);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:103: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 &operator /= (sycl::double2 &a, const sycl::double2 b)
-{
-    a = dpct_operator_overloading::operator/(a, b);
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:104: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::double2 &operator /= (sycl::double2 &a, const double s)
-{
-    a = sycl::double2(real(a) / s, imag(a) / s);
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-//==============================================================================
-// complex-float
-
-// ---------- negate
-/*
-DPCT1011:105: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator-(const sycl::float2 &a)
-{
-    return sycl::float2(-real(a), -imag(a));
-}
-} // namespace dpct_operator_overloading
-
-// ---------- add
-/*
-DPCT1011:106: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator+(const sycl::float2 a, const sycl::float2 b)
-{
-    return sycl::float2(real(a) + real(b), imag(a) + imag(b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:107: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator+(const sycl::float2 a, const float s)
-{
-    return sycl::float2(real(a) + s, imag(a));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:108: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator+(const float s, const sycl::float2 b)
-{
-    return sycl::float2(s + real(b), imag(b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:109: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 &operator += (sycl::float2 &a, const sycl::float2 b)
-{
-    a = sycl::float2(real(a) + real(b), imag(a) + imag(b));
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:110: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 &operator += (sycl::float2 &a, const float s)
-{
-    a = sycl::float2(real(a) + s, imag(a));
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-// ---------- subtract
-/*
-DPCT1011:111: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator-(const sycl::float2 a, const sycl::float2 b)
-{
-    return sycl::float2(real(a) - real(b), imag(a) - imag(b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:112: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator-(const sycl::float2 a, const float s)
-{
-    return sycl::float2(real(a) - s, imag(a));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:113: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator-(const float s, const sycl::float2 b)
-{
-    return sycl::float2(s - real(b), -imag(b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:114: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 &operator -= (sycl::float2 &a, const sycl::float2 b)
-{
-    a = sycl::float2(real(a) - real(b), imag(a) - imag(b));
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:115: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 &operator -= (sycl::float2 &a, const float s)
-{
-    a = sycl::float2(real(a) - s, imag(a));
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-// ---------- multiply
-/*
-DPCT1011:116: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator*(const sycl::float2 a, const sycl::float2 b)
-{
-    return sycl::float2(real(a) * real(b) - imag(a) * imag(b),
-                        imag(a) * real(b) + real(a) * imag(b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:117: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator*(const sycl::float2 a, const float s)
-{
-    return sycl::float2(real(a) * s, imag(a) * s);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:118: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator*(const float s, const sycl::float2 a)
-{
-    return sycl::float2(real(a) * s, imag(a) * s);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:119: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 &operator *= (sycl::float2 &a, const sycl::float2 b)
-{
-    a = sycl::float2(real(a) * real(b) - imag(a) * imag(b),
-                     imag(a) * real(b) + real(a) * imag(b));
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:120: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 &operator *= (sycl::float2 &a, const float s)
-{
-    a = sycl::float2(real(a) * s, imag(a) * s);
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-// ---------- divide
-/* From LAPACK DLADIV
- * Performs complex division in real arithmetic, avoiding unnecessary overflow.
- *
- *             a + i*b
- *  p + i*q = ---------
- *             c + i*d
- */
-/*
-DPCT1011:121: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator/(const sycl::float2 x, const sycl::float2 y)
-{
-    float a = real(x);
-    float b = imag(x);
-    float c = real(y);
-    float d = imag(y);
-    float e, f, p, q;
-    if (abs( d ) < abs( c )) {
-        e = d / c;
-        f = c + d*e;
-        p = ( a + b*e ) / f;
-        q = ( b - a*e ) / f;
-    }
-    else {
-        e = c / d;
-        f = d + c*e;
-        p = (  b + a*e ) / f;
-        q = ( -a + b*e ) / f;
-    }
-    return sycl::float2(p, q);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:122: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator/(const sycl::float2 a, const float s)
-{
-    return sycl::float2(real(a) / s, imag(a) / s);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:123: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 operator/(const float a, const sycl::float2 y)
-{
-    float c = real(y);
-    float d = imag(y);
-    float e, f, p, q;
-    if (abs( d ) < abs( c )) {
-        e = d / c;
-        f = c + d*e;
-        p =  a   / f;
-        q = -a*e / f;
-    }
-    else {
-        e = c / d;
-        f = d + c*e;
-        p =  a*e / f;
-        q = -a   / f;
-    }
-    return sycl::float2(p, q);
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:124: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 &operator /= (sycl::float2 &a, const sycl::float2 b)
-{
-    a = dpct_operator_overloading::operator/(a, b);
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:125: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline sycl::float2 &operator /= (sycl::float2 &a, const float s)
-{
-    a = sycl::float2(real(a) / s, imag(a) / s);
-    return a;
-}
-} // namespace dpct_operator_overloading
-
-// ---------- equality
-/*
-DPCT1011:126: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline bool operator *= =(const sycl::float2 a, const sycl::float2 b)
-{
-    return ( real(a) == real(b) &&
-             imag(a) == imag(b) );
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:127: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline bool operator *= =(const sycl::float2 a, const float s)
-{
-    return ( real(a) == s &&
-             imag(a) == 0. );
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:128: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline bool operator *= =(const float s, const sycl::float2 a)
-{
-    return ( real(a) == s &&
-             imag(a) == 0. );
-}
-} // namespace dpct_operator_overloading
-
-// ---------- not equality
-/*
-DPCT1011:129: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline bool operator != (const sycl::float2 a, const sycl::float2 b)
-{
-    return !(dpct_operator_overloading::operator *= =(a, b));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:130: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline bool operator != (const sycl::float2 a, const float s)
-{
-    return !(dpct_operator_overloading::operator *= =(a, s));
-}
-} // namespace dpct_operator_overloading
-
-/*
-DPCT1011:131: The tool detected overloaded operators for built-in vector types,
-which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
-interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
-standard operators instead.
-*/
-namespace dpct_operator_overloading {
-
-inline bool operator != (const float s, const sycl::float2 a)
-{
-    return !(dpct_operator_overloading::operator *= =(a, s));
-}
-} // namespace dpct_operator_overloading
-
-#endif // BLAS_WITH_CUBLAS
+
+// //==============================================================================
+// // CUDA doesn't provide operators, so define our own.
+// // rocBLAS provides operators.
+// //
+// // complex-double
+
+// #if defined( BLAS_HAVE_SYCL )
+
+// // ---------- negate
+// /*
+// DPCT1011:83: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator-(const sycl::double2 &a)
+// {
+//     return sycl::double2(-real(a), -imag(a));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:84: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator+(const sycl::double2 a, const sycl::double2 b)
+// {
+//     return sycl::double2(real(a) + real(b), imag(a) + imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:85: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator+(const sycl::double2 a, const double s)
+// {
+//     return sycl::double2(real(a) + s, imag(a));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:86: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator+(const double s, const sycl::double2 b)
+// {
+//     return sycl::double2(s + real(b), imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:87: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 &operator += (sycl::double2 &a, const sycl::double2 b)
+// {
+//     a = sycl::double2(real(a) + real(b), imag(a) + imag(b));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:88: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 &operator += (sycl::double2 &a, const double s)
+// {
+//     a = sycl::double2(real(a) + s, imag(a));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- subtract
+// /*
+// DPCT1011:89: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator-(const sycl::double2 a, const sycl::double2 b)
+// {
+//     return sycl::double2(real(a) - real(b), imag(a) - imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:90: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator-(const sycl::double2 a, const double s)
+// {
+//     return sycl::double2(real(a) - s, imag(a));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:91: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator-(const double s, const sycl::double2 b)
+// {
+//     return sycl::double2(s - real(b), -imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:92: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 &operator -= (sycl::double2 &a, const sycl::double2 b)
+// {
+//     a = sycl::double2(real(a) - real(b), imag(a) - imag(b));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:93: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 &operator -= (sycl::double2 &a, const double s)
+// {
+//     a = sycl::double2(real(a) - s, imag(a));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- multiply
+// /*
+// DPCT1011:94: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator*(const sycl::double2 a, const sycl::double2 b)
+// {
+//     return sycl::double2(real(a) * real(b) - imag(a) * imag(b),
+//                          imag(a) * real(b) + real(a) * imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:95: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator*(const sycl::double2 a, const double s)
+// {
+//     return sycl::double2(real(a) * s, imag(a) * s);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:96: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator*(const sycl::double2 a, const float s)
+// {
+//     return sycl::double2(real(a) * s, imag(a) * s);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:97: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator*(const double s, const sycl::double2 a)
+// {
+//     return sycl::double2(real(a) * s, imag(a) * s);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:98: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 &operator *= (sycl::double2 &a, const sycl::double2 b)
+// {
+//     a = sycl::double2(real(a) * real(b) - imag(a) * imag(b),
+//                       imag(a) * real(b) + real(a) * imag(b));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:99: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 &operator *= (sycl::double2 &a, const double s)
+// {
+//     a = sycl::double2(real(a) * s, imag(a) * s);
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- divide
+// /* From LAPACK DLADIV
+//  * Performs complex division in real arithmetic, avoiding unnecessary overflow.
+//  *
+//  *             a + i*b
+//  *  p + i*q = ---------
+//  *             c + i*d
+//  */
+// /*
+// DPCT1011:100: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator/(const sycl::double2 x, const sycl::double2 y)
+// {
+//     double a = real(x);
+//     double b = imag(x);
+//     double c = real(y);
+//     double d = imag(y);
+//     double e, f, p, q;
+//     if (abs( d ) < abs( c )) {
+//         e = d / c;
+//         f = c + d*e;
+//         p = ( a + b*e ) / f;
+//         q = ( b - a*e ) / f;
+//     }
+//     else {
+//         e = c / d;
+//         f = d + c*e;
+//         p = (  b + a*e ) / f;
+//         q = ( -a + b*e ) / f;
+//     }
+//     return sycl::double2(p, q);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:101: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator/(const sycl::double2 a, const double s)
+// {
+//     return sycl::double2(real(a) / s, imag(a) / s);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:102: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 operator/(const double a, const sycl::double2 y)
+// {
+//     double c = real(y);
+//     double d = imag(y);
+//     double e, f, p, q;
+//     if (abs( d ) < abs( c )) {
+//         e = d / c;
+//         f = c + d*e;
+//         p =  a   / f;
+//         q = -a*e / f;
+//     }
+//     else {
+//         e = c / d;
+//         f = d + c*e;
+//         p =  a*e / f;
+//         q = -a   / f;
+//     }
+//     return sycl::double2(p, q);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:103: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 &operator /= (sycl::double2 &a, const sycl::double2 b)
+// {
+//     a = dpct_operator_overloading::operator/(a, b);
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:104: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::double2 &operator /= (sycl::double2 &a, const double s)
+// {
+//     a = sycl::double2(real(a) / s, imag(a) / s);
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// //==============================================================================
+// // complex-float
+
+// // ---------- negate
+// /*
+// DPCT1011:105: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator-(const sycl::float2 &a)
+// {
+//     return sycl::float2(-real(a), -imag(a));
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- add
+// /*
+// DPCT1011:106: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator+(const sycl::float2 a, const sycl::float2 b)
+// {
+//     return sycl::float2(real(a) + real(b), imag(a) + imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:107: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator+(const sycl::float2 a, const float s)
+// {
+//     return sycl::float2(real(a) + s, imag(a));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:108: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator+(const float s, const sycl::float2 b)
+// {
+//     return sycl::float2(s + real(b), imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:109: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 &operator += (sycl::float2 &a, const sycl::float2 b)
+// {
+//     a = sycl::float2(real(a) + real(b), imag(a) + imag(b));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:110: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 &operator += (sycl::float2 &a, const float s)
+// {
+//     a = sycl::float2(real(a) + s, imag(a));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- subtract
+// /*
+// DPCT1011:111: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator-(const sycl::float2 a, const sycl::float2 b)
+// {
+//     return sycl::float2(real(a) - real(b), imag(a) - imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:112: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator-(const sycl::float2 a, const float s)
+// {
+//     return sycl::float2(real(a) - s, imag(a));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:113: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator-(const float s, const sycl::float2 b)
+// {
+//     return sycl::float2(s - real(b), -imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:114: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 &operator -= (sycl::float2 &a, const sycl::float2 b)
+// {
+//     a = sycl::float2(real(a) - real(b), imag(a) - imag(b));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:115: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 &operator -= (sycl::float2 &a, const float s)
+// {
+//     a = sycl::float2(real(a) - s, imag(a));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- multiply
+// /*
+// DPCT1011:116: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator*(const sycl::float2 a, const sycl::float2 b)
+// {
+//     return sycl::float2(real(a) * real(b) - imag(a) * imag(b),
+//                         imag(a) * real(b) + real(a) * imag(b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:117: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator*(const sycl::float2 a, const float s)
+// {
+//     return sycl::float2(real(a) * s, imag(a) * s);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:118: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator*(const float s, const sycl::float2 a)
+// {
+//     return sycl::float2(real(a) * s, imag(a) * s);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:119: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 &operator *= (sycl::float2 &a, const sycl::float2 b)
+// {
+//     a = sycl::float2(real(a) * real(b) - imag(a) * imag(b),
+//                      imag(a) * real(b) + real(a) * imag(b));
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:120: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 &operator *= (sycl::float2 &a, const float s)
+// {
+//     a = sycl::float2(real(a) * s, imag(a) * s);
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- divide
+// /* From LAPACK DLADIV
+//  * Performs complex division in real arithmetic, avoiding unnecessary overflow.
+//  *
+//  *             a + i*b
+//  *  p + i*q = ---------
+//  *             c + i*d
+//  */
+// /*
+// DPCT1011:121: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator/(const sycl::float2 x, const sycl::float2 y)
+// {
+//     float a = real(x);
+//     float b = imag(x);
+//     float c = real(y);
+//     float d = imag(y);
+//     float e, f, p, q;
+//     if (abs( d ) < abs( c )) {
+//         e = d / c;
+//         f = c + d*e;
+//         p = ( a + b*e ) / f;
+//         q = ( b - a*e ) / f;
+//     }
+//     else {
+//         e = c / d;
+//         f = d + c*e;
+//         p = (  b + a*e ) / f;
+//         q = ( -a + b*e ) / f;
+//     }
+//     return sycl::float2(p, q);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:122: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator/(const sycl::float2 a, const float s)
+// {
+//     return sycl::float2(real(a) / s, imag(a) / s);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:123: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 operator/(const float a, const sycl::float2 y)
+// {
+//     float c = real(y);
+//     float d = imag(y);
+//     float e, f, p, q;
+//     if (abs( d ) < abs( c )) {
+//         e = d / c;
+//         f = c + d*e;
+//         p =  a   / f;
+//         q = -a*e / f;
+//     }
+//     else {
+//         e = c / d;
+//         f = d + c*e;
+//         p =  a*e / f;
+//         q = -a   / f;
+//     }
+//     return sycl::float2(p, q);
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:124: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 &operator /= (sycl::float2 &a, const sycl::float2 b)
+// {
+//     a = dpct_operator_overloading::operator/(a, b);
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:125: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline sycl::float2 &operator /= (sycl::float2 &a, const float s)
+// {
+//     a = sycl::float2(real(a) / s, imag(a) / s);
+//     return a;
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- equality
+// /*
+// DPCT1011:126: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline bool operator *= (const sycl::float2 a, const sycl::float2 b)
+// {
+//     return ( real(a) == real(b) &&
+//              imag(a) == imag(b) );
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:127: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline bool operator *= (const sycl::float2 a, const float s)
+// {
+//     return ( real(a) == s &&
+//              imag(a) == 0. );
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:128: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline bool operator *= (const float s, const sycl::float2 a)
+// {
+//     return ( real(a) == s &&
+//              imag(a) == 0. );
+// }
+// } // namespace dpct_operator_overloading
+
+// // ---------- not equality
+// /*
+// DPCT1011:129: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline bool operator != (const sycl::float2 a, const sycl::float2 b)
+// {
+//     return !(dpct_operator_overloading::operator *= (a, b));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:130: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline bool operator != (const sycl::float2 a, const float s)
+// {
+//     return !(dpct_operator_overloading::operator *= (a, s));
+// }
+// } // namespace dpct_operator_overloading
+
+// /*
+// DPCT1011:131: The tool detected overloaded operators for built-in vector types,
+// which may conflict with the SYCL 2020 standard operators (see 4.14.2.1 Vec
+// interface). The tool inserted a namespace to avoid the conflict. Use SYCL 2020
+// standard operators instead.
+// */
+// namespace dpct_operator_overloading {
+
+// inline bool operator != (const float s, const sycl::float2 a)
+// {
+//     return !(dpct_operator_overloading::operator *= (a, s));
+// }
+// } // namespace dpct_operator_overloading
+
+// #endif // BLAS_WITH_CUBLAS
 
 } // namespace device
 } // namespace slate

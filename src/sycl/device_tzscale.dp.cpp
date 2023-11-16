@@ -58,16 +58,12 @@ void tzscale_kernel(
 
         if (uplo == lapack::Uplo::Lower) {
             for (int64_t j = 0; j <= i && j < n; ++j) { // lower
-                rowA[j*lda] = rowA[j*lda] * mul;
-                // rowA[j * lda] =
-                //     dpct_operator_overloading::operator*(rowA[j * lda], mul);
+                rowA[j*lda] = multiply_ax( mul, rowA[j*lda] );
             }
         }
         else {
             for (int64_t j = n-1; j >= i; --j) // upper
-                rowA[j*lda] = rowA[j*lda] * mul;
-                // rowA[j * lda] =
-                //     dpct_operator_overloading::operator*(rowA[j * lda], mul);
+                rowA[j*lda] = multiply_ax( mul, rowA[j*lda] );
         }
     }
 }

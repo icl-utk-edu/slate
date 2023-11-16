@@ -92,7 +92,10 @@ void generate_matrix(
         case TestMatrixType::ij:
             // Scale so j*s < 1.
             real_t s = 1 / pow( 10, ceil( log10( n ) ) );
-            generate_ij( A, s, opts );
+            auto ij_entry = [s]( int64_t i, int64_t j ) {
+                return i + j * s;
+            }
+            set( ij_entry, A);
             break;
 
         case TestMatrixType::jordan:
@@ -100,7 +103,7 @@ void generate_matrix(
             generate_jordan( A, opts);
             break;
 
-        case TestMatrixType::chebspec: {
+        case TestMatrixType::chebspec:
             const int64_t max_mn = std::max(m, n);
             auto chebspec_entry = [ max_mn, one ]( int64_t i, int64_t j ) {
                 scalar_t x_i = std::cos( pi * ( i + 1 ) / max_mn );
@@ -133,7 +136,7 @@ void generate_matrix(
             set( circul_entry, A);
             break;
 
-        case TestMatrixType::fiedler: {
+        case TestMatrixType::fiedler:
             auto fiedler_entry=[]( int64_t i, int64_t j ) {
 	       return std::abs(j - i); 
             }
@@ -142,7 +145,22 @@ void generate_matrix(
 
         case TestMatrixType::gfpp:
             set(zero, one, A);
-	    generate_gfpp( A, zero, one, opts );
+            n_1 = A.n() - 1;
+	    auto gfpp_entry = [n_1](  int64_t i, int64_t j) {
+                if (j == n_1) { // last column
+                    return 1.0;
+                }
+                else if (i > j) { // below the diagonal
+                    return -1.0;
+                }
+                else if (i == j) { // diagonal
+                    return 0.5;
+                }
+                else { // above the diagonal
+                    return 0.0;
+                }
+            }
+            set( gfpp_entry, A );
             break;
 
         case TestMatrixType::kms:
@@ -153,7 +171,7 @@ void generate_matrix(
             set( kms_entry, A ); 
             break;
 
-        case TestMatrixType::orthog: {
+        case TestMatrixType::orthog:
             const int64_t max_mn = std::max(n, m);
             const scalar_t outer_const = sqrt(scalar_t(2)/scalar_t(max_mn+1));
             const scalar_t inner_const = pi/scalar_t(max_mn+1);

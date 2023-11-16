@@ -158,6 +158,9 @@ void generate_matrix(
                     // upper trapezoid is [ 0 .. min( j+1, mt ) )
                     int64_t i_start = A.uplo() == Uplo::Lower ? j  : 0;
                     int64_t i_end   = A.uplo() == Uplo::Lower ? mt : std::min( j+1, mt );
+                    for (int64_t i = 0; i < i_start; ++i) {
+                        i_global += A.tileMb( i );
+                    }
                     for (int64_t i = i_start; i < i_end; ++i) {
                         if (A.tileIsLocal( i, j )) {
                             #pragma omp task slate_omp_default_none shared( A ) \

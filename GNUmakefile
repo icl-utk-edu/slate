@@ -143,7 +143,8 @@ ifneq ($(cuda),1)
     endif
 endif
 
-omptarget = 0
+use_omptarget_kernels = 0
+use_sycl_kernels = 0
 ifneq ($(cuda),1)
 ifneq ($(hip),1)
     ifeq (${gpu_backend},sycl)
@@ -166,9 +167,9 @@ ifneq ($(hip),1)
         # How should the slate kernels be compiled
         ifeq (${sycl_kernels},omptarget) # src/omptarget kernels
             # enable the omptarget offload kernels in SLATE for oneMKL-SYCL devices
-		    omptarget = 1
+		    use_omptarget_kernels = 1
         else # src/sycl kernels - default/fall-through option
-            sycl_kernels = 1
+			use_sycl_kernels = 1
             CXXFLAGS += -fsycl-unnamed-lambda # allow unnamed sycl lambda kernels
             LDFLAGS += -fsycl -fsycl-unnamed-lambda # allow unnamed sycl lambda kernels
         endif
@@ -222,7 +223,7 @@ ifeq ($(openmp),1)
         # Intel icpx options for OpenMP offload.
         CXXFLAGS += -fiopenmp
         LDFLAGS  += -fiopenmp
-	    ifeq (${omptarget},1)
+	    ifeq (${use_omptarget_kernels},1)
             # If SYCL + OpenMP-offload-kernels, specify omp device type
 	        CXXFLAGS += -fopenmp-targets=spir64
 		    LDFLAGS  += -fopenmp-targets=spir64
@@ -583,7 +584,7 @@ ifeq (${cuda},1)
     libslate_src += ${cuda_src}
 else ifeq (${hip},1)
     libslate_src += ${hip_src}
-else ifeq ($(sycl_kernels),1)
+else ifeq ($(use_sycl_kernels),1)
     libslate_src += $(sycl_kernels_src)
 else
     # Used for both OpenMP offload (${omptarget} == 1) and as stubs for
@@ -1484,12 +1485,12 @@ echo:
 	@echo "sycl          = '$(sycl)'"
 	@echo
 	@echo "---------- OMP target-offload kernel options"
-	@echo "omptarget     = '${omptarget}'"
+	@echo "omptarget     = '${use_omptarget_kernels}'"
 	@echo "omptarget_src = ${omptarget_src}"
 	@echo "omptarget_hdr = ${omptarget_hdr}"
 	@echo
 	@echo "---------- SYCL device kernels"
-	@echo "sycl_kernels  = '$(sycl_kernels)'"
+	@echo "sycl_kernels  = '$(use_sycl_kernels)'"
 	@echo "sycl_kernels_src  = '$(sycl_kernels_src)'"
 	@echo "sycl_kernels_hdr  = '$(sycl_kernels_hdr)'"
 	@echo

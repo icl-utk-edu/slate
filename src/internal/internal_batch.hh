@@ -155,7 +155,7 @@ inline void cblas_gemm_batch(
 // Utilities for computing device batch regions
 
 //------------------------------------------------------------------------------
-/// Computes the range of tiles with either the same mb or the same nb
+/// Computes the range of tiles with either the same mb or the same nb.
 ///
 /// @param[in] want_rows
 ///     If true, compute the row-ranges.  Else, compute the column-ranges.
@@ -216,33 +216,13 @@ public:
 };
 
 //------------------------------------------------------------------------------
-/// Computes and populates the regions for the given matrices.
+/// @copydoc device_regions_build(std::array< std::reference_wrapper<BaseMatrix<scalar_t>>, mat_count >, std::array< scalar_t**, mat_count >, int64_t, std::function<void(int64_t, int64_t, int64_t)>)
 ///
-/// @tparam store_diag
-///     Wheather the diagonal tiles may need to be special cased
+/// @params[in] irange
+///     The ranges of tiles with a uniform number of rows
 ///
-/// @tparam mat_count
-///     The number of matrices used by the kernel
-///
-/// @tparam scalar_t
-///     The type of the matrices
-///
-/// @param[in] diag_same
-///     Whether to include the diagonal tiles in the off-diagonal groups
-///     If false, store_diag must be true
-///
-/// @param[in] mats
-///     An array of the matrices to build regions for
-///
-/// @param[in] mats_array_host
-///     An array of the arrays to fill with pointers to device data
-///
-/// @param[in] device
-///     The device to build regions for
-///
-/// @param[in] extra_setup
-///     Callback that is called whenever a tile is added to a group.
-///     The group index and the tile indices are passed as arguments
+/// @params[in] jrange
+///     The ranges of tiles with a uniform number of columns
 ///
 template< bool store_diag, int mat_count, typename scalar_t, bool diag_same=!store_diag >
 std::vector< device_regions_params<store_diag, mat_count> > device_regions_build(
@@ -370,10 +350,8 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
 //------------------------------------------------------------------------------
 /// Computes and populates the regions for the given matrices.
 ///
-/// irange and jrange are computed internally
-///
 /// @tparam store_diag
-///     Wheather the diagonal tiles may need to be special cased
+///     Whether the diagonal tiles may need to be special cased
 ///
 /// @tparam mat_count
 ///     The number of matrices used by the kernel
@@ -381,10 +359,10 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
 /// @tparam scalar_t
 ///     The type of the matrices
 ///
-/// @param[in] diag_same
+/// @tparam[in] diag_same
 ///     Whether to include the diagonal tiles in the off-diagonal groups
 ///     If false, store_diag must be true
-///
+//------------------------------------------------------------------------------
 /// @param[in] mats
 ///     An array of the matrices to build regions for
 ///
@@ -397,6 +375,8 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
 /// @param[in] extra_setup
 ///     Callback that is called whenever a tile is added to a group.
 ///     The group index and the tile indices are passed as arguments
+///
+/// @return A list of batches with identical size.
 ///
 template< bool store_diag, int mat_count, typename scalar_t, bool diag_same=!store_diag >
 std::vector< device_regions_params<store_diag, mat_count> > device_regions_build(

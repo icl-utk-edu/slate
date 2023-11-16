@@ -382,8 +382,8 @@ void norm(
 
     // Find ranges of matching mb's and ranges of matching nb's to avoid
     // repeatedly recomputing them
-    auto irange = device_regions_range( true, A );
-    auto jrange = device_regions_range( false, A );
+    auto irange = device_regions_range( RowCol::Row, A );
+    auto jrange = device_regions_range( RowCol::Col, A );
 
     int64_t ldv = 0;
     if (scope == NormScope::Matrix) {
@@ -516,7 +516,7 @@ void norm(
                                     devices_values.data(), 1);
         }
         else if (in_norm == Norm::One) {
-            auto joffsets = tile_offsets( false, A );
+            auto joffsets = tile_offsets( RowCol::Col, A );
 
             for (int device = 0; device < A.num_devices(); ++device) {
 
@@ -540,7 +540,7 @@ void norm(
             }
         }
         else if (in_norm == Norm::Inf) {
-            auto ioffsets = tile_offsets( true, A );
+            auto ioffsets = tile_offsets( RowCol::Row, A );
 
             for (int device = 0; device < A.num_devices(); ++device) {
 
@@ -576,7 +576,7 @@ void norm(
     else if (scope == NormScope::Columns) {
 
         if (in_norm == Norm::Max) {
-            auto joffsets = tile_offsets( false, A );
+            auto joffsets = tile_offsets( RowCol::Col, A );
 
             // Reduction over devices to local result.
             // todo: re-arrange loops to be able to issue omp tasks

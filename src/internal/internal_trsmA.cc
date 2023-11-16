@@ -235,7 +235,7 @@ void trsmA(internal::TargetType<Target::Devices>,
                 std::vector<Params> group_params;
                 if (side == Side::Right) {
                     // Find ranges of matching mb's and ranges of matching nb's.
-                    auto irange = device_regions_range( true, B );
+                    auto irange = device_regions_range( RowCol::Row, B );
 
                     // loop over regions
                     for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
@@ -272,7 +272,7 @@ void trsmA(internal::TargetType<Target::Devices>,
                 }
                 else {
                     // Find ranges of matching mb's and ranges of matching nb's.
-                    auto jrange = device_regions_range( false, B );
+                    auto jrange = device_regions_range( RowCol::Col, B );
 
                     // loop over regions
                     for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {

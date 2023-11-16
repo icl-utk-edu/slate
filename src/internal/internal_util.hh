@@ -112,7 +112,7 @@ slate::Matrix<scalar_t> alloc_basis(slate::BaseMatrix<scalar_t>& A, int64_t n,
 //------------------------------------------------------------------------------
 /// Computes the global index for each tile
 ///
-/// @param[in] want_rows
+/// @param[in] dim
 ///     Whether to compute the row or column indices
 ///
 /// @param[in] A
@@ -120,8 +120,10 @@ slate::Matrix<scalar_t> alloc_basis(slate::BaseMatrix<scalar_t>& A, int64_t n,
 ///
 /// @return a vector mapping tile indices to global indices
 template <typename scalar_t>
-std::vector<int64_t> tile_offsets(bool want_rows, slate::BaseMatrix<scalar_t>& A)
+std::vector<int64_t> tile_offsets( RowCol dim, slate::BaseMatrix<scalar_t>& A )
 {
+    bool want_rows = dim == RowCol::Row;
+
     int64_t kt = want_rows ? A.mt() : A.nt();
 
     std::vector< int64_t > offset_list;

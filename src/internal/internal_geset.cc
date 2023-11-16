@@ -92,10 +92,6 @@ void set(internal::TargetType<Target::Devices>,
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // Find ranges of matching mb's and ranges of matching nb's.
-    std::vector< int64_t > irange = device_regions_range( true, A );
-    std::vector< int64_t > jrange = device_regions_range( false, A );
-
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none priority( priority ) \

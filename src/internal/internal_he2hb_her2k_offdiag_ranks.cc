@@ -199,7 +199,7 @@ void he2hb_her2k_offdiag_ranks(
             using Params = device_regions_params<false, 3>;
 
             // Find ranges of matching mb's and ranges of matching nb's.
-            auto jrange = device_regions_range( false, C );
+            auto jrange = device_regions_range( RowCol::Col, C );
 
             std::vector< int64_t > irange;
             int64_t last_ij = -1;

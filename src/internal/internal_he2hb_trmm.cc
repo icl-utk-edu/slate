@@ -198,7 +198,7 @@ void he2hb_trmm(
                 using Params = device_regions_params<false, 2>;
 
                 // Find ranges of matching mb's and ranges of matching nb's.
-                auto irange = device_regions_range( true, B );
+                auto irange = device_regions_range( RowCol::Row, B );
 
                 // loop over regions
                 int64_t batch_count = 0;

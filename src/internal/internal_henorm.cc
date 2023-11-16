@@ -352,7 +352,7 @@ void norm(
 
     // Find ranges of matching mb's and ranges of matching nb's to avoid
     // repeatedly recomputing them
-    auto ijrange = device_regions_range( true, A );
+    auto ijrange = device_regions_range( RowCol::Row, A );
 
     int64_t ldv = 0;
     if (in_norm == Norm::Max) {
@@ -498,7 +498,7 @@ void norm(
                                 devices_values.data(), 1);
     }
     else if (in_norm == Norm::One || in_norm == Norm::Inf) {
-        auto ioffsets = tile_offsets( true, A );
+        auto ioffsets = tile_offsets( RowCol::Row, A );
         assert(A.n() == A.m());
 
         for (int device = 0; device < A.num_devices(); ++device) {

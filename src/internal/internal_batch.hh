@@ -157,8 +157,8 @@ inline void cblas_gemm_batch(
 //------------------------------------------------------------------------------
 /// Computes the range of tiles with either the same mb or the same nb.
 ///
-/// @param[in] want_rows
-///     If true, compute the row-ranges.  Else, compute the column-ranges.
+/// @param[in] dim
+///     Whether to compute the row ranges or the column ranges
 ///
 /// @param[in] A
 ///     The matrix to get tile sizes from
@@ -166,8 +166,10 @@ inline void cblas_gemm_batch(
 /// @return The ranges of uniform tile sizes
 ///
 template<typename scalar_t>
-std::vector<int64_t> device_regions_range( bool want_rows, BaseMatrix<scalar_t>& A )
+std::vector<int64_t> device_regions_range( RowCol dim, BaseMatrix<scalar_t>& A )
 {
+    bool want_rows = dim == RowCol::Row;
+
     int64_t kt = want_rows ? A.mt() : A.nt();
 
     std::vector< int64_t > range;
@@ -204,11 +206,8 @@ public:
     std::conditional_t< store_diag, bool, Empty > is_diagonal;
 
     device_regions_params()
-            : count(0), mb(0), nb(0)
+            : count(0), mb(0), nb(0), ld{0}
     {
-        for (int i = 0; i < mat_count; ++i) {
-            ld[i] = 0;
-        }
         if constexpr (store_diag) {
             is_diagonal = false;
         }
@@ -274,8 +273,8 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
             // * Lower matrices start at j+1
             // * Upper matrices end at j
             // * General matrices run the whole range
-            int istart = std::max(irange[ ii ], (A.uplo() == Uplo::Lower ? j+1 : 0));
-            int iend   = std::min(irange[ ii+1 ], (A.uplo() == Uplo::Upper ? j : mt));
+            int64_t istart = std::max(irange[ ii ], (A.uplo() == Uplo::Lower ? j+1 : 0));
+            int64_t iend   = std::min(irange[ ii+1 ], (A.uplo() == Uplo::Upper ? j : mt));
             for (int64_t i = istart; i < iend; ++i) {
                 if ((diag_same || i != j)
                     && A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
@@ -386,8 +385,8 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
         std::function<void(int64_t, int64_t, int64_t)> extra_setup = {})
 {
     // Find ranges of matching mb's and ranges of matching nb's.
-    auto irange = device_regions_range( true, mats[0].get() );
-    auto jrange = device_regions_range( false, mats[0].get() );
+    auto irange = device_regions_range( RowCol::Row, mats[0].get() );
+    auto jrange = device_regions_range( RowCol::Col, mats[0].get() );
 
     return device_regions_build< store_diag, mat_count, scalar_t, diag_same >(
                                  mats, mats_array_host, device, extra_setup,

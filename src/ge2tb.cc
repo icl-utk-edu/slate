@@ -228,7 +228,7 @@ void ge2tb(
                         bcast_list_V.push_back(
                             {i, k, {A.sub(i, i, k+1, A_nt-1)}});
                     }
-                    A.template listBcast(bcast_list_V, layout, 0);
+                    A.template listBcast<target>(bcast_list_V, layout, 0);
                 }
 
                 // bcast TUlocal across row for trailing matrix update
@@ -379,7 +379,7 @@ void ge2tb(
                             bcast_list_V.push_back(
                                 {k, j, {A.sub(k+1, A_mt-1, j, j)}});
                         }
-                        A.template listBcast(bcast_list_V, layout, 0);
+                        A.template listBcast<target>(bcast_list_V, layout, 0);
                     }
 
                     // bcast TVlocal down col for trailing matrix update

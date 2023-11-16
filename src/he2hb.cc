@@ -590,7 +590,7 @@ void he2hb(
             // Release workspace tiles
             #pragma omp task slate_omp_default_none \
                 depend( inout:block[ k ] ) \
-                shared( A_panel, Tlocal, Treduce ) \
+                firstprivate( A_panel, Tlocal, Treduce ) \
                 firstprivate( k, nt, first_indices )
             {
                 // Ensure the origin is up to date, then remove the panel's workspace

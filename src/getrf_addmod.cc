@@ -342,11 +342,11 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
 
     // Build and factor capacitance matrix, if needed
     int64_t inner_dim = 0;
-    for (int64_t i = 0; i < A_mt; ++i) {
-        inner_dim += W.modifications[i].size();
+    if (useWoodbury) {
+        for (int64_t i = 0; i < A_mt; ++i) {
+            inner_dim += W.modifications[i].size();
+        }
     }
-    if (A.mpiRank() == 0) std::cout << "Factored A w/ " << inner_dim << " modifications" << std::endl;
-    inner_dim *= useWoodbury; // discard inner_dim unless using Woodbury formula
     W.num_modifications = inner_dim;
     if (inner_dim > 0) {
         auto A_tileMb     = A.tileMbFunc();

@@ -23,6 +23,40 @@
 #include "generate_matrix.hh"
 #include "random.hh"
 
+namespace slate {
+
+// -----------------------------------------------------------------------------
+/// Generates an m-by-n Hermitian-storage test matrix.
+/// Handles Hermitian matrices.
+/// Diagonal elements of a Hermitian matrix must be real;
+/// their imaginary part must be 0.
+/// @see generate_matrix
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    slate::Options const& opts)
+{
+    slate::BaseTrapezoidMatrix<scalar_t>& TZ = A;
+    generate_matrix( params, TZ, Sigma, opts );
+
+    // Set diagonal to real.
+    #pragma omp parallel for
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        if (A.tileIsLocal( i, i )) {
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+            auto T = A( i, i );
+            int64_t mb = T.mb();
+            for (int64_t ii = 0; ii < mb; ++ii) {
+                T.at( ii, ii ) = std::real( T( ii, ii ) );
+            }
+        }
+    }
+    A.tileUpdateAllOrigin();
+}
 
 // -----------------------------------------------------------------------------
 /// Generates an m-by-n trapezoid-storage test matrix.
@@ -293,7 +327,18 @@ void generate_matrix(
 /// Overload without Sigma.
 /// @see generate_matrix()
 /// @ingroup generate_matrix
-///
+///----------------------------------------
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<scalar_t>& A,
+    slate::Options const& opts)
+{
+    using real_t = blas::real_type<scalar_t>;
+    std::vector<real_t> dummy;
+    generate_matrix( params, A, dummy, opts );
+}
+
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
@@ -305,7 +350,30 @@ void generate_matrix(
     generate_matrix( params, A, dummy, opts );
 }
 
+//----------------------------------------
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<float>& A,
+    slate::Options const& opts);
 
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<double>& A,
+    slate::Options const& opts);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix< std::complex<float> >& A,
+    slate::Options const& opts);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix< std::complex<double> >& A,
+    slate::Options const& opts);
 
 //----------------------------------------
 template
@@ -332,3 +400,4 @@ void generate_matrix(
     slate::BaseTrapezoidMatrix< std::complex<double> >& A,
     slate::Options const& opts);
 
+} // namespace slate

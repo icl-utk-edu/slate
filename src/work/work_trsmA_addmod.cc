@@ -503,9 +503,9 @@ void trsmA_addmod(Side side, Uplo uplo,
                         //    one,  B.sub(0, mt-1, j, j),
                         //    layout, priority_one);
                         internal::gemmA<Target::HostTask>(
-                            -one, conjTranspose(A.sub(k, k, j, j)),
-                                  conjTranspose(B.sub(0, mt-1, k, k)),
-                            one,  conjTranspose(B.sub(0, mt-1, j, j)),
+                            -one, conj_transpose(A.sub(k, k, j, j)),
+                                  conj_transpose(B.sub(0, mt-1, k, k)),
+                            one,  conj_transpose(B.sub(0, mt-1, j, j)),
                             layout, priority_one);
                     }
                 }
@@ -539,9 +539,9 @@ void trsmA_addmod(Side side, Uplo uplo,
                         //    one,  B.sub(0, mt-1, 0, k-1-lookahead),
                         //    layout, priority_zero); //, queue_0);
                         internal::gemmA<Target::HostTask>(
-                            -one, conjTranspose(A.sub(k, k, 0, k-1-lookahead)),
-                                  conjTranspose(B.sub(0, mt-1, k, k)),
-                            one,  conjTranspose(B.sub(0, mt-1, 0, k-1-lookahead)),
+                            -one, conj_transpose(A.sub(k, k, 0, k-1-lookahead)),
+                                  conj_transpose(B.sub(0, mt-1, k, k)),
+                            one,  conj_transpose(B.sub(0, mt-1, 0, k-1-lookahead)),
                             layout, priority_zero); //, queue_0);
                     }
                 }
@@ -658,9 +658,9 @@ void trsmA_addmod(Side side, Uplo uplo,
                         //    one,  B.sub(0, mt-1, j, j),
                         //    layout, priority_one);
                         internal::gemmA<Target::HostTask>(
-                            -one, conjTranspose(A.sub(k, k, j, j)),
-                                  conjTranspose(B.sub(0, mt-1, k, k)),
-                            one,  conjTranspose(B.sub(0, mt-1, j, j)),
+                            -one, conj_transpose(A.sub(k, k, j, j)),
+                                  conj_transpose(B.sub(0, mt-1, k, k)),
+                            one,  conj_transpose(B.sub(0, mt-1, j, j)),
                             layout, priority_one);
                     }
                 }
@@ -694,9 +694,9 @@ void trsmA_addmod(Side side, Uplo uplo,
                         //    one,  B.sub(0, mt-1, k+1+lookahead, nt-1),
                         //    layout, priority_zero); //, queue_0);
                         internal::gemmA<Target::HostTask>(
-                            -one, conjTranspose(A.sub(k, k, k+1+lookahead, nt-1)),
-                                  conjTranspose(B.sub(0, mt-1, k, k)),
-                            one,  conjTranspose(B.sub(0, mt-1, k+1+lookahead, nt-1)),
+                            -one, conj_transpose(A.sub(k, k, k+1+lookahead, nt-1)),
+                                  conj_transpose(B.sub(0, mt-1, k, k)),
+                            one,  conj_transpose(B.sub(0, mt-1, k+1+lookahead, nt-1)),
                             layout, priority_zero); //, queue_0);
                     }
                 }

@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "slate/Exception.hh"
 #include "slate/internal/device.hh"
 
@@ -129,12 +128,6 @@ void geadd(
     if (m == 0 || n == 0)
         return;
 
-    /*
-    DPCT1093:146: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
@@ -150,13 +143,6 @@ void geadd(
                            geadd_kernel(m, n, alpha, A, lda, beta, B, ldb,
                                         item_ct1);
                        });
-
-    /*
-    DPCT1010:147: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------
@@ -257,12 +243,6 @@ void geadd(
     if (batch_count == 0)
         return;
 
-    /*
-    DPCT1093:148: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
@@ -280,12 +260,6 @@ void geadd(
                                               Barray, ldb, item_ct1);
                        });
 
-    /*
-    DPCT1010:149: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------

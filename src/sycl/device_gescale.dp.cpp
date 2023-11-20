@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "slate/Exception.hh"
 #include "slate/internal/device.hh"
 
@@ -98,12 +97,6 @@ void gescale(
     if (m == 0 || n == 0)
         return;
 
-    /*
-    DPCT1093:154: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
@@ -121,12 +114,6 @@ void gescale(
                            gescale_kernel(m, n, mul, A, lda, item_ct1);
                        });
 
-    /*
-    DPCT1010:155: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------
@@ -241,12 +228,6 @@ void gescale(
     if (batch_count == 0)
         return;
 
-    /*
-    DPCT1093:156: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
@@ -266,12 +247,6 @@ void gescale(
                                                 item_ct1);
                        });
 
-    /*
-    DPCT1010:157: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------

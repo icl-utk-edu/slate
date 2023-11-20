@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "slate/Exception.hh"
 #include "slate/internal/device.hh"
 
@@ -328,12 +327,6 @@ void transpose(
         return;
     assert(lda >= n);
 
-    /*
-    DPCT1093:158: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     int nt = ceildiv( n, int64_t(ib) );
     assert(nt <= 65535);                // CUDA limitation
 
@@ -393,12 +386,6 @@ void transpose(
                          });
     });
 
-    /*
-    DPCT1010:159: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------
@@ -433,12 +420,6 @@ void transpose_batch(
     if (batch_count < 0 || n <= 1)
         return;
     assert(lda >= n);
-
-    /*
-    DPCT1093:160: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
 
     int nt = ceildiv( n, int64_t(ib) );
     assert(nt <= 65535);                // CUDA limitation
@@ -501,12 +482,6 @@ void transpose_batch(
                          });
     });
 
-    /*
-    DPCT1010:161: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------
@@ -564,12 +539,6 @@ void transpose(
     assert(lda >= m);
     assert(ldat >= n);
 
-    /*
-    DPCT1093:162: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     int mt = ceildiv( m, int64_t(NB) );
     assert(mt <= 65535);                // CUDA limitation
     int nt = ceildiv( n, int64_t(NB) );
@@ -622,12 +591,6 @@ void transpose(
                          });
     });
 
-    /*
-    DPCT1010:163: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------
@@ -677,12 +640,6 @@ void transpose_batch(
         return;
     assert(lda >= m);
     assert(ldat >= n);
-
-    /*
-    DPCT1093:164: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
 
     int mt = ceildiv( m, int64_t(NB) );
     assert(mt <= 65535);                // CUDA limitation
@@ -738,12 +695,6 @@ void transpose_batch(
                          });
     });
 
-    /*
-    DPCT1010:165: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------

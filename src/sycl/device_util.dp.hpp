@@ -7,7 +7,8 @@
 #define SLATE_DEVICE_UTIL_CUH
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
+// #include <dpct/dpct.hpp>
+#define DPCT_COMPATIBILITY_TEMP
 #include <complex>
 
 namespace slate {
@@ -41,7 +42,6 @@ inline real_t max_nan(real_t x, real_t y)
 ///     the rest of x is overwritten.
 ///
 template <typename real_t>
-
 void max_nan_reduce(int n, int tid, real_t* x, const sycl::nd_item<3> &item_ct1)
 {
     /*
@@ -299,8 +299,32 @@ inline float real(sycl::float2 x) { return x.x(); }
 inline double imag(sycl::double2 x) { return x.y(); }
 inline float imag(sycl::float2 x) { return x.y(); }
 
-inline sycl::double2 conj(sycl::double2 x) { return dpct::conj<double>(x); }
-inline sycl::float2 conj(sycl::float2 x) { return dpct::conj<float>(x); }
+// inline sycl::double2 conj(sycl::double2 x) { return dpct::conj<double>(x); }
+// inline sycl::float2 conj(sycl::float2 x) { return dpct::conj<float>(x); }
+//------------------------------------------------------------------------------
+/// Computes the complex conjugate of a complex number.
+/// \tparam T Complex element type
+/// \param [in] x The input complex number
+/// \returns The result
+// Taken from dpct util.hpp
+template <typename T>
+sycl::vec<T, 2> conj(sycl::vec<T, 2> x) {
+    std::complex<T> t(x[0], x[1]);
+    t = std::conj(t);
+    return sycl::vec<T, 2>(t.real(), t.imag());
+}
+
+/// Computes the magnitude of a complex number.
+/// \tparam T Complex element type
+/// \param [in] x The input complex number
+/// \returns The result
+// Taken from dpct util.hpp
+template <typename T>
+T cabs(sycl::vec<T, 2> x) {
+    std::complex<T> t(x[0], x[1]);
+    return std::abs(t);
+}
+
 
 #else
 
@@ -354,7 +378,8 @@ inline float abs(sycl::float2 x)
 {
 #ifdef DPCT_COMPATIBILITY_TEMP
     // Use DPCT routine
-    return dpct::cabs<float>(x);
+    //return dpct::cabs<float>(x);
+    return cabs<float>(x);
 #else
     // For HIP, use our implementation that scales per LAPACK.
     float a = real( x );
@@ -390,7 +415,8 @@ inline double abs(sycl::double2 x)
 {
 #ifdef DPCT_COMPATIBILITY_TEMP
     // Use DPCT routine
-    return dpct::cabs<double>(x);
+    // return dpct::cabs<double>(x);
+    return cabs<double>(x);
 #else
     // For HIP, use our implementation that scales per LAPACK.
     double a = real( x );
@@ -516,25 +542,17 @@ inline void copy(double a, sycl::double2 &b)
 }
 
 //------------------------------------------------------------------------------
-/// Overloaded versions of Ax+By on device, specified for complex
+/// Computes the multiplication of two complex numbers.
+/// \tparam T Complex element type
+/// \param [in] x The first input complex number
+/// \param [in] y The second input complex number
+/// \returns The result
 template <typename T>
-inline T axpby(T alpha, T x, T beta, T y)
-{
-    return alpha*x + beta*y;
+sycl::vec<T, 2> cmul(sycl::vec<T, 2> x, sycl::vec<T, 2> y) {
+  std::complex<T> t1(x[0], x[1]), t2(y[0], y[1]);
+  t1 = t1 * t2;
+  return sycl::vec<T, 2>(t1.real(), t1.imag());
 }
-
-inline sycl::float2 axpby(sycl::float2 alpha, sycl::float2 x,
-                          sycl::float2 beta, sycl::float2 y)
-{
-    return dpct::cmul<float>(alpha, x) + dpct::cmul<float>(beta, y);
-}
-
-inline sycl::double2 axpby(sycl::double2 alpha, sycl::double2 x,
-                           sycl::double2 beta, sycl::double2 y)
-{
-    return dpct::cmul<double>(alpha, x) + dpct::cmul<double>(beta, y);
-}
-
 
 //------------------------------------------------------------------------------
 /// Overloaded versions of multiply on device, specified for complex
@@ -546,13 +564,34 @@ inline scalar_t multiply_ax(scalar_t2 alpha, scalar_t x)
 
 inline sycl::float2 multiply_ax(sycl::float2 alpha, sycl::float2 x)
 {
-    return dpct::cmul<float>(alpha, x);
+    return cmul<float>(alpha, x);
 }
 
 inline sycl::double2 multiply_ax(sycl::double2 alpha, sycl::double2 x)
 {
-    return dpct::cmul<double>(alpha, x);
+    return cmul<double>(alpha, x);
 }
+
+//------------------------------------------------------------------------------
+/// Overloaded versions of Ax+By on device, specified for complex
+template <typename T>
+inline T axpby(T alpha, T x, T beta, T y)
+{
+    return alpha*x + beta*y;
+}
+
+inline sycl::float2 axpby(sycl::float2 alpha, sycl::float2 x,
+                          sycl::float2 beta, sycl::float2 y)
+{
+    return cmul<float>(alpha, x) + cmul<float>(beta, y);
+}
+
+inline sycl::double2 axpby(sycl::double2 alpha, sycl::double2 x,
+                           sycl::double2 beta, sycl::double2 y)
+{
+    return cmul<double>(alpha, x) + cmul<double>(beta, y);
+}
+
 
 // //==============================================================================
 // // CUDA doesn't provide operators, so define our own.

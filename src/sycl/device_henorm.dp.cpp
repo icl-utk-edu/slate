@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "slate/Exception.hh"
 #include "slate/internal/device.hh"
 
@@ -327,12 +326,6 @@ void henorm(
     if (batch_count == 0)
         return;
 
-    /*
-    DPCT1093:142: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     //---------
     // max norm
     if (norm == lapack::Norm::Max) {
@@ -431,12 +424,6 @@ void henorm(
         }
     }
 
-    /*
-    DPCT1010:143: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------

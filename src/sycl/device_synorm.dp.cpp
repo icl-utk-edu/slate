@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include <sycl/sycl.hpp>
-#include <dpct/dpct.hpp>
 #include "slate/Exception.hh"
 #include "slate/internal/device.hh"
 
@@ -319,12 +318,6 @@ void synorm(
     if (batch_count == 0)
         return;
 
-    /*
-    DPCT1093:172: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     //---------
     // max norm
     if (norm == lapack::Norm::Max) {
@@ -423,12 +416,6 @@ void synorm(
         }
     }
 
-    /*
-    DPCT1010:173: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 const int ib  = 32;
@@ -594,12 +581,6 @@ void synormOffdiag(
     if (batch_count == 0)
         return;
 
-    /*
-    DPCT1093:174: The "queue.device()" device may be not the one intended for
-    use. Adjust the selected device if needed.
-    */
-    dpct::select_device(queue.device());
-
     //---------
     // one norm
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -631,12 +612,6 @@ void synormOffdiag(
         slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
     }
 
-    /*
-    DPCT1010:175: SYCL uses exceptions to report errors and does not use the
-    error codes. The call was replaced with 0. You need to rewrite this code.
-    */
-    dpct::err0 error = 0;
-    slate_assert(error == 0);
 }
 
 //------------------------------------------------------------------------------

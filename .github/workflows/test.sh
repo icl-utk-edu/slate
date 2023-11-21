@@ -12,10 +12,6 @@ err=0
 
 export OMP_NUM_THREADS=8
 
-# Currently, OpenMP offload tests don't work on our Intel GPU.
-# CI checks only compilation.
-if [ "${device}" != "gpu_intel" ]; then
-
 print "======================================== Unit tests"
 cd unit_test
 
@@ -84,8 +80,6 @@ if [ "${maker}" = "make" ]; then
         err=30
     fi
 fi
-
-fi  # device != gpu_intel
 
 print "======================================== Finished test"
 exit ${err}

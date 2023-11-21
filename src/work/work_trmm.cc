@@ -70,7 +70,6 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     const int priority_0 = 0;
     const int priority_1 = 1;
     const int queue_0 = 0;
-    const int queue_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -100,9 +99,9 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
-    // Requires at least 2 queues
+    // Requires at least 1 queues
     if (target == Target::Devices)
-        assert(B.numComputeQueues() >= 2);
+        assert(B.numComputeQueues() >= 1);
 
     if (A.uplo() == Uplo::Upper) {
         // ----------------------------------------
@@ -148,7 +147,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 Side::Left,
                 alpha, A.sub(0, 0),
                        B.sub(0, 0, 0, nt-1),
-                priority_1, queue_1, opts2 );
+                priority_1, queue_0, opts2 );
         }
 
         #pragma omp task depend(in:gemm[0])
@@ -202,7 +201,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1),
-                    priority_0, queue_1, opts2 );
+                    priority_0, queue_0, opts2 );
             }
 
             #pragma omp task depend(in:gemm[k])
@@ -262,7 +261,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 Side::Left,
                 alpha, A.sub(mt-1, mt-1),
                        B.sub(mt-1, mt-1, 0, nt-1),
-                priority_1, queue_1, opts2 );
+                priority_1, queue_0, opts2 );
         }
 
         #pragma omp task depend(in:gemm[mt-1])
@@ -316,7 +315,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1),
-                    priority_0, queue_1, opts2 );
+                    priority_0, queue_0, opts2 );
             }
 
             #pragma omp task depend(in:gemm[k])

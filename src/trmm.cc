@@ -28,7 +28,7 @@ void trmm(
 
     if (target == Target::Devices) {
         const int64_t batch_size_default = 0; // use default batch size
-        const int num_queues = 2; // Number of kernels without lookahead
+        const int num_queues = 1; // Number of kernels without lookahead
         B.allocateBatchArrays( batch_size_default, num_queues );
         B.reserveDeviceWorkspace();
     }

@@ -74,6 +74,11 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
+    // Use only TileReleaseStrategy::Slate for trsm.
+    // Internal routines (trsm and gemm) called here won't release
+    // any tiles. Trsm will clean up tiles.
+    Options opts2 = {{Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
+
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)*op(B)
     if (side == Side::Right) {
@@ -112,11 +117,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             A.template tileBcast<target>(0, 0, B.sub(0, 0, 0, nt-1), layout);
 
             // broadcast B(0, j) to ranks owning block col B(0:0, j)
-            // todo: nowhere to send?
-            BcastList bcast_list_B;
-            for (int64_t j = 0; j < nt; ++j)
-                bcast_list_B.push_back({0, j, {B.sub(0, 0, j, j)}});
-            B.template listBcast<target>(bcast_list_B, layout);
+            // nothing to send
         }
 
         // send next lookahead block cols of A and block rows of B
@@ -146,8 +147,15 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             internal::trmm<target>(
                 Side::Left,
                 alpha, A.sub(0, 0),
-                       B.sub(0, 0, 0, nt-1), priority_1, queue_1);
+                       B.sub(0, 0, 0, nt-1),
+                priority_1, queue_1, opts2 );
         }
+
+        #pragma omp task depend(in:gemm[0])
+        {
+            A.sub(0, 0).releaseRemoteWorkspace();
+        }
+
         for (int64_t k = 1; k < mt; ++k) {
 
             // send next block col of A and block row of B
@@ -188,13 +196,24 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha, A.sub(0, k-1, k, k),
                            B.sub(k, k, 0, nt-1),
                     one,   B.sub(0, k-1, 0, nt-1),
-                    layout, priority_0, queue_0 );
+                    layout, priority_0, queue_0, opts2 );
 
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1),
-                    priority_0, queue_1);
+                    priority_0, queue_1, opts2 );
+            }
+
+            #pragma omp task depend(in:gemm[k])
+            {
+                auto A_panel = A.sub(0, k, k, k);
+                A_panel.releaseRemoteWorkspace();
+                A_panel.releaseLocalWorkspace();
+
+                auto B_panel = B.sub(k, k, 0, nt-1);
+                B_panel.releaseRemoteWorkspace();
+                // Can't release local workspace of B since we continue to update it
             }
         }
     }
@@ -212,13 +231,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 mt-1, mt-1, B.sub(mt-1, mt-1, 0, nt-1), layout);
 
             // broadcast B(m-1, j) to ranks owning block col B(m-1:m-1, j)
-            // todo: nowhere to send?
-            BcastList bcast_list_B;
-            for (int64_t j = 0; j < nt; ++j) {
-                bcast_list_B.push_back(
-                    {mt-1, j, {B.sub(mt-1, mt-1, j, j)}});
-            }
-            B.template listBcast<target>(bcast_list_B, layout);
+            // nothing to send
         }
 
         // send next lookahead block cols of A and block rows of B
@@ -248,7 +261,13 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             internal::trmm<target>(
                 Side::Left,
                 alpha, A.sub(mt-1, mt-1),
-                       B.sub(mt-1, mt-1, 0, nt-1), priority_1, queue_1);
+                       B.sub(mt-1, mt-1, 0, nt-1),
+                priority_1, queue_1, opts2 );
+        }
+
+        #pragma omp task depend(in:gemm[mt-1])
+        {
+            A.sub(mt-1, mt-1).releaseRemoteWorkspace();
         }
 
         for (int64_t k = mt-2; k >= 0; --k) {
@@ -291,14 +310,24 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha, A.sub(k+1, mt-1, k, k),
                            B.sub(k, k, 0, nt-1),
                     one,   B.sub(k+1, mt-1, 0, nt-1),
-                    layout, priority_0, queue_0 );
+                    layout, priority_0, queue_0, opts2 );
 
-                // todo: target? needs batch trmm
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1),
-                    priority_0, queue_1);
+                    priority_0, queue_1, opts2 );
+            }
+
+            #pragma omp task depend(in:gemm[k])
+            {
+                auto A_panel = A.sub(k, mt-1, k, k);
+                A_panel.releaseRemoteWorkspace();
+                A_panel.releaseLocalWorkspace();
+
+                auto B_panel = B.sub(k, k, 0, nt-1);
+                B_panel.releaseRemoteWorkspace();
+                // Can't release local workspace of B since we continue to update it
             }
         }
     } // end Lower/NoTrans

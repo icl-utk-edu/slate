@@ -364,9 +364,9 @@ void trnorm_fro_kernel(
     if (item_ct1.get_local_id(2) == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];
-        for (int64_t chunk = 1;
-             chunk < item_ct1.get_local_range(2) && chunk < m; ++chunk) {
-            combine_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
+        for (int64_t chunk1 = 1;
+             chunk1 < item_ct1.get_local_range(2) && chunk1 < m; ++chunk1) {
+            combine_sumsq(tile_scale, tile_sumsq, row_scale[chunk1], row_sumsq[chunk1]);
         }
 
         tiles_values[item_ct1.get_group(2) * 2 + 0] = tile_scale;

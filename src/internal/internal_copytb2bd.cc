@@ -63,7 +63,6 @@ void copytb2bd(internal::TargetType<Target::HostTask>,
             auto T = A(i-1, i);
             E[E_index] = real( T(T.mb()-1, 0) );
             E_index += 1;
-            A.tileTick(i-1, i);
         }
 
         // Copy main diagonal to D.
@@ -80,7 +79,6 @@ void copytb2bd(internal::TargetType<Target::HostTask>,
             E[E_index + j] = real( T(j, j+1) );
         }
         E_index += len-1;
-        A.tileTick(i, i);
     }
 }
 

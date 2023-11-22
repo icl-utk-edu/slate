@@ -868,6 +868,30 @@ void slate_lu_inverse_using_factor_out_of_place_c64(
 // begin/end markup used by generate_wrappers.py script;
 // do not modify!
 // @begin function
+double slate_lu_rcondest_using_factor_c64(
+    slate_Norm norm,
+    slate_Matrix_c64 A,
+    double Anorm,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::Matrix<scalar_t>;
+
+    auto* A_     = reinterpret_cast<matrix_A_t*>(A);
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    return slate::lu_rcondest_using_factor<scalar_t>( slate::norm2cpp(norm),
+                                                      *A_, Anorm, opts_ );
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
 void slate_band_chol_solve_c64(
     slate_HermitianBandMatrix_c64 A,
                  slate_Matrix_c64 B,
@@ -1019,6 +1043,30 @@ void slate_chol_inverse_using_factor_c64(
     slate::options2cpp(num_opts, opts, opts_);
 
     slate::chol_inverse_using_factor<scalar_t>(*A_, opts_);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
+double slate_chol_rcondest_using_factor_c64(
+    slate_Norm norm,
+    slate_HermitianMatrix_c64 A,
+    double Anorm,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::HermitianMatrix<scalar_t>;
+
+    auto* A_     = reinterpret_cast<matrix_A_t*>(A);
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    return slate::chol_rcondest_using_factor<scalar_t>( slate::norm2cpp(norm),
+                                                        *A_, Anorm, opts_ );
 }
 // @end function
 //--------------------
@@ -1229,6 +1277,30 @@ void slate_lq_multiply_by_q_c64(
 
     slate::lq_multiply_by_q<scalar_t>(
         slate::side2cpp(side), slate::op2cpp(op), *A_, *T_, *C_, opts_);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
+double slate_triangular_rcondest_c64(
+    slate_Norm norm,
+    slate_TriangularMatrix_c64 A,
+    double Anorm,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::TriangularMatrix<scalar_t>;
+
+    auto* A_     = reinterpret_cast<matrix_A_t*>(A);
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    return slate::triangular_rcondest<scalar_t>( slate::norm2cpp(norm),
+                                                 *A_, Anorm, opts_ );
 }
 // @end function
 //--------------------

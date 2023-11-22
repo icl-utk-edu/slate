@@ -33,7 +33,7 @@ for line in file:
     if re.search(r'^ *// @begin function', line):
         function_is_found = True
         continue
-    if re.search(r'^void', line) or re.search(r'^double\s*slate_(.*?)norm_', line):
+    if re.search(r'^void', line) or re.search(r'^double\s*slate_(.*?)(?:norm|rcondest)_', line):
         header_is_found = True
 
     if re.search(r'\s*int\s*num_opts\s*,\s*slate_Options\s*opts\s*\[\s*\]\s*\)', line):

@@ -1336,6 +1336,37 @@ void slate_svd_vals_c64(
 // begin/end markup used by generate_wrappers.py script;
 // do not modify!
 // @begin function
+void slate_svd_c64(
+    slate_Matrix_c64 A,
+    double* Sigma,
+    slate_Matrix_c64 U,
+    slate_Matrix_c64 VT,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
+    auto* U_ = reinterpret_cast<matrix_A_t*>(U);
+    auto* VT_ = reinterpret_cast<matrix_A_t*>(VT);
+
+    int64_t min_mn = std::min( A_->m(), A_->n() );
+    std::vector< blas::real_type<scalar_t> > Sigma_( min_mn );
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    slate::svd<scalar_t>(*A_, Sigma_, *U_, *VT_, opts_);
+
+    std::copy(Sigma_.begin(), Sigma_.end(), Sigma);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
 void slate_hermitian_eig_vals_c64(
     slate_HermitianMatrix_c64 A,
     double* Lambda,
@@ -1362,7 +1393,35 @@ void slate_hermitian_eig_vals_c64(
 // begin/end markup used by generate_wrappers.py script;
 // do not modify!
 // @begin function
+void slate_hermitian_eig_c64(
+    slate_HermitianMatrix_c64 A,
+    double* Lambda,
+    slate_Matrix_c64 Z,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::HermitianMatrix<scalar_t>;
+    using matrix_Z_t = slate::Matrix<scalar_t>;
 
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
+    auto* Z_ = reinterpret_cast<matrix_Z_t*>(Z);
+
+    std::vector< blas::real_type<scalar_t> > Lambda_(A_->n());
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    slate::eig<scalar_t>(*A_, Lambda_, *Z_, opts_);
+
+    std::copy(Lambda_.begin(), Lambda_.end(), Lambda);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
 void slate_generalized_hermitian_eig_vals_c64(
     int64_t itype,
     slate_HermitianMatrix_c64 A,
@@ -1383,6 +1442,39 @@ void slate_generalized_hermitian_eig_vals_c64(
     slate::options2cpp(num_opts, opts, opts_);
 
     slate::eig_vals<scalar_t>(itype, *A_, *B_, Lambda_, opts_);
+
+    std::copy(Lambda_.begin(), Lambda_.end(), Lambda);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
+void slate_generalized_hermitian_eig_c64(
+    int64_t itype,
+    slate_HermitianMatrix_c64 A,
+    slate_HermitianMatrix_c64 B,
+    double* Lambda,
+    slate_Matrix_c64 Z,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::HermitianMatrix<scalar_t>;
+    using matrix_B_t = slate::HermitianMatrix<scalar_t>;
+    using matrix_Z_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
+    auto* B_ = reinterpret_cast<matrix_B_t*>(B);
+    auto* Z_ = reinterpret_cast<matrix_Z_t*>(Z);
+
+    std::vector< blas::real_type<scalar_t> > Lambda_(A_->n());
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    slate::eig<scalar_t>(itype, *A_, *B_, Lambda_, *Z_, opts_);
 
     std::copy(Lambda_.begin(), Lambda_.end(), Lambda);
 }

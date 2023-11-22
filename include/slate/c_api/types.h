@@ -69,6 +69,8 @@ typedef enum slate_Option {
     slate_Option_MethodTrsm,          ///< slate::Option::MethodTrsm
 } slate_Option;                       ///< slate::Option
 
+typedef short slate_MOSI_State;
+
 //------------------------------------------------------------------------------
 // slate/include/slate/types.hh
 

@@ -108,6 +108,7 @@ types_dict = {
     "slate_Tile_c64":                  ("type(slate_Tile_c64)"),
     "MPI_Comm":                        ("integer(kind=c_int)"),
     "MPI_Fint":                        ("integer(kind=c_int)"),
+    "slate_MOSI_State":                ("integer(kind=c_short)"),
     # "MPI_Comm":                        ("type(MPI_Comm)"),
     "bool":                            ("logical(kind=c_bool)"),
     "void":                            ("type(c_ptr)"),

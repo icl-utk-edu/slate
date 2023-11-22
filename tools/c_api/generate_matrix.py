@@ -87,7 +87,7 @@ tile_routines = [
 ]
 
 keywords = [
-    'Op', 'Uplo', 'TileKind', 'Layout'
+    'Op', 'Uplo', 'TileKind', 'Layout', 'MOSI_State'
 ]
 
 index_data_type_cpp = 2

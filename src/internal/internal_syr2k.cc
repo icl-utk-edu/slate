@@ -617,8 +617,8 @@ void syr2k(internal::TargetType<Target::Devices>,
                                     layout, uplo, opA_,
                                     n, k,
                                     alpha_, a_array, ldda,
-                                                 b_array, lddb,
-                                    beta_,      c_array, lddc,
+                                            b_array, lddb,
+                                    beta_,  c_array, lddc,
                                     group_count, info, *queue);
                             }
                             else {

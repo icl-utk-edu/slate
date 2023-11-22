@@ -661,7 +661,10 @@ void slate_lu_solve_nopiv_c64(
     slate::Options opts_;
     slate::options2cpp(num_opts, opts, opts_);
 
-    slate::lu_solve_nopiv<scalar_t>(*A_, *B_, opts_);
+    // Use options to avoid calling deprecated version
+    opts_[ slate::Option::MethodLU ] = slate::MethodLU::NoPiv;
+
+    slate::lu_solve<scalar_t>(*A_, *B_, opts_);
 }
 // @end function
 //--------------------
@@ -726,7 +729,11 @@ void slate_lu_factor_nopiv_c64(
     slate::Options opts_;
     slate::options2cpp(num_opts, opts, opts_);
 
-    slate::lu_factor_nopiv<scalar_t>(*A_, opts_);
+    // Use options to avoid calling deprecated version
+    opts_[ slate::Option::MethodLU ] = slate::MethodLU::NoPiv;
+    slate::Pivots pivots;
+
+    slate::lu_factor<scalar_t>(*A_, pivots, opts_);
 }
 // @end function
 //--------------------
@@ -800,7 +807,11 @@ void slate_lu_solve_using_factor_nopiv_c64(
     slate::Options opts_;
     slate::options2cpp(num_opts, opts, opts_);
 
-    slate::lu_solve_using_factor_nopiv<scalar_t>(*A_, *B_, opts_);
+    // Use options to avoid calling deprecated version
+    opts_[ slate::Option::MethodLU ] = slate::MethodLU::NoPiv;
+    slate::Pivots pivots;
+
+    slate::lu_solve_using_factor<scalar_t>(*A_, pivots, *B_, opts_);
 }
 // @end function
 //--------------------

@@ -364,28 +364,41 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         # Intel-IntelLLVM compiler while compiling omptarget offload
         # routines. (the compiler uses fast floating point mode by
         # default).
-        target_compile_options( slate PRIVATE "-fp-model=precise" )
+        target_compile_options( slate PRIVATE
+            "$<$<COMPILE_LANGUAGE:CXX>:-fp-model=precise>" )
 
-        # -Wno-unused-command-line-argument avoids
-        # icpx warning: -Wl,-rpath,...: 'linker' input unused.
-        #
         # -Wno-c99-extensions avoids
         # icpx warning: '_Complex' is a C99 extension.
-        #
-        # -Wno-pass-failed avoids (on src/omptarget/device_transpose.cc)
-        # icpx warning: loop not vectorized.
-        #
         target_compile_options(
             slate PRIVATE
-            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-command-line-argument>"
-            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-c99-extensions>"
-            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-pass-failed>" )
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-c99-extensions> )
 
-        # Intel icpx options for OpenMP offload.
-        target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
-        target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
-
-        # Source files are set below after CUDA and HIP.
+        if (sycl_kernels MATCHES "^(omptarget)$") # src/omptarget kernels
+            message( "sycl_kernels = omptarget" )
+            # Enable the OpenMP omptarget offload kernels in SLATE for oneMKL-SYCL devices
+            file( GLOB libslate_omptarget_src CONFIGURE_DEPENDS src/omptarget/*.cc )
+            target_sources( slate PRIVATE ${libslate_omptarget_src} )
+            # -Wno-unused-command-line-argument avoids
+            # icpx warning: -Wl,-rpath,...: 'linker' input unused.
+            target_compile_options( slate PRIVATE
+                $<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-command-line-argument> )
+            # -Wno-pass-failed avoids (on src/omptarget/device_transpose.cc)
+            # icpx warning: loop not vectorized.
+            target_compile_options( slate PRIVATE
+                $<$<COMPILE_LANGUAGE:CXX>:-Wno-pass-failed> )
+            # specify the OpenMP offload target
+            target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
+            target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
+        else() # src/sycl kernels - default/fall-through option
+            message( "sycl_kernels = sycl" )
+            file( GLOB libslate_sycl_src CONFIGURE_DEPENDS src/sycl/*.dp.cpp )
+            target_sources( slate PRIVATE ${libslate_sycl_src} )
+            target_compile_options( slate PRIVATE $<$<COMPILE_LANGUAGE:CXX>: -fsycl> )
+            target_compile_options(
+                slate PRIVATE $<$<COMPILE_LANGUAGE:CXX>: -fsycl-unnamed-lambda> )
+            target_link_options( slate PRIVATE "-fsycl" )
+            target_link_options( slate PRIVATE "-fsycl-unnamed-lambda" )
+        endif()
 
         target_link_libraries( slate PUBLIC -lmkl_sycl -lsycl -lOpenCL )
         message( STATUS "Building SYCL support" )
@@ -669,7 +682,7 @@ endif()
 
 #-------------------------------------------------------------------------------
 # Files for OpenMP offload or CPU-only builds.
-if (NOT "${gpu_backend}" MATCHES "^(cuda|hip)$")
+if (NOT "${gpu_backend}" MATCHES "^(cuda|hip|sycl)$")
     file(
         GLOB libslate_omptarget_src
         CONFIGURE_DEPENDS  # glob at build time

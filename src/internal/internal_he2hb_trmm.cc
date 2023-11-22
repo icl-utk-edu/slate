@@ -12,6 +12,11 @@
 namespace slate {
 namespace internal {
 
+//------------------------------------------------------------------------------
+/// Determines whether this process contributes to B(i, 0).
+/// Specifically, it checks whether there is a j in panel_rank_rows such that
+/// AH(i, j) is local (taking into account the symmetric storage.)
+///
 template <typename scalar_t>
 bool need_Bi0(HermitianMatrix<scalar_t> AH,
               int mpi_rank,
@@ -194,7 +199,7 @@ void he2hb_trmm(
                 scalar_t** t_array_host = B.array_host(device, queue_index);
                 scalar_t** b_array_host = t_array_host + batch_size;
 
-                // Varient of device_regions_build to handle trsmA
+                // Variant of device_regions_build to handle he2hb_trmm
                 using Params = device_regions_params<false, 2>;
 
                 // Find ranges of matching mb's and ranges of matching nb's.

@@ -228,7 +228,7 @@ void trsmA(internal::TargetType<Target::Devices>,
                 scalar_t** a_array_host = A.array_host(device, queue_index);
                 scalar_t** b_array_host = a_array_host + batch_size;
 
-                // Varient of device_regions_build to handle trsmA
+                // Variant of device_regions_build to handle trsmA
                 using Params = device_regions_params<false, 2>;
 
                 int64_t batch_count = 0;
@@ -320,7 +320,6 @@ void trsmA(internal::TargetType<Target::Devices>,
 
                     blas::Queue* queue = A.compute_queue( device, queue_index );
                     assert( queue != nullptr );
-                    queue->sync();
 
                     for (size_t g = 0; g < group_params.size(); ++g) {
 
@@ -344,7 +343,6 @@ void trsmA(internal::TargetType<Target::Devices>,
                             alpha_, a_array, ldda,
                                     b_array, lddb,
                             group_count, info, *queue);
-                        queue->sync();
 
                         a_array_host += group_count;
                         b_array_host += group_count;

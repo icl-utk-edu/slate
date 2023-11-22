@@ -640,7 +640,7 @@ void syr2k(internal::TargetType<Target::Devices>,
                                     layout, opA_, opB_,
                                     m, n, k,
                                     alpha_, a_array, ldda,
-                                             b_array, lddb,
+                                            b_array, lddb,
                                     beta_,  c_array, lddc,
                                     group_count, info, *queue);
 
@@ -648,8 +648,8 @@ void syr2k(internal::TargetType<Target::Devices>,
                                     layout, opA_, opB_,
                                     m, n, k,
                                     alpha_, bt_array, lddbt,
-                                                  at_array, lddat,
-                                    one_,       c_array, lddc,
+                                            at_array, lddat,
+                                    one_,   c_array, lddc,
                                     group_count, info, *queue);
                             }
                             a_array_host += group_count;

@@ -5,6 +5,7 @@
 
 #include "slate/internal/device.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_util.hh"
 #include "internal/internal.hh"
 #include "internal/DevVector.hh"
 #include "slate/internal/util.hh"
@@ -97,20 +98,10 @@ void scale_row_col(
 
             std::vector< int64_t > ioffsets, joffsets;
             if (want_row) {
-                ioffsets.reserve(A.mt());
-                int64_t offset = 0;
-                for (int64_t i = 0; i < A.mt(); ++i) {
-                    ioffsets.push_back( offset );
-                    offset += A.tileMb( i );
-                }
+                ioffsets = tile_offsets( RowCol::Row, A );
             }
             if (want_col) {
-                joffsets.reserve(A.nt());
-                int64_t offset = 0;
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    joffsets.push_back( offset );
-                    offset += A.tileNb( j );
-                }
+                joffsets = tile_offsets( RowCol::Col, A );
             }
 
             // temporarily, convert both into same layout

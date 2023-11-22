@@ -160,7 +160,7 @@ void he2hb_gemm(
                 scalar_t** b_array_host = a_array_host + batch_size;
                 scalar_t** c_array_host = b_array_host + batch_size;
 
-                // Varient of device_regions_build to handle trsmA
+                // Variant of device_regions_build to handle he2hb_gemm
                 using Params = device_regions_params<false, 3>;
 
                 // Find ranges of matching mb's and ranges of matching nb's.

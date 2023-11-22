@@ -348,9 +348,9 @@ void tbsm(
                         pivots.at(k), layout);
                 }
 
-                #pragma omp task
+                #pragma omp task shared( A, B ) firstprivate( k, k_end, nt )
                 {
-                    auto A_panel = A.sub( k, k, k, k_end );
+                    auto A_panel = A.sub( k, k, k, k_end-1 );
                     A_panel.releaseRemoteWorkspace();
                     A_panel.releaseLocalWorkspace();
 

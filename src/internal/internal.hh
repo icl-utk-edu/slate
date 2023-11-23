@@ -28,17 +28,6 @@ namespace slate {
 /// functions.
 namespace internal {
 
-/// @namespace slate::internal::specialization
-/// Namespace used for target implementations.
-/// This differentiates, for example:
-/// - internal::specialization::gemm, which is target implementation of the
-///   slate::gemm PBLAS, from
-/// - internal::gemm, which is one step (one block outer-product) of
-///   internal::specialization::gemm.
-namespace specialization {
-    // here just for documentation
-}
-
 //------------------------------------------------------------------------------
 // Auxiliary class to store and communicate the pivot information internally
 // in the panel factorization routine.

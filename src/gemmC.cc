@@ -11,6 +11,17 @@
 
 namespace slate {
 
+//------------------------------------------------------------------------------
+/// @namespace slate::impl
+/// Namespace used for target implementations.
+/// This differentiates, for example:
+/// - slate::gemm, which is the user-callable top-level function,
+/// - slate::gemmC, which is the SUMMA variant of gemm,
+/// - slate::impl::gemmC, which is the target implementation of slate::gemmC,
+/// - slate::internal::gemm, which is one step (one block outer-product) of
+///   slate::impl::gemmC.
+/// - slate::tile::gemm, which multiplies 2 individual tiles on the CPU.
+///
 namespace impl {
 
 //------------------------------------------------------------------------------

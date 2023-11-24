@@ -73,7 +73,7 @@ namespace slate {
 ///          process needed for convergence.
 ///     < 0: Iterative refinement failed; it falls back to a double
 ///          precision factorization and solve.
-///          -3: single precision matrix was exactly singular in getrf.
+///          -3: single precision matrix was not positive definite in potrf.
 ///          -(itermax+1): iterative refinement failed to converge in
 ///          itermax iterations.
 ///

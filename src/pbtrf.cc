@@ -168,9 +168,8 @@ int64_t pbtrf(
 ///     Tiles outside the bandwidth do not need to exist.
 ///     For tiles that are partially outside the bandwidth,
 ///     data outside the bandwidth should be explicitly set to zero.
-///     On exit, the factors $L$ and $U$ from the factorization $A = L U$;
-///     the unit diagonal elements of $L$ are not stored.
-///     The upper bandwidth is increased to accomodate fill-in of $U$.
+///     On exit, the factor $L$ or $U$ from the factorization
+///     $A = L L^H$ or $A = U^H U$.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

@@ -73,7 +73,7 @@ int64_t potrf(
             A00.uploPhysical(), A00.mb(), A00.data(),
             A00.stride(), device_info, *queue );
         lapack::device_info_int host_info;
-        blas::device_memcpy( device_info, &host_info, 1, *queue );
+        blas::device_memcpy( &host_info, device_info, 1, *queue );
         queue->sync();
         info = int64_t( host_info );
     }

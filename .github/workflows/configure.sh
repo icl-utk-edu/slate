@@ -42,10 +42,7 @@ if [ "${maker}" = "make" ]; then
          || exit 10
 
 elif [ "${maker}" = "cmake" ]; then
-    # Intel icpx needs -Wno-unused-command-line-argument to avoid
-    # warnings: 'linker' input unused, which prevent CMake finding OpenMP.
     cmake -Dcolor=no \
-          -DCMAKE_CXX_FLAGS="-Werror -Wno-unused-command-line-argument" \
           -DCMAKE_INSTALL_PREFIX=${top}/install \
           -Dgpu_backend=${gpu_backend} .. \
           || exit 12

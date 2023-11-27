@@ -24,25 +24,25 @@ typedef enum slate_TileKind {
 //------------------------------------------------------------------------------
 // slate/include/slate/enums.hh
 
-typedef enum slate_Target {
-    slate_Target_Host        = 'H',   ///< slate::Target::Host
-    slate_Target_HostTask    = 'T',   ///< slate::Target::HostTask
-    slate_Target_HostNest    = 'N',   ///< slate::Target::HostNest
-    slate_Target_HostBatch   = 'B',   ///< slate::Target::HostBatch
-    slate_Target_Devices     = 'D',   ///< slate::Target::Devices
-} slate_Target;                       ///< slate::Target
+typedef char slate_Target; /* enum */              ///< slate::Target
+const slate_Target slate_Target_Host        = 'H'; ///< slate::Target::Host
+const slate_Target slate_Target_HostTask    = 'T'; ///< slate::Target::HostTask
+const slate_Target slate_Target_HostNest    = 'N'; ///< slate::Target::HostNest
+const slate_Target slate_Target_HostBatch   = 'B'; ///< slate::Target::HostBatch
+const slate_Target slate_Target_Devices     = 'D'; ///< slate::Target::Devices
+// end slate_Target
 
-typedef enum slate_TileReleaseStrategy {
-    slate_TileReleaseStrategy_None     = 'N', ///< slate::TileReleaseStrategy::None
-    slate_TileReleaseStrategy_Internal = 'I', ///< slate::TileReleaseStrategy::Internal
-    slate_TileReleaseStrategy_Slate    = 'S', ///< slate::TileReleaseStrategy::Slate
-    slate_TileReleaseStrategy_All      = 'A', ///< slate::TileReleaseStrategy::All
-} slate_TileReleaseStrategy;                  ///< slate::TileReleaseStrategy
+typedef char slate_TileReleaseStrategy; /* enum */                        ///< slate::TileReleaseStrategy
+const slate_TileReleaseStrategy slate_TileReleaseStrategy_None     = 'N'; ///< slate::TileReleaseStrategy::None
+const slate_TileReleaseStrategy slate_TileReleaseStrategy_Internal = 'I'; ///< slate::TileReleaseStrategy::Internal
+const slate_TileReleaseStrategy slate_TileReleaseStrategy_Slate    = 'S'; ///< slate::TileReleaseStrategy::Slate
+const slate_TileReleaseStrategy slate_TileReleaseStrategy_All      = 'A'; ///< slate::TileReleaseStrategy::All
+// end slate_TileReleaseStrategy
 
-typedef enum slate_MethodEig {
-    slate_MethodEig_QR = 'Q',   ///< slate::MethodEig::QR
-    slate_MethodEig_DC = 'D',   ///< slate::MethodEig::DC
-} slate_MethodEig;
+typedef char slate_MethodEig; /* enum */        ///< slate::MethodEig
+const slate_MethodEig slate_MethodEig_QR = 'Q'; ///< slate::MethodEig::QR
+const slate_MethodEig slate_MethodEig_DC = 'D'; ///< slate::MethodEig::DC
+// end slate_MethodEig;
 
 // todo: auto sync with include/slate/enums.hh
 typedef enum slate_Option {
@@ -94,61 +94,61 @@ typedef struct slate_Options {
 //------------------------------------------------------------------------------
 // blaspp/include/blas_util.hh
 
-typedef enum slate_Op {
-    slate_Op_NoTrans   = 'N',         ///< slate::Op::NoTrans
-    slate_Op_Trans     = 'T',         ///< slate::Op::Trans
-    slate_Op_ConjTrans = 'C',         ///< slate::Op::ConjTrans
-} slate_Op;                           ///< slate::Op
+typedef char slate_Op; /* enum */        ///< slate::Op
+const slate_Op slate_Op_NoTrans   = 'N'; ///< slate::Op::NoTrans
+const slate_Op slate_Op_Trans     = 'T'; ///< slate::Op::Trans
+const slate_Op slate_Op_ConjTrans = 'C'; ///< slate::Op::ConjTrans
+// end slate_Op
 
-typedef enum slate_Uplo {
-    slate_Uplo_Upper    = 'U',        ///< slate::Uplo::Upper
-    slate_Uplo_Lower    = 'L',        ///< slate::Uplo::Lower
-    slate_Uplo_General  = 'G',        ///< slate::Uplo::General
-} slate_Uplo;                         ///< slate::Uplo
+typedef char slate_Uplo; /* enum */         ///< slate::Uplo
+const slate_Uplo slate_Uplo_Upper   = 'U'; ///< slate::Uplo::Upper
+const slate_Uplo slate_Uplo_Lower   = 'L'; ///< slate::Uplo::Lower
+const slate_Uplo slate_Uplo_General = 'G'; ///< slate::Uplo::General
+// end slate_Uplo
 
-typedef enum slate_Diag {
-    slate_Diag_NonUnit  = 'N',        ///< slate::Diag::NonUnit
-    slate_Diag_Unit     = 'U',        ///< slate::Diag::Unit
-} slate_Diag;                         ///< slate::Diag
+typedef char slate_Diag; /* enum */         ///< slate::Diag
+const slate_Diag slate_Diag_NonUnit = 'N'; ///< slate::Diag::NonUnit
+const slate_Diag slate_Diag_Unit    = 'U'; ///< slate::Diag::Unit
+// end slate_Diag
 
-typedef enum slate_Side {
-    slate_Side_Left  = 'L',           ///< slate::Side::Left
-    slate_Side_Right = 'R',           ///< slate::Side::Right
-} slate_Side;                         ///< slate::Side
+typedef char slate_Side; /* enum */      ///< slate_Side
+const slate_Side slate_Side_Left  = 'L'; ///< slate::Side::Left
+const slate_Side slate_Side_Right = 'R'; ///< slate::Side::Right
+// end slate_Side
 
-typedef enum slate_Layout {
-    slate_Layout_ColMajor = 'C',      ///< slate::Layout::ColMajor
-    slate_Layout_RowMajor = 'R',      ///< slate::Layout::RowMajor
-} slate_Layout;                       ///< slate::Layout
+typedef char slate_Layout; /* enum */
+const slate_Layout slate_Layout_ColMajor = 'C'; ///< slate::Layout::ColMajor
+const slate_Layout slate_Layout_RowMajor = 'R'; ///< slate::Layout::RowMajor
+// end slate_Layout
 
 //------------------------------------------------------------------------------
 // lapackpp/include/lapack_util.hh
 
-typedef enum slate_Norm {
-    slate_Norm_One = '1',             ///< slate::Norm::One
-    slate_Norm_Two = '2',             ///< slate::Norm::Two
-    slate_Norm_Inf = 'I',             ///< slate::Norm::Inf
-    slate_Norm_Fro = 'F',             ///< slate::Norm::Fro
-    slate_Norm_Max = 'M',             ///< slate::Norm::Max
-} slate_Norm;                         ///< slate::Norm
+typedef char slate_Norm; /* enum */    ///< slate::Norm
+const slate_Norm slate_Norm_One = '1'; ///< slate::Norm::One
+const slate_Norm slate_Norm_Two = '2'; ///< slate::Norm::Two
+const slate_Norm slate_Norm_Inf = 'I'; ///< slate::Norm::Inf
+const slate_Norm slate_Norm_Fro = 'F'; ///< slate::Norm::Fro
+const slate_Norm slate_Norm_Max = 'M'; ///< slate::Norm::Max
+// end slate_Norm
 
-typedef enum slate_Direction {
-    slate_Direction_Forward  = 'F',   ///< slate::Direction::Forward
-    slate_Direction_Backward = 'B',   ///< slate::Direction::Backward
-} slate_Direction;                    ///< slate::Direction
+typedef char slate_Direction; /* enum */
+const slate_Direction slate_Direction_Forward  = 'F'; ///< slate::Direction::Forward
+const slate_Direction slate_Direction_Backward = 'B'; ///< slate::Direction::Backward
+// end slate_Direction
 
-typedef enum slate_Job {
-    slate_Job_NoVec        = 'N',     ///< slate::Job::NoVec
-    slate_Job_Vec          = 'V',     ///< slate::Job::Vec
-    slate_Job_UpdateVec    = 'U',     ///< slate::Job::UpdateVec
-    slate_Job_AllVec       = 'A',     ///< slate::Job::AllVec
-    slate_Job_SomeVec      = 'S',     ///< slate::Job::SomeVec
-    slate_Job_OverwriteVec = 'O',     ///< slate::Job::OverwriteVec
-    slate_Job_CompactVec   = 'P',     ///< slate::Job::CompactVec
-    slate_Job_SomeVecTol   = 'C',     ///< slate::Job::SomeVecTol
-    slate_Job_VecJacobi    = 'J',     ///< slate::Job::VecJacobi
-    slate_Job_Workspace    = 'W',     ///< slate::Job::Workspace
-} slate_Job;                          ///< slate::Job
+typedef char slate_Job; /* enum */
+const slate_Job slate_Job_NoVec        = 'N';     ///< slate::Job::NoVec
+const slate_Job slate_Job_Vec          = 'V';     ///< slate::Job::Vec
+const slate_Job slate_Job_UpdateVec    = 'U';     ///< slate::Job::UpdateVec
+const slate_Job slate_Job_AllVec       = 'A';     ///< slate::Job::AllVec
+const slate_Job slate_Job_SomeVec      = 'S';     ///< slate::Job::SomeVec
+const slate_Job slate_Job_OverwriteVec = 'O';     ///< slate::Job::OverwriteVec
+const slate_Job slate_Job_CompactVec   = 'P';     ///< slate::Job::CompactVec
+const slate_Job slate_Job_SomeVecTol   = 'C';     ///< slate::Job::SomeVecTol
+const slate_Job slate_Job_VecJacobi    = 'J';     ///< slate::Job::VecJacobi
+const slate_Job slate_Job_Workspace    = 'W';     ///< slate::Job::Workspace
+// end slate_Job
 
 #ifdef __cplusplus
 }  // extern "C"

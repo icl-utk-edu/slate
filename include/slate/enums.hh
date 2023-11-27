@@ -80,7 +80,10 @@ enum class Option : char {
     Depth,              ///< depth for the RBT solver
     MaxIterations,      ///< maximum iteration count
     UseFallbackSolver,  ///< whether to fallback to a robust solver if iterations do not converge
-    PrintVerbose,       ///< verbose, 0: no printing,
+    PivotThreshold,     ///< threshold for pivoting, >= 0, <= 1
+
+    // Printing parameters
+    PrintVerbose = 50,  ///< verbose, 0: no printing,
                         ///< verbose, 1: print metadata only (dimensions, uplo, etc.)
                         ///< verbose, 2: print first & last PrintEdgeItems rows & cols
                         ///< from the four corner tiles
@@ -91,10 +94,9 @@ enum class Option : char {
     PrintWidth,         ///< width print format specifier
     PrintPrecision,     ///< precision print format specifier
                         ///< For correct printing, PrintWidth = PrintPrecision + 6.
-    PivotThreshold,     ///< threshold for pivoting, >= 0, <= 1
 
     // Methods, listed alphabetically.
-    MethodCholQR,       ///< Select the algorithm to compute A^H * A
+    MethodCholQR = 60,  ///< Select the algorithm to compute A^H * A
     MethodEig,          ///< Select the algorithm to compute eigenpairs of tridiagonal matrix
     MethodGels,         ///< Select the gels algorithm
     MethodGemm,         ///< Select the gemm algorithm

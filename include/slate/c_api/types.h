@@ -42,32 +42,35 @@ const slate_TileReleaseStrategy slate_TileReleaseStrategy_All      = 'A'; ///< s
 typedef char slate_MethodEig; /* enum */        ///< slate::MethodEig
 const slate_MethodEig slate_MethodEig_QR = 'Q'; ///< slate::MethodEig::QR
 const slate_MethodEig slate_MethodEig_DC = 'D'; ///< slate::MethodEig::DC
-// end slate_MethodEig;
+// end slate_MethodEig
 
 // todo: auto sync with include/slate/enums.hh
-typedef enum slate_Option {
-    slate_Option_ChunkSize,           ///< slate::Option::ChunkSize
-    slate_Option_Lookahead,           ///< slate::Option::Lookahead
-    slate_Option_BlockSize,           ///< slate::Option::BlockSize
-    slate_Option_InnerBlocking,       ///< slate::Option::InnerBlocking
-    slate_Option_MaxPanelThreads,     ///< slate::Option::MaxPanelThreads
-    slate_Option_Tolerance,           ///< slate::Option::Tolerance
-    slate_Option_Target,              ///< slate::Option::Target
-    slate_Option_TileReleaseStrategy, ///< slate::Option::TileReleaseStrategy
-    slate_Option_HoldLocalWorkspace,  ///< slate::Option::HoldLocalWorkspace
-    slate_Option_PrintVerbose,        ///< slate::Option::PrintVerbose
-    slate_Option_PrintEdgeItems,      ///< slate::Option::PrintEdgeItems
-    slate_Option_PrintWidth,          ///< slate::Option::PrintWidth
-    slate_Option_PrintPrecision,      ///< slate::Option::PrintPrecision
-    slate_Option_PivotThreshold,      ///< slate::Option::PivotThreshold
-    slate_Option_MethodCholQR,        ///< slate::Option::MethodCholQR
-    slate_Option_MethodEig,           ///< slate::Option::MethodEig
-    slate_Option_MethodGels,          ///< slate::Option::MethodGels
-    slate_Option_MethodGemm,          ///< slate::Option::MethodGemm
-    slate_Option_MethodHemm,          ///< slate::Option::MethodHemm
-    slate_Option_MethodLU,            ///< slate::Option::MethodLU
-    slate_Option_MethodTrsm,          ///< slate::Option::MethodTrsm
-} slate_Option;                       ///< slate::Option
+typedef char slate_Option; /* enum */                      ///< slate::Option
+const slate_Option slate_Option_ChunkSize            =  0; ///< slate::Option::ChunkSize
+const slate_Option slate_Option_Lookahead            =  1; ///< slate::Option::Lookahead
+const slate_Option slate_Option_BlockSize            =  2; ///< slate::Option::BlockSize
+const slate_Option slate_Option_InnerBlocking        =  3; ///< slate::Option::InnerBlocking
+const slate_Option slate_Option_MaxPanelThreads      =  4; ///< slate::Option::MaxPanelThreads
+const slate_Option slate_Option_Tolerance            =  5; ///< slate::Option::Tolerance
+const slate_Option slate_Option_Target               =  6; ///< slate::Option::Target
+const slate_Option slate_Option_TileReleaseStrategy  =  7; ///< slate::Option::TileReleaseStrategy
+const slate_Option slate_Option_HoldLocalWorkspace   =  8; ///< slate::Option::HoldLocalWorkspace
+const slate_Option slate_Option_Depth                =  9; ///< slate::Option::HoldLocalWorkspace
+const slate_Option slate_Option_MaxIterations        = 10; ///< slate::Option::HoldLocalWorkspace
+const slate_Option slate_Option_UseFallbackSolver    = 11; ///< slate::Option::HoldLocalWorkspace
+const slate_Option slate_Option_PivotThreshold       = 12; ///< slate::Option::PivotThreshold
+const slate_Option slate_Option_PrintVerbose         = 50; ///< slate::Option::PrintVerbose
+const slate_Option slate_Option_PrintEdgeItems       = 51; ///< slate::Option::PrintEdgeItems
+const slate_Option slate_Option_PrintWidth           = 52; ///< slate::Option::PrintWidth
+const slate_Option slate_Option_PrintPrecision       = 53; ///< slate::Option::PrintPrecision
+const slate_Option slate_Option_MethodCholQR         = 60; ///< slate::Option::MethodCholQR
+const slate_Option slate_Option_MethodEig            = 61; ///< slate::Option::MethodEig
+const slate_Option slate_Option_MethodGels           = 62; ///< slate::Option::MethodGels
+const slate_Option slate_Option_MethodGemm           = 63; ///< slate::Option::MethodGemm
+const slate_Option slate_Option_MethodHemm           = 64; ///< slate::Option::MethodHemm
+const slate_Option slate_Option_MethodLU             = 65; ///< slate::Option::MethodLU
+const slate_Option slate_Option_MethodTrsm           = 66; ///< slate::Option::MethodTrsm
+// end slate_Option
 
 typedef short slate_MOSI_State;
 

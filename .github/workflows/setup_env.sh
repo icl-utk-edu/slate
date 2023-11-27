@@ -59,6 +59,8 @@ FC       = mpif90
 blas     = mkl
 prefix   = ${top}/install
 md5sum   = md5sum
+c_api    = 1
+fortran_api = 1
 END
 
 #----------------------------------------------------------------- Compiler

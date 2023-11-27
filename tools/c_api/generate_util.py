@@ -79,6 +79,14 @@ file_cc.write('namespace slate {\n\n')
 for e in enums:
     prefix = e[0].replace('slate_', '')
     var = e[0].replace('slate_', '').lower()
+
+    # Write assertions
+    file_cc.write('static_assert(sizeof(' + e[0] + ') == sizeof(' + prefix + '), "C API types are out of sync with C++ API types");\n')
+    for i in e[1]:
+        i_cpp = prefix + '::' + i.replace('slate_' + prefix + '_', '')
+        file_cc.write('static_assert(' + i + ' == ' + e[0] + '(' + i_cpp + '), "C API constants are out of sync with C++ API constants");\n')
+
+    # Write conversion functions
     instance  = prefix + ' '
     instance += var
     instance += '2cpp(' + e[0] + ' ' + var + ')'

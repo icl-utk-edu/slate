@@ -134,7 +134,7 @@ for template in templates:
             file_hh.write(s + ';\n\n')
             file_cc.write(s + '\n{\n')
             file_cc.write('    ' + type_cpp + ' T_;\n')
-            file_cc.write('    std::memcpy(&T_, &T, sizeof(' + type_cpp + '));\n')
+            file_cc.write('    std::memcpy((void*)&T_, (void*)&T, sizeof(' + type_cpp + '));\n')
             # file_cc.write('    auto T_ = *reinterpret_cast<' + type_cpp +'*>(&T);\n')
             file_cc.write('    return(')
             if (routine[index_routine_ret] == typename):

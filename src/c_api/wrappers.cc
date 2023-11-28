@@ -136,6 +136,102 @@ double slate_trapezoid_norm_c64(
 // begin/end markup used by generate_wrappers.py script;
 // do not modify!
 // @begin function
+void slate_copy_c64(
+    slate_Matrix_c64 A,
+    slate_Matrix_c64 B,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::Matrix<scalar_t>;
+    using matrix_B_t = slate::Matrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
+    auto* B_ = reinterpret_cast<matrix_B_t*>(B);
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    slate::copy(*A_, *B_, opts_);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
+void slate_hermitian_copy_c64(
+    slate_HermitianMatrix_c64 A,
+    slate_HermitianMatrix_c64 B,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::HermitianMatrix<scalar_t>;
+    using matrix_B_t = slate::HermitianMatrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
+    auto* B_ = reinterpret_cast<matrix_B_t*>(B);
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    slate::copy(*A_, *B_, opts_);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
+void slate_symmetric_copy_c64(
+    slate_SymmetricMatrix_c64 A,
+    slate_SymmetricMatrix_c64 B,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::SymmetricMatrix<scalar_t>;
+    using matrix_B_t = slate::SymmetricMatrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
+    auto* B_ = reinterpret_cast<matrix_B_t*>(B);
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    slate::copy(*A_, *B_, opts_);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
+void slate_trapezoid_copy_c64(
+    slate_TrapezoidMatrix_c64 A,
+    slate_TrapezoidMatrix_c64 B,
+    int num_opts, slate_Options opts[])
+{
+    using scalar_t   = std::complex<double>;
+    using matrix_A_t = slate::TrapezoidMatrix<scalar_t>;
+    using matrix_B_t = slate::TrapezoidMatrix<scalar_t>;
+
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
+    auto* B_ = reinterpret_cast<matrix_B_t*>(B);
+
+    slate::Options opts_;
+    slate::options2cpp(num_opts, opts, opts_);
+
+    slate::copy(*A_, *B_, opts_);
+}
+// @end function
+//--------------------
+
+//--------------------
+// begin/end markup used by generate_wrappers.py script;
+// do not modify!
+// @begin function
 void slate_band_multiply_c64(
     double _Complex alpha, slate_BandMatrix_c64 A,
                                slate_Matrix_c64 B,

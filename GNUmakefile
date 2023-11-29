@@ -1162,6 +1162,7 @@ lapack_api_so = lib/libslate_lapack_api.so
 lapack_api    = lib/libslate_lapack_api.$(lib_ext)
 
 lapack_api_src += \
+        lapack_api/lapack_gecon.cc \
         lapack_api/lapack_gels.cc \
         lapack_api/lapack_gemm.cc \
         lapack_api/lapack_gesv.cc \
@@ -1176,12 +1177,14 @@ lapack_api_src += \
         lapack_api/lapack_lanhe.cc \
         lapack_api/lapack_lansy.cc \
         lapack_api/lapack_lantr.cc \
+        lapack_api/lapack_pocon.cc \
         lapack_api/lapack_posv.cc \
         lapack_api/lapack_potrf.cc \
         lapack_api/lapack_potri.cc \
         lapack_api/lapack_symm.cc \
         lapack_api/lapack_syr2k.cc \
         lapack_api/lapack_syrk.cc \
+        lapack_api/lapack_trcon.cc \
         lapack_api/lapack_trmm.cc \
         lapack_api/lapack_trsm.cc \
         # End. Add alphabetically.

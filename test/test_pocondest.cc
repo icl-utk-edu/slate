@@ -232,7 +232,7 @@ void test_pocondest_work(Params& params, bool run)
             int64_t liwork = -1;
             scalar_t dummy;
             blas_int idummy;
-            scalapack_ppocon( uplo2str(uplo), norm2str(norm), n,
+            scalapack_ppocon( uplo2str(uplo), n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
                               &dummy, lwork, &idummy, liwork, &info );
@@ -247,7 +247,7 @@ void test_pocondest_work(Params& params, bool run)
             // todo: ScaLAPCK pzpocon has a seg fault
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ppocon( uplo2str(uplo), norm2str(norm), n,
+            scalapack_ppocon( uplo2str(uplo), n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
                               &work[0], lwork, &iwork[0], liwork, &info );

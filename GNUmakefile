@@ -1118,6 +1118,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_lansy.cc \
         scalapack_api/scalapack_lantr.cc \
+        scalapack_api/scalapack_pocon.cc \
         scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_potrf.cc \
         scalapack_api/scalapack_potri.cc \

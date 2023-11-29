@@ -1167,6 +1167,7 @@ lapack_api_src += \
         lapack_api/lapack_gemm.cc \
         lapack_api/lapack_gesv.cc \
         lapack_api/lapack_gesv_mixed.cc \
+        lapack_api/lapack_gesvd.cc \
         lapack_api/lapack_getrf.cc \
         lapack_api/lapack_getri.cc \
         lapack_api/lapack_getrs.cc \

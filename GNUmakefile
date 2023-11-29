@@ -1126,6 +1126,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_symm.cc \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \
+        scalapack_api/scalapack_trcon.cc \
         scalapack_api/scalapack_trmm.cc \
         scalapack_api/scalapack_trsm.cc \
         # End. Add alphabetically.

@@ -1104,6 +1104,7 @@ scalapack_api_so = lib/libslate_scalapack_api.so
 scalapack_api    = lib/libslate_scalapack_api.$(lib_ext)
 
 scalapack_api_src += \
+        scalapack_api/scalapack_gecon.cc \
         scalapack_api/scalapack_gels.cc \
         scalapack_api/scalapack_gemm.cc \
         scalapack_api/scalapack_gesv.cc \

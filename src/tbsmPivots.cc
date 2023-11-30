@@ -354,13 +354,15 @@ void tbsm(
                     A_panel.releaseRemoteWorkspace();
                     A_panel.releaseLocalWorkspace();
 
-                    auto B_panel = B.sub( k, k, 0, nt-1 );
-                    B_panel.releaseRemoteWorkspace();
+                    if (k + kdt + 1 <= A.nt()) {
+                        auto B_panel = B.sub( k_end-1, k_end-1, 0, nt-1 );
+                        B_panel.releaseRemoteWorkspace();
 
-                    // Copy back modifications to tiles in the B panel
-                    // before they are erased.
-                    B_panel.tileUpdateAllOrigin();
-                    B_panel.releaseLocalWorkspace();
+                        // Copy back modifications to tiles in the B panel
+                        // before they are erased.
+                        B_panel.tileUpdateAllOrigin();
+                        B_panel.releaseLocalWorkspace();
+                    }
                 }
             }
         }

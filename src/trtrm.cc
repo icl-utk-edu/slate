@@ -30,9 +30,17 @@ void trtrm(
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const scalar_t one = 1.0;
+    const int64_t priority_0 = 0;
+    const int64_t queue_0 = 0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Use only TileReleaseStrategy::Slate for trtrm
+    // Internal routines called here won't release any
+    // tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
@@ -89,7 +97,8 @@ void trtrm(
 
                 internal::herk<target>(
                     real_t(1.0), std::move(Ak),
-                    real_t(1.0), std::move(H0));
+                    real_t(1.0), std::move(H0),
+                    priority_0, queue_0, layout, opts2 );
             }
 
             // multiply the leading row by the diagonal block
@@ -103,14 +112,23 @@ void trtrm(
                 Akk = conj_transpose( Akk );
                 internal::trmm<Target::HostTask>(
                     Side::Left,
-                    one, std::move( Akk ), A.sub(k, k, 0, k-1) );
+                    one, std::move( Akk ), A.sub(k, k, 0, k-1),
+                    priority_0, queue_0, opts2 );
             }
 
             // diagonal block, L = L^H L
-            #pragma omp task depend(inout:row[0])
+            #pragma omp task depend(inout:row[0]) depend(inout:row[k])
             {
                 // A(k, k) = A(k, k)^H * A(k, k)
                 internal::trtrm<Target::HostTask>(A.sub(k, k));
+            }
+
+            #pragma omp task depend(inout:row[k])
+            {
+                auto A_row = A.sub(k, k, 0, k-1);
+                A_row.releaseRemoteWorkspace();
+
+                // Don't release the local workspace since it'll be used in the herks.
             }
         }
 

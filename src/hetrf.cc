@@ -73,11 +73,6 @@ int64_t hetrf(
     SLATE_UNUSED( columnH1 ); // Used only by OpenMP
     SLATE_UNUSED( columnH2 ); // Used only by OpenMP
 
-    //std::vector< uint8_t > Ind1(1);
-    //std::vector< uint8_t > Ind2(A_mt);
-    //uint8_t* ind1 = Ind1.data();
-    //uint8_t* ind2 = Ind2.data();
-
     assert(A.uplo() == Uplo::Lower); // upper not implemented, yet
 
     pivots.resize(A_mt);
@@ -87,7 +82,6 @@ int64_t hetrf(
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < A_mt; ++k) {
-        //printf( "\n == k = %ld on rank-%d ==\n",k,rank ); fflush(stdout);
         int tag  = 1+k;
         int tag1 = 1+k+A_mt*1;
         int tag2 = 1+k+A_mt*2;
@@ -103,11 +97,9 @@ int64_t hetrf(
                              depend(out:columnH1[k]) \
                              priority(1)
             {
-                //printf( " >> compute H(%ld, %d:%ld) on rank-%d <<\n", k, 0,k-1, rank); fflush(stdout);
                 // going by row, H(k, i) = L(k, :) * T(:, i) for i=0,..,k+1
                 // send L(k, j) that are needed to compute H(:, k)
                 for (int64_t j = 0; j < k; ++j) {
-                    //printf( " %d: >> receiving A(%ld,:%ld) <<\n",rank,k,j  );
                     A.tileBcast(k, j, H.sub(k, k, std::max(j, ione)-1, std::min(j+2, k-1)-1), layout, tag);
                 }
                 for (int64_t i = 1; i < k; ++i) {
@@ -127,7 +119,6 @@ int64_t hetrf(
                     }
                 }
                 #pragma omp taskwait
-                //printf( " >> compute H(%ld, %d:%ld) on rank-%d done <<\n", k, 0,k-1, rank); fflush(stdout);
             }
         }
 
@@ -140,7 +131,6 @@ int64_t hetrf(
             #pragma omp task depend(in:columnL[k_1]) \
                              depend(out:columnT[k])
             {
-                //printf( " >> copy A(%ld, %ld) into T(%ld, %ld) <<\n", k, k, k, k); fflush(stdout);
                 T.tileInsert(k, k);
                 lapack::lacpy(lapack::MatrixType::Lower,
                       A(k, k).mb(), A(k, k).nb(),
@@ -149,7 +139,6 @@ int64_t hetrf(
                 T.tileModified(k, k);
 
                 if (k == 0) {
-                    //printf( " ++ expanding ++\n" ); fflush(stdout);
                     int64_t ldt = T(k, k).stride();
                     scalar_t *tkk = T(k, k).data();
                     for (int i = 0; i < T(k, k).mb(); ++i) {
@@ -166,7 +155,6 @@ int64_t hetrf(
                              depend(inout:columnT[k]) \
                              priority(1)
             {
-                //printf( " >> update T(%ld, %ld) on rank-%d <<\n", k, k, rank); fflush(stdout);
                 auto Hj = H.sub(k, k, 0, k-2);
                 Hj = conj_transpose( Hj );
 
@@ -218,7 +206,6 @@ int64_t hetrf(
                              priority(1)
             {
                 // compute T(k, k) = L(k, k)^{-1} * T(k, k) * L(k, k)^{-T}
-                //printf( " trsm for T(%ld, %ld) <<\n", k, k); fflush(stdout);
                 if (k == 1) {
                     // > otherwise L(k, k) has been already sent to T(k, k) for updating A(k, k)
                     A.tileBcast(k, k-1, T.sub(k, k, k, k), layout, tag);
@@ -234,7 +221,6 @@ int64_t hetrf(
                         Lkk(0, 0).data(), Lkk(0, 0).stride());
                     Lkk.tileModified(0, 0);
 
-                    //printf( " ++ expanding ++\n" ); fflush(stdout);
                     int64_t ldt = T(k, k).stride();
                     scalar_t *tkk = T(k, k).data();
                     for (int i = 0; i < T(k, k).mb(); ++i) {
@@ -246,7 +232,6 @@ int64_t hetrf(
                 }
                 if (k+1 < A_mt) {
                     // send T(k, k) for computing H(k, k), moved from below?
-                    //printf( " tileBcast(T(%ld,%ld) to H(%ld,%ld) )\n",k,k,k,k-1 );
                     T.tileBcast(k, k, H.sub(k, k, k-1, k-1), layout, tag);
                 }
             }
@@ -257,7 +242,6 @@ int64_t hetrf(
                                  priority(1)
                 {
                     // send T(k, k) that are needed to compute H(k+1:mt-1, k-1)
-                    //printf( " %d: Bcast( T(%ld,%ld) )\n",rank,k,k ); fflush(stdout);
                     T.tileBcast(k, k, H.sub(k+1, A_mt-1, k-1, k-1), layout, tag2);
                 }
             }
@@ -270,7 +254,6 @@ int64_t hetrf(
                                  depend(inout:columnH2[k]) \
                                  priority(1)
                 {
-                    //printf( " >> compute H(%ld, %ld) on rank-%d <<\n", k, k, rank); fflush(stdout);
                     // compute H(k, k) = T(k, k) * L(k, k)^T
                     //T.tileBcast(k, k, H.sub(k, k, k-1, k-1), tag);
                     if (H.tileIsLocal(k, k-1)) {
@@ -299,7 +282,6 @@ int64_t hetrf(
                                      depend(inout:columnL[k]) \
                                      priority(1)
                     {
-                        //printf( " >> update A1(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                         if (k > 2) {
                             for (int64_t j = 0; j < k-1; ++j) {
                                 H.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag1);
@@ -361,7 +343,6 @@ int64_t hetrf(
                                  depend(inout:columnL[k]) \
                                  priority(1)
                 {
-                    //printf( " >> update A2(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                     for (int64_t i2 = k+1; i2 < A_mt; ++i2) {
                         A.tileBcast(i2, k-1, A.sub(i2, i2, k, k), layout, tag1);
                     }
@@ -381,13 +362,11 @@ int64_t hetrf(
             pivots.at(k+1).resize(diag_len);
             #pragma omp task depend(inout:columnL[k]) priority(1)
             {
-                //printf( " >> LU panel(%ld:%ld,%ld) diag_len=%ld on rank-%d <<\n", k+1, A_mt-1, k, diag_len, rank); fflush(stdout);
                 internal::getrf_panel<Target::HostTask>(
                     A.sub(k+1, A_mt-1, k, k), diag_len, ib, pivots.at(k+1),
                     pivot_threshold, max_panel_threads, priority_1, tag_0, &info );
 
                 // copy U(k, k) into T(k+1, k)
-                //printf( " >> compute T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
                 if (T.tileIsLocal(k+1, k)) {
                     T.tileInsert(k+1, k);
                     lapack::lacpy(
@@ -418,7 +397,6 @@ int64_t hetrf(
             {
                 if (k > 0) {
                     // T(k+1,k) /= L(k,k)^T
-                    //printf( " >> update T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
                     A.tileBcast(k, k-1, T.sub(k+1, k+1, k, k), layout, tag);
 
                     if (T.tileIsLocal(k+1, k)) {
@@ -432,7 +410,6 @@ int64_t hetrf(
                     }
                 }
                 // copy T(k+1, k)^T into T(k, k+1)
-                //printf( " >> copy T(%ld,%ld) on rank-%d <<\n", k, k+1, rank); fflush(stdout);
                 T.tileBcast(k+1, k, T.sub(k, k, k+1, k+1), layout, tag);
                 if (T.tileIsLocal(k, k+1)) {
                     T.tileInsert(k, k+1);
@@ -466,7 +443,6 @@ int64_t hetrf(
             #pragma omp task depend(inout:columnL[k])
             {
                 {
-                    //printf( " MPI_Bcast(pivot(%ld): size=%ld\n",k+1,pivots.at(k+1).size() );
                     trace::Block trace_block("MPI_Bcast");
                     MPI_Bcast(pivots.at(k+1).data(),
                               sizeof(Pivot)*pivots.at(k+1).size(),
@@ -474,7 +450,6 @@ int64_t hetrf(
                 }
                 if (k > 0) {
                     // swap previous rows in A(k+1:mt-1, 0:k-1)
-                    //printf( " +++ swap previous L (%ld: Asub(%ld:%ld, 0:%ld))\n",k,k+1,A_mt-1,k-1);
                     #pragma omp task
                     {
                         internal::permuteRows<Target::HostTask>(
@@ -483,7 +458,6 @@ int64_t hetrf(
                     }
                 }
                 // symmetric swap of A(k+1:mt-1, k+1:mt-1)
-                //printf( " +++ symmetric swap A(%ld:%ld, %ld:%ld) +++\n",k+1,A_mt-1, k+1,A_mt-1 );
                 #pragma omp task
                 {
                     internal::permuteRowsCols<Target::HostTask>(
@@ -495,10 +469,7 @@ int64_t hetrf(
         }
     }
 
-    // Debug::checkTilesLives(A);
-    // Debug::printTilesLives(A);
-
-    // second-stage (facorization of band matrix)
+    // second-stage (factorization of band matrix)
     gbtrf(T, pivots2, {
         {Option::InnerBlocking, ib},
         {slate::Option::Lookahead, lookahead},

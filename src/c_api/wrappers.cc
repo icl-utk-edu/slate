@@ -1441,10 +1441,12 @@ void slate_svd_c64(
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
+    using matrix_U_t = slate::Matrix<scalar_t>;
+    using matrix_VT_t = slate::Matrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
-    auto* U_ = reinterpret_cast<matrix_A_t*>(U);
-    auto* VT_ = reinterpret_cast<matrix_A_t*>(VT);
+    auto* U_ = reinterpret_cast<matrix_U_t*>(U);
+    auto* VT_ = reinterpret_cast<matrix_VT_t*>(VT);
 
     int64_t min_mn = std::min( A_->m(), A_->n() );
     std::vector< blas::real_type<scalar_t> > Sigma_( min_mn );

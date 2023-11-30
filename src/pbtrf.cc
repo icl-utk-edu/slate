@@ -31,12 +31,21 @@ int64_t pbtrf(
 
     const scalar_t one = 1.0;
     const real_t r_one = 1.0;
+    const int priority_0 = 0;
+    const int priority_1 = 1;
+    const int queue_0 = 0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+
+    // Use only TileReleaseStrategy::Slate for pbtrf
+    // Internal routines called here won't release any
+    // tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper)
@@ -83,7 +92,8 @@ int64_t pbtrf(
                     internal::trsm<Target::HostTask>(
                         Side::Right,
                         one, conj_transpose( Tkk ),
-                        A.sub(k+1, ij_end-1, k, k), 1);
+                        A.sub(k+1, ij_end-1, k, k),
+                        priority_1, layout, queue_0, opts2);
                 }
 
                 BcastList bcast_list_A;
@@ -104,7 +114,8 @@ int64_t pbtrf(
                 {
                     internal::herk<Target::HostTask>(
                         -r_one, A.sub(k+1+lookahead, ij_end-1, k, k),
-                        r_one,  A.sub(k+1+lookahead, ij_end-1) );
+                        r_one,  A.sub(k+1+lookahead, ij_end-1),
+                        priority_0, queue_0, layout, opts2 );
                 }
             }
 
@@ -115,17 +126,35 @@ int64_t pbtrf(
                 {
                     internal::herk<Target::HostTask>(
                         -r_one, A.sub(j, j, k, k),
-                        r_one,  A.sub(j, j) );
+                        r_one,  A.sub(j, j),
+                        priority_0, queue_0, layout, opts2 );
 
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::HostTask>(
                             -one, A.sub(j+1, ij_end-1, k, k),
                                   conj_transpose( Ajk ),
-                            one,  A.sub(j+1, ij_end-1, j, j), layout );
+                            one,  A.sub(j+1, ij_end-1, j, j),
+                            layout, priority_1, queue_0, opts2 );
                     }
                 }
             }
+
+            #pragma omp task depend(inout:column[k])
+            {
+                auto panel = A.sub( k, ij_end-1, k, k );
+
+                // Erase remote tiles on all devices, including host
+                panel.releaseRemoteWorkspace();
+
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                panel.tileUpdateAllOrigin();
+
+                // Erase local workspace on devices
+                panel.releaseLocalWorkspace();
+            }
+
             kk += A.tileNb( k );
         }
     }

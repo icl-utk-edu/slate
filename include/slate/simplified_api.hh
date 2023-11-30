@@ -390,24 +390,24 @@ void chol_solve(
 
 // posv
 template <typename scalar_t>
-void chol_solve(
+int64_t chol_solve(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
-    posv(A, B, opts);
+    return posv( A, B, opts );
 }
 
 // forward real-symmetric matrices to posv;
 // disabled for complex
 template <typename scalar_t>
-void chol_solve(
+int64_t chol_solve(
     SymmetricMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    posv(A, B, opts);
+    return posv( A, B, opts );
 }
 
 //-----------------------------------------
@@ -415,31 +415,31 @@ void chol_solve(
 
 // pbtrf
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     HermitianBandMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    pbtrf(A, opts);
+    return pbtrf( A, opts );
 }
 
 // potrf
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     HermitianMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    potrf(A, opts);
+    return potrf( A, opts );
 }
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     SymmetricMatrix<scalar_t>& A,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    potrf(A, opts);
+    return potrf( A, opts );
 }
 
 //-----------------------------------------

@@ -675,20 +675,10 @@ void unmbr_tb2bd(Side side, Op op,
 //-----------------------------------------
 // potrf()
 template <Target target=Target::HostTask, typename scalar_t>
-void potrf(HermitianMatrix<scalar_t>&& A,
-           int priority=0, int64_t queue_index=0,
-           lapack::device_info_int* device_info=nullptr);
-
-// forward real-symmetric matrices to potrf;
-// disabled for complex
-template <Target target=Target::HostTask, typename scalar_t>
-void potrf(SymmetricMatrix<scalar_t>&& A,
-           int priority=0, int64_t queue_index=0,
-           lapack::device_info_int* device_info=nullptr,
-           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
-{
-    potrf<target>(SymmetricMatrix<scalar_t>(A), priority);
-}
+int64_t potrf(
+    HermitianMatrix<scalar_t>&& A,
+    int priority=0, int64_t queue_index=0,
+    lapack::device_info_int* device_info=nullptr );
 
 //-----------------------------------------
 // hegst()

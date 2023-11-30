@@ -650,7 +650,7 @@ void getri(
 //-----------------------------------------
 // pbsv()
 template <typename scalar_t>
-void pbsv(
+int64_t pbsv(
     HermitianBandMatrix<scalar_t>& A,
                  Matrix<scalar_t>& B,
     Options const& opts = Options());
@@ -658,7 +658,7 @@ void pbsv(
 //-----------------------------------------
 // posv()
 template <typename scalar_t>
-void posv(
+int64_t posv(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options());
@@ -666,20 +666,20 @@ void posv(
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void posv(
+int64_t posv(
     SymmetricMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    posv(AH, B, opts);
+    return posv( AH, B, opts );
 }
 
 //-----------------------------------------
 // posv_mixed()
 template <typename scalar_t>
-void posv_mixed(
+int64_t posv_mixed(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
              Matrix<scalar_t>& X,
@@ -687,7 +687,7 @@ void posv_mixed(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void posv_mixed(
+int64_t posv_mixed(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
              Matrix<scalar_hi>& X,
@@ -698,32 +698,32 @@ void posv_mixed(
 
 template <typename scalar_t>
 [[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
-void posvMixed(
+int64_t posvMixed(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
              Matrix<scalar_t>& X,
     int& iter,
     Options const& opts = Options())
 {
-    posv_mixed( A, B, X, iter, opts );
+    return posv_mixed( A, B, X, iter, opts );
 }
 
 template <typename scalar_hi, typename scalar_lo>
 [[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
-void posvMixed(
+int64_t posvMixed(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
              Matrix<scalar_hi>& X,
     int& iter,
     Options const& opts = Options())
 {
-    posv_mixed( A, B, X, iter, opts );
+    return posv_mixed( A, B, X, iter, opts );
 }
 
 //-----------------------------------------
 // posv_mixed_gmres()
 template <typename scalar_t>
-void posv_mixed_gmres(
+int64_t posv_mixed_gmres(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
              Matrix<scalar_t>& X,
@@ -731,7 +731,7 @@ void posv_mixed_gmres(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void posv_mixed_gmres(
+int64_t posv_mixed_gmres(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
              Matrix<scalar_hi>& X,
@@ -743,27 +743,27 @@ void posv_mixed_gmres(
 //-----------------------------------------
 // pbtrf()
 template <typename scalar_t>
-void pbtrf(
+int64_t pbtrf(
     HermitianBandMatrix<scalar_t>& A,
     Options const& opts = Options());
 
 //-----------------------------------------
 // potrf()
 template <typename scalar_t>
-void potrf(
+int64_t potrf(
     HermitianMatrix<scalar_t>& A,
     Options const& opts = Options());
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void potrf(
+int64_t potrf(
     SymmetricMatrix<scalar_t>& A,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    potrf(AH, opts);
+    return potrf( AH, opts );
 }
 
 //-----------------------------------------

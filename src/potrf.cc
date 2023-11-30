@@ -20,7 +20,7 @@ namespace impl {
 /// @ingroup posv_impl
 ///
 template <Target target, typename scalar_t>
-void potrf(
+int64_t potrf(
     slate::internal::TargetType<target>,
     HermitianMatrix<scalar_t> A,
     Options const& opts )
@@ -54,6 +54,8 @@ void potrf(
     if (A.uplo() == Uplo::Upper) {
         A = conj_transpose( A );
     }
+
+    int64_t info = 0;
     int64_t A_nt = A.nt();
 
     // OpenMP needs pointer types, but vectors are exception safe
@@ -91,20 +93,25 @@ void potrf(
     #pragma omp parallel
     #pragma omp master
     {
+        int64_t kk = 0;  // column index (not block-column)
         for (int64_t k = 0; k < A_nt; ++k) {
             // Panel, normal priority
-            #pragma omp task depend(inout:column[k]) priority( priority_0 )
+            #pragma omp task depend(inout:column[k]) priority( priority_0 ) \
+                shared( info )
             {
                 // factor A(k, k)
+                int64_t iinfo;
                 if (target == Target::Devices) {
-                    internal::potrf<target>(
+                    iinfo = internal::potrf<target>(
                         A.sub(k, k), priority_0, queue_2,
                         device_info_array[ A.tileDevice( k, k ) ] );
                 }
                 else {
-                    internal::potrf<target>(
+                    iinfo = internal::potrf<target>(
                         A.sub(k, k), priority_0, queue_2 );
                 }
+                if (iinfo != 0 && info == 0)
+                    info = kk + iinfo;
 
                 // send A(k, k) down col A(k+1:nt-1, k)
                 if (k+1 <= A_nt-1)
@@ -192,6 +199,7 @@ void potrf(
                 // Erase local workspace on devices.
                 panel.releaseLocalWorkspace();
             }
+            kk += A.tileNb( k );
         }
     }
     A.tileUpdateAllOrigin();
@@ -205,6 +213,9 @@ void potrf(
             blas::device_free( device_info_array[dev], *queue );
         }
     }
+
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -249,16 +260,15 @@ void potrf(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the leading minor of order $i$ of $A$ is not
+/// @return 0: successful exit
+/// @return i > 0: the leading minor of order $i$ of $A$ is not
 ///         positive definite, so the factorization could not
-///         be completed, and the solution has not been computed.
+///         be completed.
 ///
 /// @ingroup posv_computational
 ///
 template <typename scalar_t>
-void potrf(
+int64_t potrf(
     HermitianMatrix<scalar_t>& A,
     Options const& opts)
 {
@@ -271,35 +281,33 @@ void potrf(
         case Target::HostNest:
         case Target::HostBatch:
         case Target::HostTask:
-            impl::potrf( TargetType<Target::HostTask>(), A, opts );
-            break;
+            return impl::potrf( TargetType<Target::HostTask>(), A, opts );
 
         case Target::Devices:
-            impl::potrf( TargetType<Target::Devices>(), A, opts );
-            break;
+            return impl::potrf( TargetType<Target::Devices>(), A, opts );
     }
-    // todo: return value for errors?
+    return -2;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void potrf<float>(
+int64_t potrf<float>(
     HermitianMatrix<float>& A,
     Options const& opts);
 
 template
-void potrf<double>(
+int64_t potrf<double>(
     HermitianMatrix<double>& A,
     Options const& opts);
 
 template
-void potrf< std::complex<float> >(
+int64_t potrf< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
     Options const& opts);
 
 template
-void potrf< std::complex<double> >(
+int64_t potrf< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
     Options const& opts);
 

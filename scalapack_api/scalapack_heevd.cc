@@ -106,7 +106,7 @@ void slate_pheevd(const char* jobzstr, const char* uplostr, int n, scalar_t* a, 
     static int64_t ib = slate_scalapack_set_ib();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
-    // todo: extract the real info from getrf
+    // todo: extract the real info from heevd
     *info = 0;
 
     int nprow, npcol, myprow, mypcol;

@@ -1111,6 +1111,8 @@ scalapack_api_src += \
         scalapack_api/scalapack_gesv_mixed.cc \
         scalapack_api/scalapack_getrf.cc \
         scalapack_api/scalapack_getrs.cc \
+        scalapack_api/scalapack_heev.cc \
+        scalapack_api/scalapack_heevd.cc \
         scalapack_api/scalapack_hemm.cc \
         scalapack_api/scalapack_her2k.cc \
         scalapack_api/scalapack_herk.cc \

@@ -30,12 +30,6 @@ void unmqr(
     // trace::Block trace_block("unmqr");
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // Use only TileReleaseStrategy::Slate for unmqr
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const int64_t tag_0 = 0;
@@ -209,7 +203,7 @@ void unmqr(
                                     std::move(A_panel),
                                     Treduce.sub(k, A_mt-1, k, k),
                                     std::move(C_trail),
-                                    tag_0, opts2);
+                                    tag_0, opts );
                 }
 
                 // Apply local reflectors.
@@ -219,7 +213,7 @@ void unmqr(
                                 Tlocal.sub(k, A_mt-1, k, k),
                                 std::move(C_trail),
                                 std::move(W_trail),
-                                priority_0, queue_0, opts2);
+                                priority_0, queue_0, opts );
 
                 // Left,  (Conj)Trans: Qi^H C = Qi_reduce^H Qi_local^H C, or
                 // Right, NoTrans:     C Qi   = C Qi_local Qi_reduce,
@@ -231,7 +225,7 @@ void unmqr(
                                     std::move(A_panel),
                                     Treduce.sub(k, A_mt-1, k, k),
                                     std::move(C_trail),
-                                    tag_0, opts2);
+                                    tag_0, opts );
                 }
             }
             #pragma omp task depend(in:block[k])

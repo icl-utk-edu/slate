@@ -43,12 +43,6 @@ void tbsm(
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
-    // Use only TileReleaseStrategy::Slate for tbsmPivots.
-    // Internal tbsmPivots routine called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)^{-1} * op(B)
     if (side == Side::Right) {
@@ -145,7 +139,7 @@ void tbsm(
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_1, layout, queue_0, opts2 );
+                        priority_1, layout, queue_0, opts );
 
                     // send A(i=k+1:i_end-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -172,7 +166,7 @@ void tbsm(
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(i, i, 0, nt-1),
-                            layout, priority_1, queue_0, opts2 );
+                            layout, priority_1, queue_0, opts );
                     }
                 }
 
@@ -190,7 +184,7 @@ void tbsm(
                             -one, A.sub(k+1+lookahead, i_end-1, k, k),
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(k+1+lookahead, i_end-1, 0, nt-1),
-                            layout, priority_0, queue_0, opts2 );
+                            layout, priority_0, queue_0, opts );
                     }
                 }
 
@@ -229,7 +223,7 @@ void tbsm(
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_1, layout, queue_0, opts2 );
+                        priority_1, layout, queue_0, opts );
 
                     // send A(i=k-kdt:k-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -253,7 +247,7 @@ void tbsm(
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(i, i, 0, nt-1),
-                            layout, priority_1, queue_0, opts2 );
+                            layout, priority_1, queue_0, opts );
                     }
                 }
 
@@ -270,7 +264,7 @@ void tbsm(
                             -one, A.sub(i_begin, k-1-lookahead, k, k),
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(i_begin, k-1-lookahead, 0, nt-1),
-                            layout, priority_0, queue_0, opts2 );
+                            layout, priority_0, queue_0, opts );
                     }
                 }
 
@@ -324,7 +318,7 @@ void tbsm(
                                     -one, A.sub(k, k, i, i),
                                           B.sub(i, i, 0, nt-1),
                                     one,  B.sub(k, k, 0, nt-1),
-                                    layout, priority_1, queue_0, opts2 );
+                                    layout, priority_1, queue_0, opts );
                     }
                 }
 
@@ -338,7 +332,7 @@ void tbsm(
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_1, layout, queue_0, opts2 );
+                        priority_1, layout, queue_0, opts );
                 }
 
                 // swap rows in B(k:mt-1, 0:nt-1)

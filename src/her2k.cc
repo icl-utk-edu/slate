@@ -47,12 +47,6 @@ void her2k(
     assert(B.mt() == C.mt());
     assert(A.nt() == B.nt());
 
-    // Use only TileReleaseStrategy::Slate for her2k.
-    // Internal her2k routine called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options const opts_local =  {
-        {slate::Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
-
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
@@ -125,7 +119,7 @@ void her2k(
                 alpha, std::move( A_col0 ),
                        std::move( B_col0 ),
                 beta,  std::move( C ),
-                priority_0, queue_0, layout, opts_local );
+                priority_0, queue_0, layout, opts );
 
             // Erase remote tiles on all devices including host
             A_col0.releaseRemoteWorkspace();
@@ -172,7 +166,7 @@ void her2k(
                     alpha,         std::move( A_colk ),
                                    std::move( B_colk ),
                     real_t( 1.0 ), std::move( C ),
-                    priority_0, queue_0, layout, opts_local );
+                    priority_0, queue_0, layout, opts );
 
                 // Erase remote tiles on all devices including host
                 A_colk.releaseRemoteWorkspace();

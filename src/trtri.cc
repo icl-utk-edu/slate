@@ -36,12 +36,6 @@ void trtri(
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
-    // Use only TileReleaseStrategy::Slate for trtri
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
         A = conj_transpose( A );
@@ -80,7 +74,7 @@ void trtri(
                 internal::trsm<Target::HostTask>(
                     Side::Right,
                     -one, A.sub(0, 0), A.sub(1, A_nt-1, 0, 0),
-                    priority_0, layout, queue_0, opts2 );
+                    priority_0, layout, queue_0, opts );
             }
             ++tag;
 
@@ -120,7 +114,7 @@ void trtri(
                 internal::trsm<Target::HostTask>(
                     Side::Right,
                     -one, A.sub(k, k), A.sub(k+1, A_nt-1, k, k),
-                    priority_0, layout, queue_0, opts2 );
+                    priority_0, layout, queue_0, opts );
 
                 // send leading column to the left
                 BcastList bcast_list_A;
@@ -154,7 +148,7 @@ void trtri(
                         -one, A.sub(k+lookahead, k+lookahead),
                               A.sub(k+1+lookahead, A_nt-1,
                                     k+lookahead, k+lookahead),
-                        priority_0, layout, queue_0, opts2 );
+                        priority_0, layout, queue_0, opts );
 
                     // send leading column to the left
                     BcastList bcast_list_A;
@@ -184,7 +178,7 @@ void trtri(
                         one, A.sub(i, i, k, k),
                              A.sub(k, k, 0, k-1),
                         one, A.sub(i, i, 0, k-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout, priority_0, queue_0, opts );
 
                     if (i+1 < A_nt) {
                         // send the row down
@@ -212,7 +206,7 @@ void trtri(
                         one, A.sub(k+1+lookahead, A_nt-1, k, k),
                              A.sub(k, k, 0, k-1),
                         one, A.sub(k+1+lookahead, A_nt-1, 0, k-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout, priority_0, queue_0, opts );
                 }
 
                 if (k+2+lookahead < A_nt) {
@@ -240,7 +234,7 @@ void trtri(
                 internal::trsm<Target::HostTask>(
                     Side::Left,
                     one, A.sub(k, k), A.sub(k, k, 0, k-1),
-                    priority_0, layout, queue_0, opts2 );
+                    priority_0, layout, queue_0, opts );
 
                 // invert A(k, k)
                 internal::trtri<Target::HostTask>(A.sub(k, k));

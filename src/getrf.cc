@@ -44,11 +44,6 @@ int64_t getrf(
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
 
-    // Use only TileReleaseStrategy::Slate for getrf.
-    // Internal routines won't release any tiles.  getrf will clean up tiles.
-    Options opts2 = Options( opts );
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
     // Layout host_layout = Layout::RowMajor;
@@ -144,7 +139,7 @@ int64_t getrf(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_1, Layout::ColMajor, queue_jk1, opts2 );
+                        priority_1, Layout::ColMajor, queue_jk1, opts );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -155,7 +150,7 @@ int64_t getrf(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, A_mt-1, j, j),
-                        target_layout, priority_1, queue_jk1, opts2 );
+                        target_layout, priority_1, queue_jk1, opts );
                 }
             }
             // pivot to the left
@@ -201,7 +196,7 @@ int64_t getrf(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_0, Layout::ColMajor, queue_1, opts2 );
+                        priority_0, Layout::ColMajor, queue_1, opts );
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -218,7 +213,7 @@ int64_t getrf(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, k+1+lookahead, A_nt-1),
                         one,  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        target_layout, priority_0, queue_1, opts2 );
+                        target_layout, priority_0, queue_1, opts );
                 }
             }
             #pragma omp task depend(inout:column[k])

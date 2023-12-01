@@ -48,12 +48,6 @@ int64_t gbtrf(
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
 
-    // Use only TileReleaseStrategy::Slate for gbtrf
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
@@ -154,7 +148,7 @@ int64_t gbtrf(
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_1, layout, queue_0, opts2 );
+                        priority_1, layout, queue_0, opts );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);
@@ -164,7 +158,7 @@ int64_t gbtrf(
                         -one, A.sub(k+1, i_end-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, i_end-1, j, j),
-                        layout, priority_1, queue_0, opts2 );
+                        layout, priority_1, queue_0, opts );
                 }
             }
             // Update trailing submatrix, normal priority.
@@ -190,7 +184,7 @@ int64_t gbtrf(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, j_end-1),
-                        priority_0, layout, queue_0, opts2 );
+                        priority_0, layout, queue_0, opts );
 
                     // send A(k, kl+1:j_end-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -205,7 +199,7 @@ int64_t gbtrf(
                         -one, A.sub(k+1, i_end-1, k, k),
                               A.sub(k, k, k+1+lookahead, j_end-1),
                         one,  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout, priority_0, queue_0, opts );
                 }
             }
 

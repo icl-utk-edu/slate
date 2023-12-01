@@ -32,13 +32,6 @@ const slate_Target slate_Target_HostBatch   = 'B'; ///< slate::Target::HostBatch
 const slate_Target slate_Target_Devices     = 'D'; ///< slate::Target::Devices
 // end slate_Target
 
-typedef char slate_TileReleaseStrategy; /* enum */                        ///< slate::TileReleaseStrategy
-const slate_TileReleaseStrategy slate_TileReleaseStrategy_None     = 'N'; ///< slate::TileReleaseStrategy::None
-const slate_TileReleaseStrategy slate_TileReleaseStrategy_Internal = 'I'; ///< slate::TileReleaseStrategy::Internal
-const slate_TileReleaseStrategy slate_TileReleaseStrategy_Slate    = 'S'; ///< slate::TileReleaseStrategy::Slate
-const slate_TileReleaseStrategy slate_TileReleaseStrategy_All      = 'A'; ///< slate::TileReleaseStrategy::All
-// end slate_TileReleaseStrategy
-
 typedef char slate_MethodEig; /* enum */        ///< slate::MethodEig
 const slate_MethodEig slate_MethodEig_QR = 'Q'; ///< slate::MethodEig::QR
 const slate_MethodEig slate_MethodEig_DC = 'D'; ///< slate::MethodEig::DC
@@ -53,12 +46,11 @@ const slate_Option slate_Option_InnerBlocking        =  3; ///< slate::Option::I
 const slate_Option slate_Option_MaxPanelThreads      =  4; ///< slate::Option::MaxPanelThreads
 const slate_Option slate_Option_Tolerance            =  5; ///< slate::Option::Tolerance
 const slate_Option slate_Option_Target               =  6; ///< slate::Option::Target
-const slate_Option slate_Option_TileReleaseStrategy  =  7; ///< slate::Option::TileReleaseStrategy
-const slate_Option slate_Option_HoldLocalWorkspace   =  8; ///< slate::Option::HoldLocalWorkspace
-const slate_Option slate_Option_Depth                =  9; ///< slate::Option::HoldLocalWorkspace
-const slate_Option slate_Option_MaxIterations        = 10; ///< slate::Option::HoldLocalWorkspace
-const slate_Option slate_Option_UseFallbackSolver    = 11; ///< slate::Option::HoldLocalWorkspace
-const slate_Option slate_Option_PivotThreshold       = 12; ///< slate::Option::PivotThreshold
+const slate_Option slate_Option_HoldLocalWorkspace   =  7; ///< slate::Option::HoldLocalWorkspace
+const slate_Option slate_Option_Depth                =  8; ///< slate::Option::HoldLocalWorkspace
+const slate_Option slate_Option_MaxIterations        =  9; ///< slate::Option::HoldLocalWorkspace
+const slate_Option slate_Option_UseFallbackSolver    = 10; ///< slate::Option::HoldLocalWorkspace
+const slate_Option slate_Option_PivotThreshold       = 11; ///< slate::Option::PivotThreshold
 const slate_Option slate_Option_PrintVerbose         = 50; ///< slate::Option::PrintVerbose
 const slate_Option slate_Option_PrintEdgeItems       = 51; ///< slate::Option::PrintEdgeItems
 const slate_Option slate_Option_PrintWidth           = 52; ///< slate::Option::PrintWidth
@@ -86,7 +78,6 @@ typedef union slate_OptionValue {
     int64_t       max_panel_threads;
     double        tolerance;
     slate_Target  target;
-    slate_TileReleaseStrategy tile_release_strategy;
 } slate_OptionValue;                  ///< slate::OptionValue
 
 typedef struct slate_Options {

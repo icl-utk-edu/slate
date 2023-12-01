@@ -44,14 +44,6 @@ void gemmA(
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    auto tileStrategy = get_option<TileReleaseStrategy>(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::Slate );
-
-    Options local_opts = opts;
-    local_opts[ Option::Lookahead ] = lookahead;
-
-    // XXX This should be removed later, based on Kadir's comment.
-    local_opts[ Option::TileReleaseStrategy ] = tileStrategy;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector( A.nt() );
@@ -117,7 +109,7 @@ void gemmA(
                 alpha, std::move(A),
                        B.sub( 0, B.mt()-1, 0, 0 ),
                 beta,  C.sub( 0, C.mt()-1, 0, 0 ),
-                layout, priority_0, queue_0, local_opts );
+                layout, priority_0, queue_0, opts );
 
             // reduce C(:, 0)
             using ReduceList = typename Matrix<scalar_t>::ReduceList;
@@ -179,7 +171,7 @@ void gemmA(
                     alpha, std::move(A),
                            B.sub( 0, B.mt()-1, k, k ),
                     beta,  C.sub( 0, C.mt()-1, k, k ),
-                    layout, priority_0, queue_0, local_opts );
+                    layout, priority_0, queue_0, opts );
 
                 // reduce C(:, k)
                 using ReduceList = typename Matrix<scalar_t>::ReduceList;

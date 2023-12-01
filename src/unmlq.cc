@@ -30,12 +30,6 @@ void unmlq(
     // trace::Block trace_block("unmlq");
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // Use only TileReleaseStrategy::Slate for unmlq
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const int64_t tag_0 = 0;
@@ -205,7 +199,7 @@ void unmlq(
                                     std::move(A_panel),
                                     Treduce.sub(k, k, k, A_nt-1),
                                     std::move(C_trail),
-                                    tag_0, opts2);
+                                    tag_0, opts );
                 }
 
                 // Apply local reflectors.
@@ -215,7 +209,7 @@ void unmlq(
                                 Tlocal.sub(k, k, k, A_nt-1),
                                 std::move(C_trail),
                                 std::move(W_trail),
-                                priority_0, queue_0, opts2);
+                                priority_0, queue_0, opts );
 
                 // Left,  NoTrans:     Qi C   = Qi_reduce Qi_local C, or
                 // Right, (Conj)Trans: C Qi^H = C Qi_local^H Qi_reduce^H,
@@ -227,7 +221,7 @@ void unmlq(
                                     std::move(A_panel),
                                     Treduce.sub(k, k, k, A_nt-1),
                                     std::move(C_trail),
-                                    tag_0, opts2);
+                                    tag_0, opts );
                 }
             }
 

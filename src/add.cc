@@ -34,17 +34,14 @@ void add(
         B.reserveDeviceWorkspace();
     }
 
-    Options opts2 = Options( opts );
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     bool hold_local_workspace = get_option<bool>(
-            opts2, Option::HoldLocalWorkspace, 0 );
+            opts, Option::HoldLocalWorkspace, 0 );
 
     #pragma omp parallel
     #pragma omp master
     {
         internal::add<target>(alpha, std::move(A),
-                                beta, std::move(B), priority_0, queue_0, opts2);
+                                beta, std::move(B), priority_0, queue_0, opts );
         #pragma omp taskwait
         B.tileUpdateAllOrigin();
     }
@@ -175,17 +172,14 @@ void add(
         B.reserveDeviceWorkspace();
     }
 
-    Options opts2 = Options( opts );
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     bool hold_local_workspace = get_option<bool>(
-            opts2, Option::HoldLocalWorkspace, 0 );
+            opts, Option::HoldLocalWorkspace, 0 );
 
     #pragma omp parallel
     #pragma omp master
     {
         internal::add<target>(alpha, std::move(A),
-                              beta, std::move(B), priority_0, queue_0, opts2);
+                              beta, std::move(B), priority_0, queue_0, opts );
         #pragma omp taskwait
         B.tileUpdateAllOrigin();
     }

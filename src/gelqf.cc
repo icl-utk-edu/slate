@@ -32,12 +32,6 @@ void gelqf(
     using lapack::device_info_int;
     using blas::real;
 
-    // Use only TileReleaseStrategy::Slate for geqrf
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // Constants
     const int priority_0 = 0;
     const int priority_1 = 1;
@@ -214,7 +208,7 @@ void gelqf(
                 internal::ttlqt<Target::HostTask>(
                                 std::move(A_panel),
                                 std::move(Tr_panel),
-                                opts2);
+                                opts );
 
                 // if a trailing matrix exists
                 if (k < A_mt-1) {
@@ -266,7 +260,7 @@ void gelqf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_i),
                                     W.sub(i, i, k, A_nt-1),
-                                    priority_1, queue_ik1, opts2);
+                                    priority_1, queue_ik1, opts );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
@@ -276,7 +270,7 @@ void gelqf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_i),
-                                    tag_i, opts2);
+                                    tag_i, opts );
                 }
             }
 
@@ -297,7 +291,7 @@ void gelqf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_i),
                                     W.sub(i, A_mt-1, k, A_nt-1),
-                                    priority_0, queue_ik1, opts2 );
+                                    priority_0, queue_ik1, opts );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
@@ -307,7 +301,7 @@ void gelqf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_i),
-                                    tag_i, opts2 );
+                                    tag_i, opts );
                 }
             }
 

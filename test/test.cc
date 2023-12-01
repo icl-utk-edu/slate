@@ -357,7 +357,6 @@ Params::Params():
     method_trsm   ("trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "auto=auto, A=trsmA, B=trsmB"),
 
     grid_order("go",      3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
-    tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
     dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
 
     //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help

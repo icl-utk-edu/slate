@@ -379,14 +379,12 @@ void test_ttlqt_work( int m, int n, int nb, int ib, int p, int q )
         T_panel.tileBcast( 0, j, T.sub( 0, T.mt()-1, j, j ), slate::Layout::ColMajor );
     }
     if (debug) printf( "rank %2d, ttmlq\n", mpi_rank );
-    slate::Options const opts = {{slate::Option::TileReleaseStrategy,
-                                            slate::TileReleaseStrategy::Slate}};
     slate::internal::ttmlq(
         slate::Side::Right, slate::Op::NoTrans,
         std::move( A_panel ),
         std::move( T ),
         std::move( L ),
-        0, opts);
+        0 );
     if (verbose > 1) {
         slate::print( "LQ", L );
     }

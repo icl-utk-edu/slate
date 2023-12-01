@@ -70,13 +70,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     const int queue_1 = 1;
 
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    auto tileStrategy = get_option<TileReleaseStrategy>( opts, Option::TileReleaseStrategy, TileReleaseStrategy::Slate );
-
-    Options local_opts = opts;
-    local_opts[ Option::Lookahead ] = lookahead;
-
-    // XXX This should be removed later, based on Kadir's comment.
-    local_opts[ Option::TileReleaseStrategy ] = tileStrategy;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -108,7 +101,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
 
     // Scale the RHS to handle the alpha issue since B is moved
     // around instead of the A as in trsm
-    // TODO Call scale( alpha, one, B, local_opts ) when
+    // TODO Call scale( alpha, one, B, opts ) when
     // transpose will be handled.
     if (alpha != one) {
         if (target == Target::Devices) {
@@ -218,7 +211,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_1, layout, queue_1, local_opts );
+                        priority_1, layout, queue_1, opts );
                 }
 
                 // Send the solution back to where it belongs
@@ -272,7 +265,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(i, i, j, j),
-                            layout, priority_1, queue_ik1, local_opts );
+                            layout, priority_1, queue_ik1, opts );
                     }
                 }
             }
@@ -292,7 +285,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(k+1+lookahead, mt-1, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(k+1+lookahead, mt-1, j, j),
-                            layout, priority_0, queue_0, local_opts );
+                            layout, priority_0, queue_0, opts );
                     }
                 }
             }
@@ -379,7 +372,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_1, layout, queue_1, local_opts );
+                        priority_1, layout, queue_1, opts );
                 }
 
                 // Send the solution back to where it belongs
@@ -423,7 +416,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(i, i, j, j),
-                            layout, priority_1, queue_k1lai, local_opts );
+                            layout, priority_1, queue_k1lai, opts );
                     }
                 }
             }
@@ -443,7 +436,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(0, k-1-lookahead, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(0, k-1-lookahead, j, j),
-                            layout, priority_0, queue_0, local_opts );
+                            layout, priority_0, queue_0, opts );
                     }
                 }
             }

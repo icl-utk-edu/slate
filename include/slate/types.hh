@@ -46,9 +46,6 @@ public:
     OptionValue(Target t) : i_(int(t))
     {}
 
-    OptionValue(TileReleaseStrategy t) : i_(int(t))
-    {}
-
     OptionValue(MethodEig m) : i_(int(m))
     {}
 

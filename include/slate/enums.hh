@@ -39,13 +39,6 @@ enum class Target : char {
     Devices   = 'D',    ///< computation using batch BLAS on devices (cuBLAS)
 };
 
-enum class TileReleaseStrategy : char {
-    None      = 'N',    ///< tiles are not release at all
-    Internal  = 'I',    ///< tiles are released by routines in slate::internal namespace
-    Slate     = 'S',    ///< tiles are released by routines directly in slate namespace
-    All       = 'A',    ///< tiles are released by routines in all namespaces
-};
-
 namespace internal {
 
 /// TargetType is used to overload functions, since there is no C++
@@ -75,7 +68,6 @@ enum class Option : char {
     MaxPanelThreads,    ///< max number of threads for panel, >= 1
     Tolerance,          ///< tolerance for iterative methods, default epsilon
     Target,             ///< computation method (@see Target)
-    TileReleaseStrategy,///< tile releasing strategy used by routines
     HoldLocalWorkspace, ///< do not erase local workspace tiles for enabling
                         ///< resue of the tiles by the next routine
     Depth,              ///< depth for the RBT solver

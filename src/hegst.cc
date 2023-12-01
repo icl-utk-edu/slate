@@ -34,12 +34,6 @@ void hegst(
     const int queue_0 = 0;
     const Layout layout = Layout::ColMajor;
 
-    // Use only TileReleaseStrategy::Slate for hetrf
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
@@ -99,7 +93,7 @@ void hegst(
                         internal::trsm<target>(
                             Side::Right,  one,  conj_transpose( TBkk ),
                                                 std::move(Asub),
-                            priority_0, layout, queue_0, opts2 );
+                            priority_0, layout, queue_0, opts );
                     }
 
                     #pragma omp task depend(inout:column[k])
@@ -122,7 +116,7 @@ void hegst(
                             Side::Right, -half, std::move(Akk),
                                                 std::move(Bsub),
                                           one,  std::move(Asub),
-                            priority_0, opts2 );
+                            priority_0, opts );
 
                         BcastList bcast_list;
                         for (int64_t i = k+1; i < nt; ++i) {
@@ -135,21 +129,21 @@ void hegst(
                             -one,  std::move( Asub ),
                                    std::move( Bsub ),
                             r_one, A.sub(k+1, nt-1),
-                            priority_0, queue_0, layout, opts2 );
+                            priority_0, queue_0, layout, opts );
 
                         internal::hemm<Target::HostTask>(
                             Side::Right,
                             -half, std::move( Akk  ),
                                    std::move( Bsub ),
                             one,   std::move( Asub ),
-                            priority_0, opts2 );
+                            priority_0, opts );
 
                         auto Bk1  = B.sub(k+1, nt-1);
                         auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                         work::trsm<target, scalar_t>(
                             Side::Left,  one,  TBk1,
                                                Asub, column,
-                            opts2 );
+                            opts );
                     }
                 }
             }
@@ -183,7 +177,7 @@ void hegst(
                             Side::Left,  half, std::move(Akk),
                                                std::move(Bsub),
                                          one,  std::move(Asub),
-                            priority_0, opts2 );
+                            priority_0, opts );
 
                         BcastList bcast_list;
                         for (int64_t i = 0; i < k; ++i) {
@@ -196,18 +190,18 @@ void hegst(
                             one,   conj_transpose( Asub ),
                                    conj_transpose( Bsub ),
                             r_one, A.sub(0, k-1),
-                            priority_0, queue_0, layout, opts2 );
+                            priority_0, queue_0, layout, opts );
 
                         internal::hemm<Target::HostTask>(
                             Side::Left, half, std::move(Akk),
                                               std::move(Bsub),
                                         one,  std::move(Asub),
-                            priority_0, opts2 );
+                            priority_0, opts );
 
                         internal::trmm<Target::HostTask>(
                             Side::Left, one,  conj_transpose( TBkk ),
                                               std::move(Asub),
-                            priority_0, queue_0, opts2 );
+                            priority_0, queue_0, opts );
                     }
                 }
 

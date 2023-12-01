@@ -47,12 +47,6 @@ int64_t hetrf(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    // Use only TileReleaseStrategy::Slate for hetrf
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // Options
     real_t pivot_threshold
         = get_option<double>( opts, Option::PivotThreshold, 1.0 );
@@ -179,7 +173,7 @@ int64_t hetrf(
                     -one, A.sub(k, k,   0, k-2),
                           Hj.sub(0, k-2, 0, 0),
                     one,  T.sub(k, k,   k, k),
-                    layout, priority_0, queue_0, opts2 );
+                    layout, priority_0, queue_0, opts );
                 #endif
 
                 ReduceList reduce_list;
@@ -307,7 +301,7 @@ int64_t hetrf(
                                     -one, A.sub(k+1, A_mt-1, 0, k-2),
                                           Hj.sub(0, k-2, 0, 0),
                                     one,  A.sub(k+1, A_mt-1, k, k),
-                                    layout, priority_0, queue_0, opts2 );
+                                    layout, priority_0, queue_0, opts );
                             #else
                                 if (A_mt - (k+1) > max_panel_threads) {
                                     slate::internal::gemmA<Target::HostTask>(
@@ -347,7 +341,7 @@ int64_t hetrf(
                                     -one, A.sub(k+1, A_mt-1, j, j),
                                           Hj.sub(0, 0, 0, 0),
                                     one,  A.sub(k+1, A_mt-1, k, k),
-                                    layout, priority_1, queue_0, opts2 );
+                                    layout, priority_1, queue_0, opts );
                             }
                         }
                     }
@@ -368,7 +362,7 @@ int64_t hetrf(
                         -one, A.sub(k+1, A_mt-1, k-1, k-1),
                               Hj.sub(0,   0,     0, 0),
                         one,  A.sub(k+1, A_mt-1, k, k),
-                        layout, priority_1, queue_0, opts2 );
+                        layout, priority_1, queue_0, opts );
                 }
             }
 

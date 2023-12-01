@@ -434,23 +434,24 @@ public:
     void tileUpdateAllOrigin();
 
     /// Returns life counter of tile {i, j} of op(A).
+    [[deprecated( "Tile life has been removed. Will be removed 2024-12." )]]
     int64_t tileLife(int64_t i, int64_t j) const
     {
-        return storage_->tileLife(globalIndex(i, j));
+        return 1;
     }
 
     /// Set life counter of tile {i, j} of op(A).
+    [[deprecated( "Tile life has been removed. Will be removed 2024-12." )]]
     void tileLife(int64_t i, int64_t j, int64_t life)
     {
-        storage_->tileLife(globalIndex(i, j), life);
     }
 
     /// Decrements life counter of workspace tile {i, j} of op(A).
     /// Then, if life reaches 0, deletes tile on all devices.
     /// For local, non-workspace tiles, does nothing.
+    [[deprecated( "Tile life has been removed. Will be removed 2024-12." )]]
     void tileTick(int64_t i, int64_t j)
     {
-        storage_->tileTick(globalIndex(i, j));
     }
 
     /// Returns how many times the tile {i, j} is received
@@ -498,8 +499,16 @@ public:
 
     template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& B,
-                   Layout layout, int tag = 0, int64_t life_factor = 1);
+                   Layout layout, int tag = 0);
 
+    template <Target target = Target::Host>
+    [[deprecated( "Tile life has been removed. The 6 argument tileBcast will be removed 2024-12." )]]
+    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B,
+                   Layout layout, int tag, int64_t life_factor) {
+        tileBcast( i, j, B, layout, tag );
+    }
+
+    // TODO add deprecation warnings
     template <Target target = Target::Host>
     void listBcast(
         BcastList& bcast_list, Layout layout,
@@ -1783,8 +1792,7 @@ void BaseMatrix<scalar_t>::tileIsend(
 
 //------------------------------------------------------------------------------
 /// Receive tile {i, j} of op(A) to the given MPI rank.
-/// Tile is allocated as workspace with life = 1 if it doesn't yet exist,
-/// or 1 is added to life if it does exist.
+/// Tile is allocated as workspace if it doesn't yet exist.
 /// Source rank must call tileSend().
 /// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
@@ -1813,7 +1821,7 @@ void BaseMatrix<scalar_t>::tileRecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag)
 {
     if (src_rank != mpiRank()) {
-        storage_->tilePrepareToReceive( globalIndex( i, j ), 1, layout );
+        storage_->tilePrepareToReceive( globalIndex( i, j ), layout );
         tileAcquire(i, j, layout);
 
         // Receive data.
@@ -1834,8 +1842,7 @@ void BaseMatrix<scalar_t>::tileRecv(
 
 //------------------------------------------------------------------------------
 /// Receive tile {i, j} of op(A) to the given MPI rank using immediate mode..
-/// Tile is allocated as workspace with life = 1 if it doesn't yet exist,
-/// or 1 is added to life if it does exist.
+/// Tile is allocated as workspace if it doesn't yet exist.
 /// Source rank must call tileSend().
 /// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
@@ -1864,7 +1871,7 @@ void BaseMatrix<scalar_t>::tileIrecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag, MPI_Request* request)
 {
     if (src_rank != mpiRank()) {
-        storage_->tilePrepareToReceive( globalIndex( i, j ), 1, layout );
+        storage_->tilePrepareToReceive( globalIndex( i, j ), layout );
         tileAcquire(i, j, layout);
 
         // Receive data.
@@ -1904,17 +1911,14 @@ void BaseMatrix<scalar_t>::tileIrecv(
 /// @param[in] tag
 ///     MPI tag, default 0.
 ///
-/// @param[in] life_factor
-///     A multiplier for the life count of the broadcasted tile workspace.
-///
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::tileBcast(
-    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, Layout layout, int tag, int64_t life_factor)
+    int64_t i, int64_t j, BaseMatrix<scalar_t> const& B, Layout layout, int tag)
 {
     BcastList bcast_list_B;
     bcast_list_B.push_back({i, j, {B}});
-    listBcast<target>(bcast_list_B, layout, tag, life_factor);
+    listBcast<target>(bcast_list_B, layout, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -1937,7 +1941,8 @@ void BaseMatrix<scalar_t>::tileBcast(
 ///     MPI tag, default 0.
 ///
 /// @param[in] life_factor
-///     A multiplier for the life count of the broadcasted tile workspace.
+///     A unused argument from tile life
+///
 /// @param[in] is_shared
 ///     A flag to get and hold the broadcasted (prefetched) tiles on the
 ///     devices. This flag prevents any subsequent calls of tileRelease()
@@ -1962,8 +1967,6 @@ void BaseMatrix<scalar_t>::listBcast(
     // used for hosting communicated tiles.
     // Due to dynamic scheduling, the second communication may occur before the
     // first tile has been discarded.
-    // If that happens, instead of creating the tile, the life of the existing
-    // tile is increased.
     // Also, currently, the message is received to the same buffer.
 
     std::vector< std::set<ij_tuple> > tile_set(num_devices());
@@ -1978,11 +1981,6 @@ void BaseMatrix<scalar_t>::listBcast(
         auto j = std::get<1>(bcast);
         auto submatrices_list = std::get<2>(bcast);
 
-        int64_t life = 0;
-        for (auto submatrix : submatrices_list) {
-            life += submatrix.numLocalTiles() * life_factor;
-        }
-
         // Find the set of participating ranks.
         std::set<int> bcast_set;
         bcast_set.insert(tileRank(i, j));       // Insert root.
@@ -1993,7 +1991,7 @@ void BaseMatrix<scalar_t>::listBcast(
         if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
 
             // If receiving the tile.
-            storage_->tilePrepareToReceive( globalIndex( i, j ), life, layout_ );
+            storage_->tilePrepareToReceive( globalIndex( i, j ), layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -2074,7 +2072,7 @@ void BaseMatrix<scalar_t>::listBcast(
 ///     WARNING: must match the layout of the tile in the sender MPI rank.
 ///
 /// @param[in] life_factor
-///     A multiplier for the life count of the broadcasted tile workspace.
+///     An unused argument from tile life
 ///
 /// @param[in] is_shared
 ///     A flag to get and hold the broadcasted (prefetched) tiles on the
@@ -2100,8 +2098,6 @@ void BaseMatrix<scalar_t>::listBcastMT(
     // used for hosting communicated tiles.
     // Due to dynamic scheduling, the second communication may occur before the
     // first tile has been discarded.
-    // If that happens, instead of creating the tile, the life of the existing
-    // tile is increased.
     // Also, currently, the message is received to the same buffer.
 
     int mpi_size;
@@ -2116,7 +2112,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
     #if defined( SLATE_HAVE_MT_BCAST )
         #pragma omp taskloop slate_omp_default_none \
             shared( bcast_list ) \
-            firstprivate(life_factor, layout, mpi_size, is_shared)
+            firstprivate(layout, mpi_size, is_shared)
     #endif
     for (size_t bcastnum = 0; bcastnum < bcast_list.size(); ++bcastnum) {
 
@@ -2126,11 +2122,6 @@ void BaseMatrix<scalar_t>::listBcastMT(
         auto submatrices_list = std::get<2>(bcast);
         auto tagij = std::get<3>(bcast);
         int tag = int(tagij) % 32768;  // MPI_TAG_UB is at least 32767
-
-        int64_t life = 0;
-        for (auto submatrix : submatrices_list) {
-            life += submatrix.numLocalTiles() * life_factor;
-        }
 
         {
             trace::Block trace_block(
@@ -2145,7 +2136,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
             // If this rank is in the set.
             if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
                 // If receiving the tile.
-                storage_->tilePrepareToReceive( globalIndex( i, j ), life, layout_ );
+                storage_->tilePrepareToReceive( globalIndex( i, j ), layout_ );
 
                 // Send across MPI ranks.
                 // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -2206,7 +2197,6 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
             // If not the tile owner.
             if (! tileIsLocal(i, j)) {
 
-                // todo: should we check its life count before erasing?
                 // Destroy the tile.
                 // todo: should it be a tileRelease()?
                 if (mpi_rank_ != root_rank)
@@ -3822,20 +3812,17 @@ void BaseMatrix<scalar_t>::getLocalDevices(std::set<int>* dev_set) const
 
 //------------------------------------------------------------------------------
 /// Returns number of local tiles in this matrix.
-/// Used for the lifespan of a temporary tile that updates every tile in
-/// the matrix.
 ///
 template <typename scalar_t>
 int64_t BaseMatrix<scalar_t>::numLocalTiles() const
 {
-    // Find the tile's lifespan.
-    int64_t life = 0;
+    int64_t count = 0;
     for (int64_t i = 0; i < mt(); ++i)
         for (int64_t j = 0; j < nt(); ++j)
             if (tileIsLocal(i, j))
-                ++life;
+                ++count;
 
-    return life;
+    return count;
 }
 
 //------------------------------------------------------------------------------

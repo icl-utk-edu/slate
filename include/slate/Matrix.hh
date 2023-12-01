@@ -678,7 +678,7 @@ void swap(Matrix<scalar_t>& A, Matrix<scalar_t>& B)
 //------------------------------------------------------------------------------
 /// Returns number of local tiles of the matrix on this rank.
 //
-// todo: numLocalTiles? use for life as well?
+// todo: numLocalTiles?
 template <typename scalar_t>
 int64_t Matrix<scalar_t>::getMaxHostTiles()
 {

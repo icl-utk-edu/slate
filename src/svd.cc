@@ -252,6 +252,8 @@ void svd(
 
         // Copy diagonal and super-diagonal to vectors.
         internal::copytb2bd(Aband, Sigma, E);
+
+        Aband.releaseRemoteWorkspace();
     }
 
     int64_t ncvt = 0, nru = 0, ldvt = 1, ldu = 1;

@@ -55,11 +55,11 @@ void hegst(
     uint8_t* column = column_vector.data();
 
     if (target == Target::Devices) {
-        // The work::trsm (itype=1) and work::trmm (itype=2,3)
-        // routines use 2 queues (queue 0,1). All other
-        // internal::routines here use the default queue (queue 0).
-        // So 2 queues need to be allocated.
-        A.allocateBatchArrays(0, 2+lookahead); // (batch size, num_queues)
+        // The work::trsm (itype=1) routine uses 2 queues (queue 0,1).
+        // The work::trmm (itype=2,3) routine uses 1 queue (queue 0).
+        // All other internal::routines here use the default queue (queue 0).
+        int64_t num_queues = (itype == 1) ? 2 : 1;
+        A.allocateBatchArrays(0, num_queues+lookahead); // (batch size, num_queues)
         A.reserveDeviceWorkspace();
     }
 

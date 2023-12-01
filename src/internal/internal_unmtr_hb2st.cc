@@ -441,7 +441,6 @@ void unmtr_hb2st( internal::TargetType<target>,
                                     }
                                 }
                             }
-                            V.tileTick(0, r);
                         } // if C(i, k) is local
                     } // inner for loop
 
@@ -451,11 +450,8 @@ void unmtr_hb2st( internal::TargetType<target>,
                             Vr_data[ii + ii*ldv] = tau[ii];
                         }
                     }
-                    if (target == Target::Devices) {
-                        for (int d = 0; d < C.num_devices(); ++d) {
-                            V_.tileRelease(0, r, d);
-                        }
-                    }
+                    V.releaseLocalWorkspaceTile(0, r);
+                    V.releaseRemoteWorkspaceTile(0, r);
                 }
             }
         } // inner loop

@@ -37,12 +37,20 @@ void hemmA(
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const scalar_t one = 1.0;
+    const int priority_0 = 0;
+    const int queue_0 = 0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+
+    // Use only TileReleaseStrategy::Slate for hemmA.
+    // Internal routines (hemmA and gemmA) called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // if on right, change to left by transposing A, B, C to get
     // op(C) = op(A)*op(B)
@@ -190,15 +198,24 @@ void hemmA(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, 0, 0, C.nt()-1));
+                    beta,  C.sub(0, 0, 0, C.nt()-1),
+                    priority_0, opts2 );
 
                 if (A.mt()-1 > 0) {
                     internal::gemmA<target>(
                         alpha,  A.sub(1, A.mt()-1, 0, 0),
                                 B.sub(0, 0, 0, B.nt()-1),
                         beta,   C.sub(1, C.mt()-1, 0, C.nt()-1),
-                                layout);
+                        layout, priority_0, queue_0, opts2 );
                 }
+            }
+
+            // Clean up workspace
+            #pragma omp task depend( in:gemm[ 0 ] ) shared( B )
+            {
+                auto B_col_0 = B.sub( 0, 0, 0, B.nt()-1 );
+                B_col_0.releaseRemoteWorkspace();
+                B_col_0.releaseLocalWorkspace();
             }
 
             // Main loop
@@ -268,23 +285,31 @@ void hemmA(
                         alpha, conj_transpose( Arow_k ),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(0, k-1, 0, C.nt()-1),
-                        layout);
+                        layout, priority_0, queue_0, opts2 );
 
                     internal::hemmA<Target::HostTask>(
                         Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, B.nt()-1),
-                        one,   C.sub(k, k, 0, C.nt()-1));
+                        one,   C.sub(k, k, 0, C.nt()-1),
+                        priority_0, opts2 );
 
                     if (A.mt()-1 > k) {
                         internal::gemmA<target>(
                             alpha, A.sub(k+1, A.mt()-1, k, k),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
-                            layout);
+                            layout, priority_0, queue_0, opts2 );
                     }
                 }
 
+                // Clean up workspace
+                #pragma omp task depend( in:gemm[ k ] ) shared( B )
+                {
+                    auto B_col_k = B.sub( k, k, 0, B.nt()-1 );
+                    B_col_k.releaseRemoteWorkspace();
+                    B_col_k.releaseLocalWorkspace();
+                }
             }
 
             #pragma omp task depend(in:gemm[A.nt()-1])
@@ -423,7 +448,8 @@ void hemmA(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, 0, 0, C.nt()-1));
+                    beta,  C.sub(0, 0, 0, C.nt()-1),
+                    priority_0, opts2 );
 
                 if (A.mt()-1 > 0) {
                     auto Arow_k = A.sub(0, 0, 1, A.nt()-1);
@@ -431,8 +457,16 @@ void hemmA(
                         alpha, conj_transpose( Arow_k ),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, C.mt()-1, 0, C.nt()-1),
-                        layout);
+                        layout, priority_0, queue_0, opts2 );
                 }
+            }
+
+            // Clean up workspace
+            #pragma omp task depend( in:gemm[ 0 ] ) shared( B )
+            {
+                auto B_col_0 = B.sub( 0, 0, 0, B.nt()-1 );
+                B_col_0.releaseRemoteWorkspace();
+                B_col_0.releaseLocalWorkspace();
             }
 
             // Main loop
@@ -500,13 +534,14 @@ void hemmA(
                         alpha, A.sub(0, k-1, k, k),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(0, k-1, 0, C.nt()-1),
-                        layout);
+                        layout, priority_0, queue_0, opts2 );
 
                     internal::hemmA<Target::HostTask>(
                         Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, B.nt()-1),
-                        one,   C.sub(k, k, 0, C.nt()-1));
+                        one,   C.sub(k, k, 0, C.nt()-1),
+                        priority_0, opts2 );
 
                     if (A.nt()-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, A.nt()-1);
@@ -514,8 +549,16 @@ void hemmA(
                             alpha, conj_transpose( Arow_k ),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
-                            layout);
+                            layout, priority_0, queue_0, opts2 );
                     }
+                }
+
+                // Clean up workspace
+                #pragma omp task depend( in:gemm[ k ] ) shared( B )
+                {
+                    auto B_col_k = B.sub( k, k, 0, B.nt()-1 );
+                    B_col_k.releaseRemoteWorkspace();
+                    B_col_k.releaseLocalWorkspace();
                 }
             }
 

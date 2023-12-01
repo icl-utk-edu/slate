@@ -135,6 +135,8 @@ void heev(
 
         // Copy diagonal and super-diagonal to vectors.
         internal::copyhb2st( Aband, Lambda, E );
+
+        Aband.releaseRemoteWorkspace();
     }
 
     // 3. Tri-diagonal eigenvalue solver.

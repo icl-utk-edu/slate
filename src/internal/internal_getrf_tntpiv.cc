@@ -608,7 +608,7 @@ void getrf_tntpiv_panel(
                                 aux_pivot[ 0 ], diag_len, A.mt(), mb );
                         }
 
-                        Awork.tileTick( i2, 0 );
+                        Awork.tileRelease( i2, 0 );
                     }
                 }
                 else {

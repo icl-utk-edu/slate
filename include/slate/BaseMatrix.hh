@@ -434,14 +434,14 @@ public:
     void tileUpdateAllOrigin();
 
     /// Returns life counter of tile {i, j} of op(A).
-    [[deprecated( "Tile life has been removed. Will be removed 2024-12." )]]
+    [[deprecated( "Tile life has been removed. Accessor stubs will be removed 2024-12." )]]
     int64_t tileLife(int64_t i, int64_t j) const
     {
         return 1;
     }
 
     /// Set life counter of tile {i, j} of op(A).
-    [[deprecated( "Tile life has been removed. Will be removed 2024-12." )]]
+    [[deprecated( "Tile life has been removed. Accessor stubs will be removed 2024-12." )]]
     void tileLife(int64_t i, int64_t j, int64_t life)
     {
     }
@@ -449,7 +449,7 @@ public:
     /// Decrements life counter of workspace tile {i, j} of op(A).
     /// Then, if life reaches 0, deletes tile on all devices.
     /// For local, non-workspace tiles, does nothing.
-    [[deprecated( "Tile life has been removed. Will be removed 2024-12." )]]
+    [[deprecated( "Tile life has been removed. Accessor stubs will be removed 2024-12." )]]
     void tileTick(int64_t i, int64_t j)
     {
     }

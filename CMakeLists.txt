@@ -198,6 +198,17 @@ add_library(
 )
 
 #--------------------
+# matgen
+add_library(
+    slate_matgen
+    matgen/generate_matrix_ge.cc
+    matgen/generate_matrix_he_and_tz.cc
+    matgen/generate_matrix_utils.cc
+    src/set_lambdas.cc
+)
+target_link_libraries( slate_matgen PUBLIC slate )
+
+#--------------------
 # lapack_api
 file(
     GLOB lapack_api_src

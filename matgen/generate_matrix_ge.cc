@@ -1,11 +1,10 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "test.hh"
-#include "print_matrix.hh"
+#include "../test/test.hh"
 
 #include <exception>
 #include <string>
@@ -19,12 +18,18 @@
 #include <cstdlib>
 #include <utility>
 
-#include "matrix_params.hh"
+#include "../test/matrix_params.hh"
 #include "generate_matrix.hh"
-#include "random.hh"
+#include "../test/random.hh"
+#include "generate_matrix_utils.hh"
+#include "generate_type_geev.hh"
+#include "generate_type_heev.hh"
+#include "generate_type_rand.hh"
+#include "generate_sigma.hh"
+#include "generate_type_svd.hh"
+#include "set_lambdas.hh"
 
 namespace slate {
-
 
 template <typename scalar_t>
 void generate_matrix(
@@ -33,6 +38,7 @@ void generate_matrix(
     std::vector< blas::real_type<scalar_t> >& Sigma,
     slate::Options const& opts)
 {
+    using entry_type = std::function< scalar_t (int64_t, int64_t) >;
     using real_t = blas::real_type<scalar_t>;
 
     // Constants
@@ -89,23 +95,27 @@ void generate_matrix(
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
-        case TestMatrixType::ij:
+        case TestMatrixType::ij: {
             // Scale so j*s < 1.
             real_t s = 1 / pow( 10, ceil( log10( n ) ) );
-            auto ij_entry = [s]( int64_t i, int64_t j ) {
+            entry_type ij_entry = [s]( int64_t i, int64_t j ) {
                 return i + j * s;
-            }
-            set( ij_entry, A);
+            };
+            set( ij_entry, A, opts );
             break;
+        }
 
-        case TestMatrixType::jordan:
-            set(zero, one, A ); // ones on diagonal
-            generate_jordan( A, opts);
+        case TestMatrixType::jordan: {
+            entry_type jordan_entry = []( int64_t i, int64_t j ) {
+                return (i == j || i+1 == j ? 1.0 : 0.0);
+            };
+            set( jordan_entry, A, opts );
             break;
+        }
 
-        case TestMatrixType::chebspec:
+        case TestMatrixType::chebspec: {
             const int64_t max_mn = std::max(m, n);
-            auto chebspec_entry = [ max_mn, one ]( int64_t i, int64_t j ) {
+            entry_type chebspec_entry = [ max_mn, one, pi ]( int64_t i, int64_t j ) {
                 scalar_t x_i = std::cos( pi * ( i + 1 ) / max_mn );
                 scalar_t x_j = std::cos( pi * ( j + 1 ) / max_mn );
 
@@ -122,31 +132,34 @@ void generate_matrix(
                 else {
                     return scalar_t(-0.5) * x_i / ( one - x_i * x_i );
                 }
-            }
-            set( chebspec_entry, A );
+            };
+            set( chebspec_entry, A, opts );
             break;
+        }
 
         // circulant matrix for the vector 1:n
-        case TestMatrixType::circul:
+        case TestMatrixType::circul: {
             const int64_t max_mn = std::max(n, m);
-            auto circul_entry = [max_mn]( int64_t i , int64_t j ) {
+            entry_type circul_entry = [max_mn]( int64_t i , int64_t j ) {
                 auto diff = j - i;
                 return diff + (diff < 0 ? max_mn : 0) + 1;
-            }
-            set( circul_entry, A);
+            };
+            set( circul_entry, A, opts );
             break;
-
-        case TestMatrixType::fiedler:
-            auto fiedler_entry=[]( int64_t i, int64_t j ) {
+        }
+    
+        case TestMatrixType::fiedler: {
+            entry_type fiedler_entry=[]( int64_t i, int64_t j ) {
 	       return std::abs(j - i); 
-            }
-            set( fiedler_entry, A);
+            };
+            set( fiedler_entry, A, opts );
             break;
+        }
 
-        case TestMatrixType::gfpp:
+        case TestMatrixType::gfpp: {
             set(zero, one, A);
-            n_1 = A.n() - 1;
-	    auto gfpp_entry = [n_1](  int64_t i, int64_t j) {
+            int64_t n_1 = A.n() - 1;
+	    entry_type gfpp_entry = [n_1](  int64_t i, int64_t j) {
                 if (j == n_1) { // last column
                     return 1.0;
                 }
@@ -159,100 +172,112 @@ void generate_matrix(
                 else { // above the diagonal
                     return 0.0;
                 }
-            }
-            set( gfpp_entry, A );
+            };
+            set( gfpp_entry, A, opts );
             break;
+        }
 
-        case TestMatrixType::kms:
-            const scalar_t rho = 0.5;
-	    auto kms_entry = [rho]( int64_t i, int64_t j ) {
+        case TestMatrixType::kms: {
+            const int64_t rho = 0.5;
+	    entry_type kms_entry = [rho]( int64_t i, int64_t j ) {
                 return std::pow( rho, std::abs(j - i));
-            }
-            set( kms_entry, A ); 
+            };
+            set( kms_entry, A, opts ); 
             break;
+        }
 
-        case TestMatrixType::orthog:
+        case TestMatrixType::orthog: {
             const int64_t max_mn = std::max(n, m);
             const scalar_t outer_const = sqrt(scalar_t(2)/scalar_t(max_mn+1));
             const scalar_t inner_const = pi/scalar_t(max_mn+1);
 
-            auto orthog_entry = [ outer_const, inner_const ]( int64_t i, int64_t j) {
-                scalar_t a = scalar_t(i) * scalr_t(j) * inner_const;
+            entry_type orthog_entry = [ outer_const, inner_const ]( int64_t i, int64_t j) {
+                scalar_t a = scalar_t(i) * scalar_t(j) * inner_const;
                 return outer_const * sin(a);
-            }
-            set( orthog_entry, A );
+            };
+            set( orthog_entry, A, opts );
             break;
+        }
 
-        case TestMatrixType::riemann:
-            auto riemann_entry = []( int64_t i, int64_t j ) {
+        case TestMatrixType::riemann: {
+            entry_type riemann_entry = []( int64_t i, int64_t j ) {
                 auto B_i = i + 2;
                 auto B_j = j + 2;
                 if ( B_j % B_i == 0 ) {
 		    return B_j - 1;
                 }
 		else {
-		    return -1;
+		    return int64_t(-1);
                 }
-            }
-            set( riemann_entry, A );
+            };
+            set( riemann_entry, A, opts );
 	    break;
+        }
 
-        case TestMatrixType::ris:
+        case TestMatrixType::ris: {
             const int64_t max_mn = std::max(n, m);
-            auto ris_entry = [max_m]( int64_t i, int64_t j ) {
+            entry_type ris_entry = [max_mn]( int64_t i, int64_t j ) {
                 return 0.5 / ( max_mn - j - i + 1.5 );
-            }
-            set( ris_entry, A);
+            };
+            set( ris_entry, A, opts );
             break;
+        }
 
-        case TestMatrixType::zielkeNS:
+        case TestMatrixType::zielkeNS: {
             const int64_t max_mn = std::max(n, m);
             const scalar_t a = 0.0;
-            auto zielkeNS_entry = [ max_mn, a, one ]( int64_t i, int64_t j ) {
-                if ( j < i ) {
+	    entry_type zielkeNS_entry = [ max_mn, a, one ]( int64_t i, int64_t j ) {
+                if (j < i) {
                     return a + one;
                 }
-                else if ( j+1 == max_mn && i==0 ) {
+                else if (j+1 == max_mn && i == 0) {
                     return a - one;
                 }
                 else {
                     return a;
                 }
-            }
-	    set( zielkeNS_entry, A );
+            };
+	    set( zielkeNS_entry, A, opts );
             break;
+        }
 
         case TestMatrixType::rand:
         case TestMatrixType::rands:
         case TestMatrixType::randn:
         case TestMatrixType::randb:
         case TestMatrixType::randr:
-            generate_rand( A, type, sigma_max, seed, opt );
+            generate_rand( A, type, dominant, sigma_max, seed, opts );
             break;
 
-        case TestMatrixType::diag:
+        case TestMatrixType::diag: {
             generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, seed );
             break;
+        }
 
-        case TestMatrixType::svd:
+        case TestMatrixType::svd: {
             generate_svd( params, dist, cond, condD, sigma_max, A, Sigma, seed, opts );
             break;
+        }
 
-        case TestMatrixType::poev:
+        case TestMatrixType::poev: {
             generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma, seed, opts );
             break;
+        }
 
-        case TestMatrixType::heev:
+        case TestMatrixType::heev: {
             generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma, seed, opts );
             break;
-
-        case TestMatrixType::geev:
+        }
+      
+        case TestMatrixType::geev: {
             generate_geev( params, dist, cond, sigma_max, A, Sigma, seed, opts );
             break;
+        }
 
-        case TestMatrixType::geevx:
+        case TestMatrixType::geevx: {
             generate_geevx( params, dist, cond, sigma_max, A, Sigma, seed, opts );
             break;
+        }
     }
 
     if (! (type == TestMatrixType::rand  ||

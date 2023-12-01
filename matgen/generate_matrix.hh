@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -6,20 +6,18 @@
 #ifndef SLATE_GENERATE_MATRIX_HH
 #define SLATE_GENERATE_MATRIX_HH
 
-#include <exception>
-#include <complex>
-#include <ctype.h>
-
-#include "testsweeper.hh"
+#include "../testsweeper/testsweeper.hh"
 #include "blas.hh"
 #include "lapack.hh"
 #include "slate/slate.hh"
 
-#include "matrix_params.hh"
+#include "../test/matrix_params.hh"
+#include "generate_matrix_utils.hh"
 
 namespace slate {
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Overload with sigma.
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
@@ -41,6 +39,7 @@ void generate_matrix(
     std::vector< blas::real_type<scalar_t> >& Sigma,
     slate::Options const& opts = slate::Options());
 
+//------------------------------------------------------------------------------
 // Overload without sigma.
 template <typename scalar_t>
 void generate_matrix(

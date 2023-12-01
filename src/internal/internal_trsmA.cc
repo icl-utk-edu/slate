@@ -159,9 +159,6 @@ void trsmA(internal::TargetType<Target::Devices>,
     assert(B.num_devices() > 0);
     assert(B.uploPhysical() == Uplo::General);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
     Uplo uploA = A.uploPhysical();
     Diag diagA = A.diag();
     Op opA = A.op();
@@ -348,15 +345,6 @@ void trsmA(internal::TargetType<Target::Devices>,
                         b_array_host += group_count;
                     }
                     queue->sync();
-                }
-
-                if (tile_release_strategy == TileReleaseStrategy::Internal
-                    || tile_release_strategy == TileReleaseStrategy::All)
-                {
-                    A.tileRelease( 0, 0, device );
-                    for (auto i = 0; i < batch_size; ++i) {
-                        A.tileTick( 0, 0 );
-                    }
                 }
             }
         }

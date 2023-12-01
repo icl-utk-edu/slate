@@ -53,12 +53,6 @@ void trsm(internal::TargetType<Target::HostTask>,
     assert(layout == Layout::ColMajor);
     assert(A.mt() == 1);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     if (B.numLocalTiles() > 0) {
         A.tileGetForReading(0, 0, LayoutConvert(layout));
     }
@@ -71,16 +65,12 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(i, layout, side, alpha, call_tile_tick) priority(priority)
+                    firstprivate( i, layout, side, alpha ) priority( priority )
                 {
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
                     tile::trsm(
                         side, A.diag(),
                         alpha, A(0, 0), B(i, 0) );
-                    if (call_tile_tick) {
-                        // todo: should tileRelease()?
-                        A.tileTick(0, 0);
-                    }
                 }
             }
         }
@@ -91,16 +81,12 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(j, layout, side, alpha, call_tile_tick) priority(priority)
+                    firstprivate( j, layout, side, alpha ) priority( priority )
                 {
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
                     tile::trsm(
                         side, A.diag(),
                         alpha, A(0, 0), B(0, j) );
-                    if (call_tile_tick) {
-                        // todo: should tileRelease()?
-                        A.tileTick(0, 0);
-                    }
                 }
             }
         }
@@ -158,9 +144,6 @@ void trsm(internal::TargetType<Target::Devices>,
     using blas::conj;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
     assert(B.num_devices() > 0);
     assert(A.mt() == 1);
     assert(B.uploPhysical() == Uplo::General);
@@ -196,7 +179,7 @@ void trsm(internal::TargetType<Target::Devices>,
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority) \
             firstprivate(device, side, layout, sideA, uploA, opA, diagA) \
-            firstprivate(tile_release_strategy, alpha, queue_index)
+            firstprivate( alpha, queue_index )
         {
             std::set<ij_tuple> B_tiles_set;
             if (side == Side::Right) {
@@ -275,15 +258,6 @@ void trsm(internal::TargetType<Target::Devices>,
                     }
 
                     queue->sync();
-                }
-
-                if (tile_release_strategy == TileReleaseStrategy::Internal
-                    || tile_release_strategy == TileReleaseStrategy::All) {
-
-                    A.tileRelease(0, 0, device);
-                    for (auto i = 0; i < batch_size; ++i) {
-                        A.tileTick(0, 0);
-                    }
                 }
             }
         }

@@ -53,36 +53,24 @@ void copy(internal::TargetType<Target::HostTask>,
     assert(A.mt() == B.mt());
     assert(A.nt() == B.nt());
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     #pragma omp taskgroup
     for (int64_t j = 0; j < B.nt(); ++j) {
         if (j < B.mt() && B.tileIsLocal(j, j)) {
             A.tileGetForReading(j, j, LayoutConvert::None);
             B.tileGetForWriting(j, j, LayoutConvert( A.tileLayout(j, j) ));
             tile::tzcopy( A(j, j), B(j, j) );
-            if (call_tile_tick) {
-                A.tileTick(j, j);
-            }
         }
         if (lower) {
             for (int64_t i = j+1; i < B.mt(); ++i) {
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, B ) priority( priority ) \
-                        firstprivate(i, j, call_tile_tick)
+                        firstprivate( i, j )
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileAcquire(i, j, A.tileLayout(i, j));
                         B.tileModified(i, j, HostNum, true);
                         tile::gecopy( A(i, j), B(i, j) );
-                        if (call_tile_tick) {
-                            A.tileTick(i, j);
-                        }
                     }
                 }
             }
@@ -92,15 +80,12 @@ void copy(internal::TargetType<Target::HostTask>,
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, B ) priority( priority ) \
-                        firstprivate(i, j, call_tile_tick)
+                        firstprivate( i, j )
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileAcquire(i, j, A.tileLayout(i, j));
                         B.tileModified(i, j, HostNum, true);
                         tile::gecopy( A(i, j), B(i, j) );
-                        if (call_tile_tick) {
-                            A.tileTick(i, j);
-                        }
                     }
                 }
             }
@@ -127,16 +112,10 @@ void copy(internal::TargetType<Target::Devices>,
     slate_error_if(A.uplo() != B.uplo());
     bool lower = (B.uplo() == Uplo::Lower);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none priority( priority ) \
-            shared( A, B ) firstprivate( device, lower, queue_index, call_tile_tick )
+            shared( A, B ) firstprivate( device, lower, queue_index )
         {
             std::set<ij_tuple> A_tiles, B_diag_tiles;
             for (int64_t i = 0; i < B.mt(); ++i) {
@@ -230,23 +209,6 @@ void copy(internal::TargetType<Target::Devices>,
             }
 
             queue->sync();
-
-            if (call_tile_tick) {
-                for (int64_t i = 0; i < B.mt(); ++i) {
-                    for (int64_t j = 0; j < B.nt(); ++j) {
-                        if (B.tileIsLocal(i, j) &&
-                            device == B.tileDevice(i, j) &&
-                            ( (  lower && i >= j) ||
-                              (! lower && i <= j) ) )
-                        {
-                            // erase tmp local and remote device tiles;
-                            A.tileRelease(i, j, device);
-                            // decrement life for remote tiles
-                            A.tileTick(i, j);
-                        }
-                    }
-                }
-            }
         }
     }
 }

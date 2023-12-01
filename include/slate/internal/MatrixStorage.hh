@@ -344,8 +344,6 @@ public:
     void tileMakeTransposable(Tile<scalar_t>* tile);
     void tileLayoutReset(Tile<scalar_t>* tile);
 
-    void tileTick(ij_tuple ij);
-
     //--------------------------------------------------------------------------
     /// @return tile's receive counter.
     int64_t tileReceiveCount(ij_tuple ij)

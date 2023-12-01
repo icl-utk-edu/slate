@@ -58,14 +58,6 @@ void ttmlq(internal::TargetType<Target::HostTask>,
     else
         assert(A_nt == C.nt());
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-    // This routine assumes that tiles are never ticked for optimization's sake
-    assert( !call_tile_tick );
-
     // Find ranks in this row of A.
     std::set<int> ranks_set;
     A.getRanks(&ranks_set);

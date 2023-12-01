@@ -58,12 +58,6 @@ void syrk(internal::TargetType<Target::HostTask>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // Lower, NoTrans
     int err = 0;
     #pragma omp taskgroup
@@ -73,7 +67,7 @@ void syrk(internal::TargetType<Target::HostTask>,
                 if (i == j) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, C, err ) \
-                        firstprivate(j, layout, alpha, beta, call_tile_tick) \
+                        firstprivate( j, layout, alpha, beta ) \
                         priority(priority)
                     {
                         try {
@@ -82,11 +76,6 @@ void syrk(internal::TargetType<Target::HostTask>,
                             tile::syrk(
                                 alpha, A(j, 0),
                                 beta,  C(j, j) );
-                            if (call_tile_tick) {
-                                // todo: should tileRelease()?
-                                A.tileTick(j, 0);
-                                A.tileTick(j, 0);
-                            }
                         }
                         catch (std::exception& e) {
                             err = __LINE__;
@@ -96,7 +85,7 @@ void syrk(internal::TargetType<Target::HostTask>,
                 else {
                     #pragma omp task slate_omp_default_none \
                         shared( A, C, err ) \
-                        firstprivate(i, j, layout, alpha, beta, call_tile_tick) \
+                        firstprivate( i, j, layout, alpha, beta ) \
                         priority(priority)
                     {
                         try {
@@ -107,11 +96,6 @@ void syrk(internal::TargetType<Target::HostTask>,
                             tile::gemm(
                                 alpha, A(i, 0), transpose( Aj0 ),
                                 beta,  C(i, j) );
-                            if (call_tile_tick) {
-                                // todo: should tileRelease()?
-                                A.tileTick(i, 0);
-                                A.tileTick(j, 0);
-                            }
                         }
                         catch (std::exception& e ) {
                             err = __LINE__;
@@ -150,12 +134,6 @@ void syrk(internal::TargetType<Target::HostNest>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // Lower, NoTrans
     int err = 0;
     #pragma omp taskgroup
@@ -163,7 +141,7 @@ void syrk(internal::TargetType<Target::HostNest>,
         if (C.tileIsLocal(j, j)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, C, err ) \
-                firstprivate(j, layout, alpha, beta, call_tile_tick)
+                firstprivate( j, layout, alpha, beta )
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
@@ -171,11 +149,6 @@ void syrk(internal::TargetType<Target::HostNest>,
                     tile::syrk(
                         alpha, A(j, 0),
                         beta,  C(j, j) );
-                    if (call_tile_tick) {
-                        // todo: should tileRelease()?
-                        A.tileTick(j, 0);
-                        A.tileTick(j, 0);
-                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -189,7 +162,7 @@ void syrk(internal::TargetType<Target::HostNest>,
 
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...) default(none)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
-        shared(A, C, err) firstprivate(C_nt, C_mt, layout, alpha, beta, call_tile_tick)
+        shared( A, C, err ) firstprivate( C_nt, C_mt, layout, alpha, beta )
     for (int64_t j = 0; j < C_nt; ++j) {
         for (int64_t i = 0; i < C_mt; ++i) {  // full
             if (i >= j+1) {                     // strictly lower
@@ -202,11 +175,6 @@ void syrk(internal::TargetType<Target::HostNest>,
                         tile::gemm(
                             alpha, A(i, 0), transpose( Aj0 ),
                             beta,  C(i, j) );
-                        if (call_tile_tick) {
-                            // todo: should tileRelease()?
-                            A.tileTick(i, 0);
-                            A.tileTick(j, 0);
-                        }
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
@@ -242,12 +210,6 @@ void syrk(internal::TargetType<Target::HostBatch>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // diagonal tiles by syrk on host
     int err = 0;
     #pragma omp taskgroup
@@ -255,7 +217,7 @@ void syrk(internal::TargetType<Target::HostBatch>,
         if (C.tileIsLocal(j, j)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, C, err ) \
-                firstprivate(j, layout, alpha, beta, call_tile_tick)
+                firstprivate( j, layout, alpha, beta )
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
@@ -263,11 +225,6 @@ void syrk(internal::TargetType<Target::HostBatch>,
                     tile::syrk(
                         alpha, A(j, 0),
                         beta,  C(j, j) );
-                    if (call_tile_tick) {
-                        // todo: should tileRelease()?
-                        A.tileTick(j, 0);
-                        A.tileTick(j, 0);
-                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -373,18 +330,6 @@ void syrk(internal::TargetType<Target::HostBatch>,
                              batch_count, group_size.data());
             // mkl_set_num_threads_local(1);
         }
-
-        if (call_tile_tick) {
-            for (int64_t j = 0; j < C.nt(); ++j) {
-                for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                    if (C.tileIsLocal(i, j)) {
-                        // todo: should tileRelease()?
-                        A.tileTick(i, 0);
-                        A.tileTick(j, 0);
-                    }
-                }
-            }
-        }
     }
 
     if (err)
@@ -414,19 +359,13 @@ void syrk(internal::TargetType<Target::Devices>,
 
     assert(C.num_devices() > 0);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // if single tile, avoid creating tasks for all devices
     #pragma omp taskgroup
     if (C.nt() == 1) {
         if (C.tileIsLocal(0, 0)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, C, err ) priority( priority ) \
-                firstprivate(layout, queue_index, alpha, beta, call_tile_tick)
+                firstprivate( layout, queue_index, alpha, beta )
             {
                 int device = C.tileDevice(0, 0);
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
@@ -444,12 +383,6 @@ void syrk(internal::TargetType<Target::Devices>,
                     beta,  C00.data(), C00.stride(), *queue);
 
                 queue->sync();
-
-                if (call_tile_tick) {
-                    A.tileRelease(0, 0, device);
-                    A.tileTick(0, 0);
-                    A.tileTick(0, 0);
-                }
             }
         }
     }
@@ -459,7 +392,7 @@ void syrk(internal::TargetType<Target::Devices>,
         for (int device = 0; device < C.num_devices(); ++device) {
             #pragma omp task slate_omp_default_none \
                 shared( A, C, err ) priority( priority ) \
-                firstprivate(device, layout, alpha, beta, queue_index, call_tile_tick)
+                firstprivate( device, layout, alpha, beta, queue_index )
             {
                 try {
                     // if op(C) is NoTrans, invert opA, opB if possible
@@ -585,25 +518,6 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
 
                         queue->sync();
-                    }
-
-                    if (call_tile_tick) {
-                        // both off-diagonal batch gemm and diagonal syrks are done
-                        for (int64_t j = 0; j < C.nt(); ++j) {
-                            for (int64_t i = j; i < C.mt(); ++i) {  // lower
-                                if (C.tileIsLocal(i, j)) {
-                                    if (device == C.tileDevice(i, j)) {
-                                        // erase tmp local and remote device tiles;
-                                        A.tileRelease(i, 0, device);
-                                        A.tileRelease(j, 0, device);
-                                        // decrement life for remote tiles
-                                        // todo: should tileRelease()?
-                                        A.tileTick(i, 0);
-                                        A.tileTick(j, 0);
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
                 catch (std::exception& e) {

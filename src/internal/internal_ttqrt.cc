@@ -38,12 +38,6 @@ void ttqrt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& T,
            Options const& opts)
 {
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -130,9 +124,6 @@ void ttqrt(internal::TargetType<Target::HostTask>,
 
                 // Send updated tile back. This rank is done!
                 A.tileSend(i_src, 0, src);
-                if (call_tile_tick) {
-                    A.tileTick(i_src, 0);
-                }
                 break;
             }
             step *= 2;

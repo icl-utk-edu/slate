@@ -81,12 +81,6 @@ void gemmA(internal::TargetType<Target::HostTask>,
     assert( A.nt() == B.mt() );
     assert( A.mt() == C.mt() );
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
 
@@ -161,7 +155,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err ) \
-            firstprivate(i, alpha, beta, zero, one, c_tile_acquired, call_tile_tick) \
+            firstprivate( i, alpha, beta, zero, one, c_tile_acquired ) \
             priority(priority)
         {
             try {
@@ -181,11 +175,6 @@ void gemmA(internal::TargetType<Target::HostTask>,
                                 beta_j, C( i, k ) );
 
                             beta_j = one;
-
-                            if (call_tile_tick) {
-                                A.tileTick( i, j );
-                                B.tileTick( j, k );
-                            }
                             Cik_modified = true;
                         }
                     }
@@ -247,9 +236,6 @@ void gemmA(internal::TargetType<Target::Devices>,
     using blas::conj;
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
 
     // check dimensions
     // TODO add more?
@@ -361,7 +347,7 @@ void gemmA(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C) priority(priority) \
-            firstprivate(alpha, beta, layout, queue_index, device, tile_release_strategy)
+            firstprivate( alpha, beta, layout, queue_index, device )
         {
             blas::Queue* queue = A.compute_queue( device, queue_index );
             assert( queue != nullptr );
@@ -496,22 +482,6 @@ void gemmA(internal::TargetType<Target::Devices>,
                 {
                     trace::Block trace_block("blas::batch::gemm");
                     queue->sync();
-                }
-
-                if (tile_release_strategy == TileReleaseStrategy::Internal
-                    || tile_release_strategy == TileReleaseStrategy::All)
-                {
-                    for (int64_t i = 0; i < A.mt(); ++i) {
-                        for (int64_t j = 0; j < A.nt(); ++j) {
-                            if (A.tileIsLocal( i, j )) {
-                                if (device == A.tileDevice( i, j )) {
-                                    A.tileRelease( i, j, device );
-                                    // erase tmp local and remote device tiles;
-                                    B.tileRelease( j, 0, device ); // XXX Should it stay here?
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

@@ -86,12 +86,6 @@ void hettmqr(
     assert(V.nt() == 1);
     assert(V_mt == C.mt());
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // Find ranks in this column of V.
     std::set<int> ranks_set;
     V.getRanks(&ranks_set);
@@ -170,7 +164,7 @@ void hettmqr(
             if (C.tileIsLocal(i2, i1)) {
                 #pragma omp task slate_omp_default_none \
                     shared( C, T, V ) \
-                    firstprivate( i1, i2, op, opR, tag_base, layout, call_tile_tick )
+                    firstprivate( i1, i2, op, opR, tag_base, layout )
                 {
                     // Receive tiles from sources, apply Q on both sides,
                     // then send updated tiles back.
@@ -209,10 +203,6 @@ void hettmqr(
 
                     C.tileSend(i1, i1, src11, tag_i1);
                     C.tileSend(i2, i2, src22, tag_i2);
-                    if (call_tile_tick) {
-                        C.tileTick(i1, i1);
-                        C.tileTick(i2, i2);
-                    }
                     C.tileErase(i1, i2);  // Discard results; equals C(i2, i1)^H.
                 }
             }
@@ -261,7 +251,7 @@ void hettmqr(
 
                 if (C.tileIsLocal(i2, j)) {
                     // Applies Q, then sends updated tile back.
-                    #pragma omp task shared(V, T, C) firstprivate(call_tile_tick)
+                    #pragma omp task shared(V, T, C)
                     {
                         V.tileGetForReading(i2, 0, LayoutConvert(layout));
                         T.tileGetForReading(i2, 0, LayoutConvert(layout));
@@ -272,12 +262,6 @@ void hettmqr(
                         tpmqrt(Side::Left, op, std::min(V.tileMb(i2), V.tileNb(0)),
                                V(i2, 0), T(i2, 0), C(i1, j), C(i2, j));
 
-                        if (call_tile_tick) {
-                            // todo: should tileRelease()?
-                            V.tileTick(i2, 0);
-                            T.tileTick(i2, 0);
-                        }
-
                         // Sends updated tile back.
                         int src = (i1 >= j
                                   ? C.tileRank(i1, j)
@@ -285,9 +269,6 @@ void hettmqr(
                         int tag = tag_base + i1 + j*C.mt();
                         // Send updated tile back.
                         C.tileSend(i1, j, src, tag);
-                        if (call_tile_tick) {
-                            C.tileTick(i1, j);
-                        }
                     }
                 }
             } // for j
@@ -334,7 +315,7 @@ void hettmqr(
                     int src = C.tileRank(i, j1);
                     C.tileRecv(i, j1, src, layout, tag);
                     // Applies Q, then sends updated tile back.
-                    #pragma omp task shared(V, T, C) firstprivate(call_tile_tick, src, tag)
+                    #pragma omp task shared( V, T, C ) firstprivate( src, tag )
                     {
                         V.tileGetForReading(j2, 0, LayoutConvert(layout));
                         T.tileGetForReading(j2, 0, LayoutConvert(layout));
@@ -345,11 +326,6 @@ void hettmqr(
                                V(j2, 0), T(j2, 0), C(i, j1), C(i, j2));
 
                         C.tileSend(i, j1, src, tag);
-                        if (call_tile_tick) {
-                            // todo: should tileRelease()?
-                            V.tileTick(j2, 0);
-                            T.tileTick(j2, 0);
-                        }
                     }
                 }
             } // for i

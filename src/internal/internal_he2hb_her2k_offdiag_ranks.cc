@@ -56,18 +56,12 @@ void he2hb_her2k_offdiag_ranks(
 
     int64_t nt = C.nt();
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // try to loop over one tile and do two gemm, similar to her2k
     #pragma omp taskgroup
     for (int64_t j = 0; j < nt; ++j) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, panel_rank_rows ) \
-            firstprivate( alpha, beta, j, layoutc, call_tile_tick )
+            firstprivate( alpha, beta, j, layoutc )
         {
             for (int64_t i : panel_rank_rows) {
                 // todo: if HermitianMatrix returned conjTrans
@@ -80,11 +74,6 @@ void he2hb_her2k_offdiag_ranks(
                         // Aij -= Vik Wjk^H
                         tile::gemm( alpha, A( i, 0 ), conj_transpose( B( j, 0 ) ),
                                     beta, C( i, j ) );
-
-                        if (call_tile_tick) {
-                            A.tileTick( i, 0 );
-                            B.tileTick( j, 0 );
-                        }
                     }
                 }
                 else if (i < j) {  // upper
@@ -95,10 +84,6 @@ void he2hb_her2k_offdiag_ranks(
                         // Aji -= Wjk Vik^H
                         tile::gemm( alpha, B( j, 0 ), conj_transpose( A( i, 0 ) ),
                                     beta, C( j, i ) );
-                        if (call_tile_tick) {
-                            B.tileTick( j, 0 );
-                            A.tileTick( i, 0 );
-                        }
                     }
                 }
                 else { // i == j
@@ -143,19 +128,12 @@ void he2hb_her2k_offdiag_ranks(
 
     assert( C.num_devices() > 0 );
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     int err = 0;
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err, panel_rank_rows ) \
             firstprivate( alpha, beta, device, nt, layout, layoutc, queue_index ) \
-            firstprivate( call_tile_tick ) \
             priority( priority )
         {
             Op opA = A.op();
@@ -372,36 +350,6 @@ void he2hb_her2k_offdiag_ranks(
                     c_array_host += group_count;
                 }
                 queue->sync();
-            }
-
-            if (call_tile_tick) {
-                // todo: release tiles in top-level routine.
-                //for (int64_t j = 0; j < nt; ++j) {
-                //    for (int64_t i : panel_rank_rows) {
-                //        if (i > j) {
-                //            if (C.tileIsLocal( i, j )
-                //                && device == C.tileDevice( i, j )) {
-                //                // erase tmp local and remote device tiles;
-                //                A.tileRelease( i, 0, device );
-                //                B.tileRelease( j, 0, device );
-                //                // decrement life for remote tiles
-                //                A.tileTick( i, 0 );
-                //                B.tileTick( j, 0 );
-                //            }
-                //        }
-                //        else if (i < j) {
-                //            if (C.tileIsLocal( j, i )
-                //                && device == C.tileDevice( j, i )) {
-                //                // erase tmp local and remote device tiles;
-                //                A.tileRelease( i, 0, device );
-                //                B.tileRelease( j, 0, device );
-                //                // decrement life for remote tiles
-                //                A.tileTick( i, 0 );
-                //                B.tileTick( j, 0 );
-                //            }
-                //        }
-                //    }
-                //}
             }
         }
     }

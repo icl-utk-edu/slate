@@ -58,14 +58,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
     else
         assert(A_mt == C.nt());
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-    // This routine assumes that tiles are never ticked for optimization's sake
-    assert( ! call_tile_tick );
-
     // Find ranks in this column of A.
     std::set<int> ranks_set;
     A.getRanks(&ranks_set);
@@ -291,7 +283,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                 #pragma omp taskwait
                 slate_mpi_call(
                     MPI_Waitall( requests.size(), requests.data(), MPI_STATUSES_IGNORE ) );
-
             }
             break;
         }

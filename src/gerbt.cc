@@ -206,7 +206,6 @@ void gerbt(Matrix<scalar_t>& U_in,
             });
 
         #pragma omp taskwait
-        // Manage U and V life here
         U.releaseRemoteWorkspace();
         U.releaseLocalWorkspace();
         V.releaseRemoteWorkspace();
@@ -315,7 +314,6 @@ void gerbt(Matrix<scalar_t>& Uin,
                 });
 
         #pragma omp taskwait
-        // Manage U life here
         U.releaseRemoteWorkspace();
         U.releaseLocalWorkspace();
 

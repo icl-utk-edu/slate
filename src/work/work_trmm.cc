@@ -73,8 +73,8 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    // Use only TileReleaseStrategy::Slate for trsm.
-    // Internal routines (trsm and gemm) called here won't release
+    // Use only TileReleaseStrategy::Slate for trmm.
+    // Internal routines (trmm and gemm) called here won't release
     // any tiles. Trsm will clean up tiles.
     Options opts2 = {{Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
 

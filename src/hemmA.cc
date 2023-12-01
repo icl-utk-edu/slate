@@ -299,7 +299,7 @@ void hemmA(
                             alpha, A.sub(k+1, A.mt()-1, k, k),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts2 );
+                            layout, priority_0, queue_0, opts2 );
                     }
                 }
 

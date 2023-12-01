@@ -43,8 +43,8 @@ void tbsm(
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
-    // Use only TileReleaseStrategy::Slate for gemm.
-    // Internal gemm routine called here won't release
+    // Use only TileReleaseStrategy::Slate for tbsmPivots.
+    // Internal tbsmPivots routine called here won't release
     // any tiles. This routine will clean up tiles.
     Options opts2 = opts;
     opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;

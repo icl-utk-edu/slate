@@ -40,10 +40,18 @@ int64_t hetrf(
     const scalar_t one  = 1.0;
     const int64_t ione  = 1;
     const int64_t izero = 0;
+    const int priority_0 = 0;
     const int priority_1 = 1;
     const int tag_0 = 0;
+    const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Use only TileReleaseStrategy::Slate for hetrf
+    // Internal routines called here won't release any
+    // tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // Options
     real_t pivot_threshold
@@ -119,6 +127,8 @@ int64_t hetrf(
                     }
                 }
                 #pragma omp taskwait
+
+                A.sub( k, k, 0, k-1 ).releaseRemoteWorkspace();
             }
         }
 
@@ -168,7 +178,8 @@ int64_t hetrf(
                 slate::internal::gemmA<Target::HostTask>(
                     -one, A.sub(k, k,   0, k-2),
                           Hj.sub(0, k-2, 0, 0),
-                    one,  T.sub(k, k,   k, k), layout);
+                    one,  T.sub(k, k,   k, k),
+                    layout, priority_0, queue_0, opts2 );
                 #endif
 
                 ReduceList reduce_list;
@@ -177,6 +188,8 @@ int64_t hetrf(
                                         {A.sub(k, k, 0, k-2)}
                                       });
                 T.template listReduce<target>(reduce_list, layout, tag);
+
+                T.sub( k, k, k, k ).releaseRemoteWorkspace();
 
                 // T(k, k) -= L(k, k)*T(k, k-1)* L(k,k-1)'
                 // using H(k, k) as workspace
@@ -293,7 +306,8 @@ int64_t hetrf(
                                 slate::internal::gemmA<Target::HostTask>(
                                     -one, A.sub(k+1, A_mt-1, 0, k-2),
                                           Hj.sub(0, k-2, 0, 0),
-                                    one,  A.sub(k+1, A_mt-1, k, k), layout);
+                                    one,  A.sub(k+1, A_mt-1, k, k),
+                                    layout, priority_0, queue_0, opts2 );
                             #else
                                 if (A_mt - (k+1) > max_panel_threads) {
                                     slate::internal::gemmA<Target::HostTask>(
@@ -333,7 +347,7 @@ int64_t hetrf(
                                     -one, A.sub(k+1, A_mt-1, j, j),
                                           Hj.sub(0, 0, 0, 0),
                                     one,  A.sub(k+1, A_mt-1, k, k),
-                                    layout, priority_1 );
+                                    layout, priority_1, queue_0, opts2 );
                             }
                         }
                     }
@@ -354,7 +368,7 @@ int64_t hetrf(
                         -one, A.sub(k+1, A_mt-1, k-1, k-1),
                               Hj.sub(0,   0,     0, 0),
                         one,  A.sub(k+1, A_mt-1, k, k),
-                        layout, priority_1 );
+                        layout, priority_1, queue_0, opts2 );
                 }
             }
 
@@ -428,11 +442,10 @@ int64_t hetrf(
                     T.tileModified(k, k+1);
                 }
                 if (k > 0 && k+1 < A_mt) {
-                    // send T(i, j) that are needed to compute H(k, :)
-                    T.tileBcast(k, k+1, H.sub(k+1, A_mt-1, k,   k), layout, tag);
-
                     //T.tileBcast(k+1, k, H.sub(k+1, A_mt-1, k-1, k-1), tag);
                     BcastList bcast_list_T;
+                    // send T(i, j) that are needed to compute H(k, :)
+                    bcast_list_T.push_back({k, k+1, {H.sub(k+1, A_mt-1, k, k)}});
                     // for computing H(j, 1:j-1)
                     bcast_list_T.push_back({k+1, k, {A.sub(k+1, A_mt-1, k-1, k-1)}});
                     // for computing T(j, j)
@@ -465,6 +478,38 @@ int64_t hetrf(
                         pivots.at(k+1), 1, tag4);
                 }
                 #pragma omp taskwait
+            }
+        }
+
+        // All tasks that use tiles from row k of A or H depend on
+        // columnT[k], columnH1[k], or columnH2[k].
+        // Subsequent iterations only access [k] and [k+1] of those arrays.
+        #pragma omp task depend(inout:columnT[k]) depend(inout:columnH1[k]) \
+                         depend(inout:columnH2[k])
+        {
+            auto A_panel = A.sub( k, k, 0, k );
+
+            // Erase remote tiles on all devices, including host
+            A_panel.releaseRemoteWorkspace();
+
+            // Update the origin tiles before their
+            // workspace copies on devices are erased.
+            A_panel.tileUpdateAllOrigin();
+
+            // Erase local workspace on devices
+            A_panel.releaseLocalWorkspace();
+
+            if (k > 0) {
+                for (int64_t i = 0; i < k; ++i) {
+                    if (H.tileIsLocal( k, i )) {
+                        H.releaseLocalWorkspaceTile( k, i );
+                        // H is locally allocated workspace, so erase it's tiles
+                        H.tileErase( k, i );
+                    }
+                    else {
+                        H.releaseRemoteWorkspaceTile( k, i );
+                    }
+                }
             }
         }
     }

@@ -991,47 +991,6 @@ void test_Matrix_tileInsert_data()
 }
 
 //------------------------------------------------------------------------------
-/// Test tileLife.
-void test_Matrix_tileLife()
-{
-    int lda = roundup(m, mb);
-    std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
-
-    const int max_life = 4;
-    for (int j = 0; j < A.nt(); ++j) {
-        for (int i = 0; i < A.mt(); ++i) {
-            if (! A.tileIsLocal(i, j))
-                A.tileInsert(i, j);
-            A.tileLife(i, j, max_life);
-        }
-    }
-
-    for (int life = max_life; life > 0; --life) {
-        for (int j = 0; j < A.nt(); ++j) {
-            for (int i = 0; i < A.mt(); ++i) {
-                if (! A.tileIsLocal(i, j)) {
-                    // non-local tiles get decremented, and deleted when life reaches 0.
-                    test_assert( A.tileLife(i, j) == life );
-                    A.tileTick(i, j);
-                    if (life - 1 == 0)
-                        test_assert_throw_std( A.at(i, j) ); // std::exception (map::at)
-                    else
-                        test_assert( A.tileLife(i, j) == life - 1 );
-                }
-                else {
-                    // local tiles don't get decremented
-                    test_assert( A.tileLife(i, j) == max_life );
-                    A.tileTick(i, j);
-                    test_assert( A.tileLife(i, j) == max_life );
-                }
-            }
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
 /// Test tileErase.
 void test_Matrix_tileErase()
 {
@@ -2170,7 +2129,6 @@ void run_tests()
     run_test(test_Matrix_swap,                 "swap",                                     mpi_comm);
     run_test(test_Matrix_tileInsert_new,       "Matrix::tileInsert(i, j, dev) ",           mpi_comm);
     run_test(test_Matrix_tileInsert_data,      "Matrix::tileInsert(i, j, dev, data, lda)", mpi_comm);
-    run_test(test_Matrix_tileLife,             "Matrix::tileLife",                         mpi_comm);
     run_test(test_Matrix_tileErase,            "Matrix::tileErase",                        mpi_comm);
     run_test(test_Matrix_tileReduceFromSet,    "Matrix::tileReduceFromSet(i, j, set,...)", mpi_comm);
     run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",               mpi_comm);

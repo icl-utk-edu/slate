@@ -55,7 +55,12 @@ public:
     template <typename T>
     friend void swap(HermitianBandMatrix<T>& A, HermitianBandMatrix<T>& B);
 
-    void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
+    void    gatherAll(std::set<int>& rank_set, int tag = 0);
+    [[deprecated( "Tile life has been removed. The 3 argument gatherAll will be removed 2024-12." )]]
+    void    gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor) {
+        gatherAll( rank_set, tag );
+    }
+
     void    he2hbGather(HermitianMatrix<scalar_t>& A);
 };
 
@@ -265,7 +270,7 @@ void swap(HermitianBandMatrix<scalar_t>& A, HermitianBandMatrix<scalar_t>& B)
 // avoid if possible.
 //
 template <typename scalar_t>
-void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor)
+void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag)
 {
     trace::Block trace_block("slate::gatherAll");
 
@@ -286,7 +291,7 @@ void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, 
 
             // If receiving the tile.
             this->storage_->tilePrepareToReceive( this->globalIndex( i, j ),
-                                                 life_factor, this->layout_ );
+                                                  this->layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, rank_set);

@@ -1,0 +1,46 @@
+packages:
+  all:
+    target: ['x86_64']
+    variants: cuda_arch=70
+  mpi:
+    require: openmpi
+  cuda:
+    buildable: false
+  openmpi:
+    buildable: false
+  cmake:
+    buildable: false
+  intel-oneapi-mkl:
+    buildable: false
+  intel-oneapi-mpi:
+    buildable: false
+  gmake:
+    buildable: false
+  openblas:
+    buildable: false
+  hip:
+    buildable: false
+    externals:
+    - spec: hip@5.7.0
+      prefix: /opt/rocm-5.7.0/
+  rocblas:
+    buildable: false
+    externals:
+    - spec: rocblas@5.7.0
+      prefix: /opt/rocm-5.7.0/rocblas/
+  llvm-amdgpu:
+    buildable: false
+    externals:
+    - spec: llvm-amdgpu@5.7.0
+      prefix: /opt/rocm-5.7.0/llvm
+  rocsolver:
+    buildable: false
+    externals:
+    - spec: rocsolver@5.7.0
+      prefix: /opt/rocm-5.7.0/rocsolver
+  hsa-rocr-dev:
+    buildable: false
+    externals:
+    - spec: hsa-rocr-dev@5.7.0
+      prefix: /opt/rocm-5.7.0/hsa/
+

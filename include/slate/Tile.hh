@@ -117,10 +117,10 @@ MatrixType conjTranspose( MatrixType&& A )
 /// and who owns (allocated, deallocates) the data.
 /// @ingroup enum
 ///
-enum class TileKind {
-    Workspace,   ///< SLATE allocated workspace tile
-    SlateOwned,  ///< SLATE allocated origin tile
-    UserOwned,   ///< User owned origin tile
+enum class TileKind : char {
+    Workspace  = 'w',   ///< SLATE allocated workspace tile
+    SlateOwned = 'o',  ///< SLATE allocated origin tile
+    UserOwned  = 'u',   ///< User owned origin tile
 };
 
 //------------------------------------------------------------------------------
@@ -223,6 +223,12 @@ public:
     /// false if the user provided the tile's memory,
     /// e.g., via a fromScaLAPACK constructor.
     bool allocated() const { return kind_ != TileKind::UserOwned; }
+
+    /// Returns the TileKind of this tile
+    TileKind kind()
+    {
+        return kind_;
+    }
 
     /// Returns number of bytes; but NOT consecutive if stride != mb_.
     size_t bytes() const { return sizeof(scalar_t) * size(); }
@@ -371,11 +377,6 @@ protected:
     void nb(int64_t in_nb);
     void offset(int64_t i, int64_t j);
 
-    void kind(TileKind kind)
-    {
-        kind_ = kind;
-    }
-
     void state(MOSI_State stateIn)
     {
         switch (stateIn) {
@@ -405,12 +406,12 @@ protected:
     int64_t stride_;
     int64_t user_stride_; // Temporarily store user-provided-memory's stride
 
-    Op op_;
-    Uplo uplo_;
-
     scalar_t* data_;
     scalar_t* user_data_; // Temporarily point to user-provided memory buffer.
     scalar_t* ext_data_; // Points to auxiliary buffer.
+
+    Op op_;
+    Uplo uplo_;
 
     TileKind kind_;
     /// layout_: The physical ordering of elements in the data buffer:
@@ -434,11 +435,11 @@ Tile<scalar_t>::Tile()
       nb_(0),
       stride_(0),
       user_stride_(0),
-      op_(Op::NoTrans),
-      uplo_(Uplo::General),
       data_(nullptr),
       user_data_(nullptr),
       ext_data_(nullptr),
+      op_(Op::NoTrans),
+      uplo_(Uplo::General),
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
       user_layout_(Layout::ColMajor),
@@ -487,11 +488,11 @@ Tile<scalar_t>::Tile(
       nb_(nb),
       stride_(lda),
       user_stride_(lda),
-      op_(Op::NoTrans),
-      uplo_(Uplo::General),
       data_(A),
       user_data_(A),
       ext_data_(nullptr),
+      op_(Op::NoTrans),
+      uplo_(Uplo::General),
       kind_(kind),
       layout_(layout),
       user_layout_(layout),
@@ -530,11 +531,11 @@ Tile<scalar_t>::Tile(
       nb_(src_tile.nb_),
       stride_(lda),
       user_stride_(lda),
-      op_(src_tile.op_),
-      uplo_(src_tile.uplo_),
       data_(A),
       user_data_(A),
       ext_data_(nullptr),
+      op_(src_tile.op_),
+      uplo_(src_tile.uplo_),
       kind_(kind),
       layout_(src_tile.layout_),
       user_layout_(src_tile.user_layout_),

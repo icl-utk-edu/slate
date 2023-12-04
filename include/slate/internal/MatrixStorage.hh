@@ -454,7 +454,6 @@ private:
     slate::Memory memory_;  ///< memory allocator
     scalar_t *host_mem;
     std::map< int, std::stack<void*> > allocated_mem_;
-    bool own;
 
     int mpi_rank_;
     static int num_devices_;

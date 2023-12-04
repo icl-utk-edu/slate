@@ -204,9 +204,7 @@ void Debug::printTiles_(
                 if (iter != A.storage_->end()) {
                     auto tile = iter->second->at( device );
                     if (do_kind) {
-                        msg += tile->origin()
-                                ? (tile->allocated() ? 'o' : 'u')
-                                : 'w';
+                        msg += char(tile->kind());
                     }
                     if (do_mosi) {
                         char ch = to_char( iter->second->at( device )->state() );

@@ -211,7 +211,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_1, layout, queue_1, opts );
+                        priority_1, layout, queue_1 );
                 }
 
                 // Send the solution back to where it belongs
@@ -261,7 +261,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(i, i, j, j),
-                            layout, priority_1, queue_ik1, opts );
+                            layout, priority_1, queue_ik1 );
                     }
                 }
             }
@@ -281,7 +281,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(k+1+lookahead, mt-1, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(k+1+lookahead, mt-1, j, j),
-                            layout, priority_0, queue_0, opts );
+                            layout, priority_0, queue_0 );
                     }
                 }
             }
@@ -368,7 +368,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_1, layout, queue_1, opts );
+                        priority_1, layout, queue_1 );
                 }
 
                 // Send the solution back to where it belongs
@@ -412,7 +412,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(i, i, j, j),
-                            layout, priority_1, queue_k1lai, opts );
+                            layout, priority_1, queue_k1lai );
                     }
                 }
             }
@@ -432,7 +432,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(0, k-1-lookahead, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(0, k-1-lookahead, j, j),
-                            layout, priority_0, queue_0, opts );
+                            layout, priority_0, queue_0 );
                     }
                 }
             }

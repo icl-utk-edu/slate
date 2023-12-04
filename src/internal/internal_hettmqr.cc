@@ -52,10 +52,10 @@ void hettmqr(
     Matrix<scalar_t>&& V,
     Matrix<scalar_t>&& T,
     HermitianMatrix<scalar_t>&& C,
-    int tag, Options const& opts )
+    int tag )
 {
     hettmqr( internal::TargetType<target>(),
-             op, V, T, C, tag, opts );
+             op, V, T, C, tag );
 }
 
 //------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ void hettmqr(
     Matrix<scalar_t>& V,
     Matrix<scalar_t>& T,
     HermitianMatrix<scalar_t>& C,
-    int tag_base, Options const& opts )
+    int tag_base )
 {
     trace::Block trace_block("internal::hettmqr");
     using blas::conj;
@@ -363,7 +363,7 @@ void hettmqr<Target::HostTask, float>(
     Matrix<float>&& V,
     Matrix<float>&& T,
     HermitianMatrix<float>&& C,
-    int tag, Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -372,7 +372,7 @@ void hettmqr<Target::HostTask, double>(
     Matrix<double>&& V,
     Matrix<double>&& T,
     HermitianMatrix<double>&& C,
-    int tag, Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -381,7 +381,7 @@ void hettmqr< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     HermitianMatrix< std::complex<float> >&& C,
-    int tag, Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -390,7 +390,7 @@ void hettmqr< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     HermitianMatrix< std::complex<double> >&& C,
-    int tag, Options const& opts);
+    int tag );
 
 } // namespace internal
 } // namespace slate

@@ -103,7 +103,7 @@ void herk(
             internal::herk<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
                 beta,  std::move(C),
-                priority_0, queue_0, layout, opts );
+                priority_0, queue_0, layout );
 
             auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
 
@@ -142,7 +142,7 @@ void herk(
                 internal::herk<target>(
                     alpha,       A.sub(0, A.mt()-1, k, k),
                     real_t(1.0), std::move(C),
-                    priority_0, queue_0, layout, opts );
+                    priority_0, queue_0, layout );
 
                 auto A_colblock = A.sub(0, A.mt()-1, k, k);
 

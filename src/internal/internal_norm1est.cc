@@ -121,15 +121,6 @@ void norm1est_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A)
 ///     isave[2]: index of maximum element in X
 ///     isave[3]: number of iterations
 ///
-/// @param[in] opts
-///     Additional options, as map of name = value pairs. Possible options:
-///     - Option::Target:
-///       Implementation to target. Possible values:
-///       - HostTask:  OpenMP tasks on CPU host [default].
-///       - HostNest:  nested OpenMP parallel for loop on CPU host.
-///       - HostBatch: batched BLAS on CPU host.
-///       - Devices:   batched BLAS on GPU device.
-///
 /// Note in LAPACK, norm1est is lacn2
 ///
 /// @ingroup cond_internal
@@ -141,8 +132,7 @@ void norm1est(
            Matrix<int64_t>& isgn,
            blas::real_type<scalar_t>* est,
            int* kase,
-           std::vector<int64_t>& isave,
-           Options const& opts)
+           std::vector<int64_t>& isave )
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -489,8 +479,7 @@ void norm1est<float>(
     Matrix<int64_t>& isgn,
     float* est,
     int* kase,
-    std::vector<int64_t>& isave,
-    Options const& opts);
+    std::vector<int64_t>& isave );
 
 template
 void norm1est<double>(
@@ -499,8 +488,7 @@ void norm1est<double>(
     Matrix<int64_t>& isgn,
     double* est,
     int* kase,
-    std::vector<int64_t>& isave,
-    Options const& opts);
+    std::vector<int64_t>& isave );
 
 template
 void norm1est< std::complex<float> >(
@@ -509,8 +497,7 @@ void norm1est< std::complex<float> >(
     Matrix<int64_t>& isgn,
     float* est,
     int* kase,
-    std::vector<int64_t>& isave,
-    Options const& opts);
+    std::vector<int64_t>& isave );
 
 template
 void norm1est< std::complex<double> >(
@@ -519,8 +506,7 @@ void norm1est< std::complex<double> >(
     Matrix<int64_t>& isgn,
     double* est,
     int* kase,
-    std::vector<int64_t>& isave,
-    Options const& opts);
+    std::vector<int64_t>& isave );
 
 } // namespace internal
 } // namespace slate

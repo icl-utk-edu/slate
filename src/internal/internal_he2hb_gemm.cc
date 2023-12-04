@@ -28,12 +28,11 @@ void he2hb_gemm(
     scalar_t alpha, Matrix<scalar_t>&& A, Matrix<scalar_t>&& B,
     scalar_t beta,  Matrix<scalar_t>&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     he2hb_gemm( internal::TargetType<target>(),
                 alpha, A, B, beta, C,
-                panel_rank, priority, queue_index, opts );
+                panel_rank, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -47,8 +46,7 @@ void he2hb_gemm(
     scalar_t alpha, Matrix<scalar_t>& A, Matrix<scalar_t>& B,
     scalar_t beta,  Matrix<scalar_t>& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -102,8 +100,7 @@ void he2hb_gemm(
     scalar_t alpha, Matrix<scalar_t>& A, Matrix<scalar_t>& B,
     scalar_t beta,  Matrix<scalar_t>& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -293,8 +290,7 @@ void he2hb_gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A, Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -302,8 +298,7 @@ void he2hb_gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A, Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -312,8 +307,7 @@ void he2hb_gemm< Target::HostTask, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -322,8 +316,7 @@ void he2hb_gemm< Target::HostTask, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -331,8 +324,7 @@ void he2hb_gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A, Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -340,8 +332,7 @@ void he2hb_gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A, Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -350,8 +341,7 @@ void he2hb_gemm< Target::Devices, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -360,8 +350,7 @@ void he2hb_gemm< Target::Devices, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     int panel_rank,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

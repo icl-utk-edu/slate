@@ -20,11 +20,10 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void ttlqt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T,
-           Options const& opts)
+           Matrix<scalar_t>&& T )
 {
     ttlqt(internal::TargetType<target>(),
-          A, T, opts);
+          A, T );
 }
 
 //------------------------------------------------------------------------------
@@ -35,8 +34,7 @@ void ttlqt(Matrix<scalar_t>&& A,
 template <typename scalar_t>
 void ttlqt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T,
-           Options const& opts)
+           Matrix<scalar_t>& T )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -137,29 +135,25 @@ void ttlqt(internal::TargetType<Target::HostTask>,
 template
 void ttlqt<Target::HostTask, float>(
     Matrix<float>&& A,
-    Matrix<float>&& T,
-    Options const& opts);
+    Matrix<float>&& T );
 
 // ----------------------------------------
 template
 void ttlqt<Target::HostTask, double>(
     Matrix<double>&& A,
-    Matrix<double>&& T,
-    Options const& opts);
+    Matrix<double>&& T );
 
 // ----------------------------------------
 template
 void ttlqt< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& T,
-    Options const& opts);
+    Matrix< std::complex<float> >&& T );
 
 // ----------------------------------------
 template
 void ttlqt< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& T,
-    Options const& opts);
+    Matrix< std::complex<double> >&& T );
 
 } // namespace internal
 } // namespace slate

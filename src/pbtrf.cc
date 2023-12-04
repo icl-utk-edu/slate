@@ -87,7 +87,7 @@ int64_t pbtrf(
                         Side::Right,
                         one, conj_transpose( Tkk ),
                         A.sub(k+1, ij_end-1, k, k),
-                        priority_1, layout, queue_0, opts );
+                        priority_1, layout );
                 }
 
                 BcastList bcast_list_A;
@@ -109,7 +109,7 @@ int64_t pbtrf(
                     internal::herk<Target::HostTask>(
                         -r_one, A.sub(k+1+lookahead, ij_end-1, k, k),
                         r_one,  A.sub(k+1+lookahead, ij_end-1),
-                        priority_0, queue_0, layout, opts );
+                        priority_0, queue_0, layout );
                 }
             }
 
@@ -121,7 +121,7 @@ int64_t pbtrf(
                     internal::herk<Target::HostTask>(
                         -r_one, A.sub(j, j, k, k),
                         r_one,  A.sub(j, j),
-                        priority_0, queue_0, layout, opts );
+                        priority_0, queue_0, layout );
 
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
@@ -129,7 +129,7 @@ int64_t pbtrf(
                             -one, A.sub(j+1, ij_end-1, k, k),
                                   conj_transpose( Ajk ),
                             one,  A.sub(j+1, ij_end-1, j, j),
-                            layout, priority_1, queue_0, opts );
+                            layout, priority_1 );
                     }
                 }
             }

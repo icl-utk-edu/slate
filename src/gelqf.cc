@@ -207,8 +207,7 @@ void gelqf(
                 // ttlqt handles tile transfers internally
                 internal::ttlqt<Target::HostTask>(
                                 std::move(A_panel),
-                                std::move(Tr_panel),
-                                opts );
+                                std::move(Tr_panel) );
 
                 // if a trailing matrix exists
                 if (k < A_mt-1) {
@@ -260,7 +259,7 @@ void gelqf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_i),
                                     W.sub(i, i, k, A_nt-1),
-                                    priority_1, queue_ik1, opts );
+                                    priority_1, queue_ik1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
@@ -270,7 +269,7 @@ void gelqf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_i),
-                                    tag_i, opts );
+                                    tag_i );
                 }
             }
 
@@ -291,7 +290,7 @@ void gelqf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_i),
                                     W.sub(i, A_mt-1, k, A_nt-1),
-                                    priority_0, queue_ik1, opts );
+                                    priority_0, queue_ik1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
@@ -301,7 +300,7 @@ void gelqf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_i),
-                                    tag_i, opts );
+                                    tag_i );
                 }
             }
 

@@ -43,7 +43,6 @@ int64_t hetrf(
     const int priority_0 = 0;
     const int priority_1 = 1;
     const int tag_0 = 0;
-    const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -173,7 +172,7 @@ int64_t hetrf(
                     -one, A.sub(k, k,   0, k-2),
                           Hj.sub(0, k-2, 0, 0),
                     one,  T.sub(k, k,   k, k),
-                    layout, priority_0, queue_0, opts );
+                    layout, priority_0 );
                 #endif
 
                 ReduceList reduce_list;
@@ -301,7 +300,7 @@ int64_t hetrf(
                                     -one, A.sub(k+1, A_mt-1, 0, k-2),
                                           Hj.sub(0, k-2, 0, 0),
                                     one,  A.sub(k+1, A_mt-1, k, k),
-                                    layout, priority_0, queue_0, opts );
+                                    layout, priority_0 );
                             #else
                                 if (A_mt - (k+1) > max_panel_threads) {
                                     slate::internal::gemmA<Target::HostTask>(
@@ -341,7 +340,7 @@ int64_t hetrf(
                                     -one, A.sub(k+1, A_mt-1, j, j),
                                           Hj.sub(0, 0, 0, 0),
                                     one,  A.sub(k+1, A_mt-1, k, k),
-                                    layout, priority_1, queue_0, opts );
+                                    layout, priority_1 );
                             }
                         }
                     }
@@ -362,7 +361,7 @@ int64_t hetrf(
                         -one, A.sub(k+1, A_mt-1, k-1, k-1),
                               Hj.sub(0,   0,     0, 0),
                         one,  A.sub(k+1, A_mt-1, k, k),
-                        layout, priority_1, queue_0, opts );
+                        layout, priority_1 );
                 }
             }
 

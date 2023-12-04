@@ -22,11 +22,10 @@ void unmlq(Side side, Op op,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            Matrix<scalar_t>&& W,
-           int priority, int64_t queue_index,
-           Options const& opts)
+           int priority, int64_t queue_index )
 {
     unmlq<target>(internal::TargetType<target>(),
-          side, op, V, T, C, W, priority, queue_index, opts);
+          side, op, V, T, C, W, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -46,8 +45,7 @@ void unmlq(internal::TargetType<target>,
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
            Matrix<scalar_t>& W,
-           int priority, int64_t queue_index,
-           Options const& opts)
+           int priority, int64_t queue_index )
 {
     const scalar_t one = 1;
 
@@ -166,12 +164,12 @@ void unmlq(internal::TargetType<target>,
         // W <- V0 W
         internal::copy<target>(
                 std::move(C0), std::move(Wr),
-                priority, queue_index, opts);
+                priority, queue_index );
         internal::trmm<target>(
                 Side::Left,
                 one, std::move(V0tr),
                      std::move(Wr),
-                priority, queue_index, opts);
+                priority, queue_index );
 
         if (trapezoid) {
             // W <- V0b C0b + W
@@ -180,7 +178,7 @@ void unmlq(internal::TargetType<target>,
                          std::move(C0b),
                     one, std::move(Wr),
                     layout,
-                    priority, queue_index, opts);
+                    priority, queue_index );
         }
 
         // W <- V1 C1 + W
@@ -196,7 +194,7 @@ void unmlq(internal::TargetType<target>,
                          std::move(Ci),
                     one, std::move(Wr),
                     layout,
-                    priority, queue_index, opts);
+                    priority, queue_index );
         }
 
         // --------------------
@@ -205,7 +203,7 @@ void unmlq(internal::TargetType<target>,
                 Side::Left,
                 one, std::move(T0tr),
                      std::move(Wr),
-                priority, queue_index, opts);
+                priority, queue_index );
 
         // --------------------
         // 3. C = C - V^H W
@@ -216,7 +214,7 @@ void unmlq(internal::TargetType<target>,
                           std::move(Wr),
                     one,  C.sub(row_indices[1], mt-1, 0, nt-1),
                     layout,
-                    priority, queue_index, opts);
+                    priority, queue_index );
         }
 
         if (trapezoid) {
@@ -226,7 +224,7 @@ void unmlq(internal::TargetType<target>,
                           std::move(Wr),
                     one,  std::move(C0b),
                     layout,
-                    priority, queue_index, opts);
+                    priority, queue_index );
         }
 
         // W <- V0^H W
@@ -234,13 +232,13 @@ void unmlq(internal::TargetType<target>,
                 Side::Left,
                 one, conj_transpose( V0tr ),
                      std::move(Wr),
-                priority, queue_index, opts);
+                priority, queue_index );
 
         // C0 <- C0 - W
         internal::add<target>(
                 -one, std::move(Wr),
                 one,  std::move(C0),
-                priority, queue_index, opts);
+                priority, queue_index );
 
         // free workspace
         // todo: Wr.clear();
@@ -352,12 +350,12 @@ void unmlq(internal::TargetType<target>,
         // W <- W V0^H
         internal::copy<target>(
                 std::move(C0), std::move(Wc),
-                priority, queue_index, opts);
+                priority, queue_index );
         internal::trmm<target>(
                 Side::Right,
                 one, conj_transpose( V0tr ),
                      std::move(Wc),
-                priority, queue_index, opts);
+                priority, queue_index );
 
         if (trapezoid) {
             // W <- C0b V0b^H + W
@@ -366,7 +364,7 @@ void unmlq(internal::TargetType<target>,
                          conj_transpose( V0b ),
                     one, std::move(Wc),
                     layout,
-                    priority, queue_index, opts);
+                    priority, queue_index );
         }
 
         // W <- C1 V1^H + W
@@ -382,7 +380,7 @@ void unmlq(internal::TargetType<target>,
                          conj_transpose( V.sub( 0, 0, col, col ) ),
                     one, std::move(Wc),
                     layout,
-                    priority, queue_index, opts);
+                    priority, queue_index );
         }
 
         // --------------------
@@ -391,7 +389,7 @@ void unmlq(internal::TargetType<target>,
                 Side::Right,
                 one, std::move(T0tr),
                      std::move(Wc),
-                priority, queue_index, opts);
+                priority, queue_index );
 
         // --------------------
         // 3. C = C - W V
@@ -402,7 +400,7 @@ void unmlq(internal::TargetType<target>,
                           V.sub(0, 0,    col_indices[1], nt-1),
                     one,  C.sub(0, mt-1, col_indices[1], nt-1),
                     layout,
-                    priority, queue_index, opts);
+                    priority, queue_index );
         }
 
         if (trapezoid) {
@@ -412,7 +410,7 @@ void unmlq(internal::TargetType<target>,
                           std::move(V0b),
                     one,  std::move(C0b),
                     layout,
-                    priority, queue_index, opts);
+                    priority, queue_index );
         }
 
         // W <- W V0
@@ -420,13 +418,13 @@ void unmlq(internal::TargetType<target>,
                 Side::Right,
                 one, std::move(V0tr),
                      std::move(Wc),
-                priority, queue_index, opts);
+                priority, queue_index );
 
         // C0 <- C0 - W
         internal::add<target>(
                 -one, std::move(Wc),
                 one,  std::move(C0),
-                priority, queue_index, opts);
+                priority, queue_index );
 
         // free workspace
         // todo: Wc.clear();
@@ -448,8 +446,7 @@ void unmlq<Target::HostTask, float>(
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::HostNest, float>(
@@ -458,8 +455,7 @@ void unmlq<Target::HostNest, float>(
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::HostBatch, float>(
@@ -468,8 +464,7 @@ void unmlq<Target::HostBatch, float>(
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::Devices, float>(
@@ -478,8 +473,7 @@ void unmlq<Target::Devices, float>(
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -489,8 +483,7 @@ void unmlq<Target::HostTask, double>(
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::HostNest, double>(
@@ -499,8 +492,7 @@ void unmlq<Target::HostNest, double>(
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::HostBatch, double>(
@@ -509,8 +501,7 @@ void unmlq<Target::HostBatch, double>(
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::Devices, double>(
@@ -519,8 +510,7 @@ void unmlq<Target::Devices, double>(
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -530,8 +520,7 @@ void unmlq< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::HostNest, std::complex<float> >(
@@ -540,8 +529,7 @@ void unmlq< Target::HostNest, std::complex<float> >(
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::HostBatch, std::complex<float> >(
@@ -550,8 +538,7 @@ void unmlq< Target::HostBatch, std::complex<float> >(
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::Devices, std::complex<float> >(
@@ -560,8 +547,7 @@ void unmlq< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -571,8 +557,7 @@ void unmlq< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::HostNest, std::complex<double> >(
@@ -581,8 +566,7 @@ void unmlq< Target::HostNest, std::complex<double> >(
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::HostBatch, std::complex<double> >(
@@ -591,8 +575,7 @@ void unmlq< Target::HostBatch, std::complex<double> >(
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::Devices, std::complex<double> >(
@@ -601,8 +584,7 @@ void unmlq< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

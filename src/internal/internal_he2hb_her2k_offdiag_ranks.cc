@@ -26,13 +26,12 @@ void he2hb_her2k_offdiag_ranks(
                     Matrix<scalar_t>&& B,
     scalar_t beta,  HermitianMatrix<scalar_t>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     he2hb_her2k_offdiag_ranks(
         internal::TargetType<target>(),
         alpha, A, B, beta, C,
-        panel_rank_rows, priority, queue_index, opts );
+        panel_rank_rows, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -47,8 +46,7 @@ void he2hb_her2k_offdiag_ranks(
                     Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -109,8 +107,7 @@ void he2hb_her2k_offdiag_ranks(
                     Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -367,8 +364,7 @@ void he2hb_her2k_offdiag_ranks<Target::HostTask, float>(
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -377,8 +373,7 @@ void he2hb_her2k_offdiag_ranks<Target::HostTask, double>(
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -387,8 +382,7 @@ void he2hb_her2k_offdiag_ranks< Target::HostTask, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -397,8 +391,7 @@ void he2hb_her2k_offdiag_ranks< Target::HostTask, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -407,8 +400,7 @@ void he2hb_her2k_offdiag_ranks<Target::Devices, float>(
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -417,8 +409,7 @@ void he2hb_her2k_offdiag_ranks<Target::Devices, double>(
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -427,8 +418,7 @@ void he2hb_her2k_offdiag_ranks< Target::Devices, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -437,8 +427,7 @@ void he2hb_her2k_offdiag_ranks< Target::Devices, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

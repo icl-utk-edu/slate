@@ -28,7 +28,7 @@ void hemmA(Side side,
            scalar_t alpha, HermitianMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
            scalar_t beta,  Matrix<scalar_t>&& C,
-           int priority, Options const& opts)
+           int priority )
 {
     // check dimensions
     assert(A.mt() == 1);
@@ -50,7 +50,7 @@ void hemmA(Side side,
           alpha, A,
                  B,
           beta,  C,
-          priority, opts);
+          priority );
 }
 
 //------------------------------------------------------------------------------
@@ -64,7 +64,7 @@ void hemmA(internal::TargetType<Target::HostTask>,
            scalar_t alpha, HermitianMatrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           int priority, Options const& opts)
+           int priority )
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
@@ -120,7 +120,7 @@ void hemmA(internal::TargetType<Target::HostNest>,
            scalar_t alpha, HermitianMatrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           int priority, Options const& opts)
+           int priority )
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
@@ -184,7 +184,7 @@ void hemmA< Target::HostTask, float >(
     float alpha, HermitianMatrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority, Options const& opts);
+    int priority );
 
 template
 void hemmA<Target::HostNest, float>(
@@ -192,7 +192,7 @@ void hemmA<Target::HostNest, float>(
     float alpha, HermitianMatrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority, Options const& opts);
+    int priority );
 
 // ----------------------------------------
 template
@@ -201,7 +201,7 @@ void hemmA<Target::HostTask, double>(
     double alpha, HermitianMatrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority, Options const& opts);
+    int priority );
 
 template
 void hemmA<Target::HostNest, double>(
@@ -209,7 +209,7 @@ void hemmA<Target::HostNest, double>(
     double alpha, HermitianMatrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority, Options const& opts);
+    int priority );
 
 // ----------------------------------------
 template
@@ -218,7 +218,7 @@ void hemmA< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, HermitianMatrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority, Options const& opts);
+    int priority );
 
 template
 void hemmA< Target::HostNest, std::complex<float> >(
@@ -226,7 +226,7 @@ void hemmA< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, HermitianMatrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority, Options const& opts);
+    int priority );
 
 // ----------------------------------------
 template
@@ -235,7 +235,7 @@ void hemmA< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, HermitianMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority, Options const& opts);
+    int priority );
 
 template
 void hemmA< Target::HostNest, std::complex<double> >(
@@ -243,7 +243,7 @@ void hemmA< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, HermitianMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority, Options const& opts);
+    int priority );
 
 } // namespace internal
 } // namespace slate

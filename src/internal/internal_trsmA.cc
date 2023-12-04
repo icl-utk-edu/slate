@@ -24,8 +24,7 @@ template <Target target, typename scalar_t>
 void trsmA(Side side,
            scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                      Matrix<scalar_t>&& B,
-           int priority, Layout layout, int64_t queue_index,
-           Options const& opts)
+           int priority, Layout layout, int64_t queue_index )
 {
     assert( A.mt() == 1 );
     assert( side == Side::Left ? A.mt() == B.mt() : A.mt() == B.nt() );
@@ -34,7 +33,7 @@ void trsmA(Side side,
           side,
           alpha, A,
                  B,
-          priority, layout, queue_index, opts );
+          priority, layout, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -47,8 +46,7 @@ void trsmA(internal::TargetType<Target::HostTask>,
            Side side,
            scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                      Matrix<scalar_t>& B,
-           int priority, Layout layout, int64_t queue_index,
-           Options const& opts)
+           int priority, Layout layout, int64_t queue_index )
 {
 
     // CPU assumes column major
@@ -104,13 +102,12 @@ void trsmA(internal::TargetType<Target::HostNest>,
            Side side,
            scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                      Matrix<scalar_t>& B,
-           int priority, Layout layout, int64_t queue_index,
-           Options const& opts)
+           int priority, Layout layout, int64_t queue_index )
 {
     trsmA( internal::TargetType<Target::HostTask>(),
             side,
             alpha, A, B,
-            priority, layout, queue_index, opts );
+            priority, layout, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -123,13 +120,12 @@ void trsmA(internal::TargetType<Target::HostBatch>,
            Side side,
            scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                      Matrix<scalar_t>& B,
-           int priority, Layout layout, int64_t queue_index,
-           Options const& opts)
+           int priority, Layout layout, int64_t queue_index )
 {
     trsmA( internal::TargetType<Target::HostTask>(),
             side,
             alpha, A, B,
-            priority, layout, queue_index, opts );
+            priority, layout, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -142,8 +138,7 @@ void trsmA(internal::TargetType<Target::Devices>,
            Side side,
            scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                      Matrix<scalar_t>& B,
-           int priority, Layout layout, int64_t queue_index,
-           Options const& opts)
+           int priority, Layout layout, int64_t queue_index )
 {
     using std::swap;
     using blas::conj;
@@ -359,32 +354,28 @@ void trsmA<Target::HostTask, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA<Target::HostNest, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA<Target::HostBatch, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA<Target::Devices, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -392,32 +383,28 @@ void trsmA<Target::HostTask, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA<Target::HostNest, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA<Target::HostBatch, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA<Target::Devices, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -425,32 +412,28 @@ void trsmA< Target::HostTask, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA< Target::HostNest, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA< Target::HostBatch, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA< Target::Devices, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -458,32 +441,28 @@ void trsmA< Target::HostTask, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA< Target::HostNest, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA< Target::HostBatch, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 template
 void trsmA< Target::Devices, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, Layout layout, int64_t queue_index,
-    Options const& opts);
+    int priority, Layout layout, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

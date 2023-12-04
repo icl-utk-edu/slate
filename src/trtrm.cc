@@ -92,7 +92,7 @@ void trtrm(
                 internal::herk<target>(
                     real_t(1.0), std::move(Ak),
                     real_t(1.0), std::move(H0),
-                    priority_0, queue_0, layout, opts );
+                    priority_0, queue_0, layout );
             }
 
             // multiply the leading row by the diagonal block
@@ -107,7 +107,7 @@ void trtrm(
                 internal::trmm<Target::HostTask>(
                     Side::Left,
                     one, std::move( Akk ), A.sub(k, k, 0, k-1),
-                    priority_0, queue_0, opts );
+                    priority_0 );
             }
 
             // diagonal block, L = L^H L

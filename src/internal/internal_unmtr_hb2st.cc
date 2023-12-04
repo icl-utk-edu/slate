@@ -20,11 +20,9 @@ template <Target target, typename scalar_t>
 void unmtr_hb2st(
     Side side, Op op,
     Matrix<scalar_t>& V,
-    Matrix<scalar_t>& C,
-    const std::map<Option, Value>& opts)
+    Matrix<scalar_t>& C )
 {
-    unmtr_hb2st(internal::TargetType<target>(),
-                side, op, V, C, opts);
+    unmtr_hb2st(internal::TargetType<target>(), side, op, V, C);
 }
 
 //------------------------------------------------------------------------------
@@ -40,8 +38,7 @@ template <Target target, typename scalar_t>
 void unmtr_hb2st( internal::TargetType<target>,
                   Side side, Op op,
                   Matrix<scalar_t>& V,
-                  Matrix<scalar_t>& C,
-                  const std::map<Option, Value>& opts)
+                  Matrix<scalar_t>& C )
 {
     slate_assert(side == Side::Left);
 
@@ -464,56 +461,49 @@ template
 void unmtr_hb2st<Target::HostTask, float>(
     Side side, Op op,
     Matrix<float>& V,
-    Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Matrix<float>& C );
 
 template
 void unmtr_hb2st<Target::HostTask, double>(
     Side side, Op op,
     Matrix<double>& V,
-    Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Matrix<double>& C );
 
 template
 void unmtr_hb2st<Target::HostTask, std::complex<float> >(
     Side side, Op op,
     Matrix< std::complex<float> >& V,
-    Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Matrix< std::complex<float> >& C );
 
 template
 void unmtr_hb2st<Target::HostTask, std::complex<double> >(
     Side side, Op op,
     Matrix< std::complex<double> >& V,
-    Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Matrix< std::complex<double> >& C );
 
 template
 void unmtr_hb2st<Target::Devices, float>(
     Side side, Op op,
     Matrix<float>& V,
-    Matrix<float>& C,
-    const std::map<Option, Value>& opts);
+    Matrix<float>& C );
 
 template
 void unmtr_hb2st<Target::Devices, double>(
     Side side, Op op,
     Matrix<double>& V,
-    Matrix<double>& C,
-    const std::map<Option, Value>& opts);
+    Matrix<double>& C );
 
 template
 void unmtr_hb2st<Target::Devices, std::complex<float> >(
     Side side, Op op,
     Matrix< std::complex<float> >& V,
-    Matrix< std::complex<float> >& C,
-    const std::map<Option, Value>& opts);
+    Matrix< std::complex<float> >& C );
 
 template
 void unmtr_hb2st<Target::Devices, std::complex<double> >(
     Side side, Op op,
     Matrix< std::complex<double> >& V,
-    Matrix< std::complex<double> >& C,
-    const std::map<Option, Value>& opts);
+    Matrix< std::complex<double> >& C );
+
 } // namespace internal
 } // namespace slate

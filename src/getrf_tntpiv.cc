@@ -223,7 +223,7 @@ int64_t getrf_tntpiv(
                     Side::Right,
                     one, std::move(Tkk),
                          A.sub( k+1, A_mt-1, k, k ),
-                    priority_1, Layout::ColMajor, queue_0, opts );
+                    priority_1, Layout::ColMajor, queue_0 );
             }
 
             #pragma omp task depend(inout:column[k]) \
@@ -262,7 +262,7 @@ int64_t getrf_tntpiv(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub( k, k, j, j ),
-                        priority_1, Layout::ColMajor, queue_jk1, opts );
+                        priority_1, Layout::ColMajor, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -281,7 +281,7 @@ int64_t getrf_tntpiv(
                         -one, A.sub( k+1, A_mt-1, k, k ),
                               A.sub( k, k, j, j ),
                         one,  A.sub( k+1, A_mt-1, j, j ),
-                        host_layout, priority_1, queue_jk1, opts );
+                        host_layout, priority_1, queue_jk1 );
                 }
             }
 
@@ -306,7 +306,7 @@ int64_t getrf_tntpiv(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub( k, k, k+1+lookahead, A_nt-1 ),
-                        priority_0, Layout::ColMajor, queue_1, opts );
+                        priority_0, Layout::ColMajor, queue_1 );
                 }
 
                 #pragma omp task depend(inout:column[k+1+lookahead]) \
@@ -335,7 +335,7 @@ int64_t getrf_tntpiv(
                         -one, A.sub( k+1, A_mt-1, k, k ),
                               A.sub( k, k, k+1+lookahead, A_nt-1 ),
                         one,  A.sub( k+1, A_mt-1, k+1+lookahead, A_nt-1 ),
-                        host_layout, priority_0, queue_1, opts );
+                        host_layout, priority_0, queue_1 );
                 }
             }
             // pivot to the left

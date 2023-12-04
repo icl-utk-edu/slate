@@ -33,8 +33,6 @@ void unmlq(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const int64_t tag_0 = 0;
-    const int64_t priority_0 = 0;
-    const int64_t queue_0 = 0;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -199,7 +197,7 @@ void unmlq(
                                     std::move(A_panel),
                                     Treduce.sub(k, k, k, A_nt-1),
                                     std::move(C_trail),
-                                    tag_0, opts );
+                                    tag_0 );
                 }
 
                 // Apply local reflectors.
@@ -208,8 +206,7 @@ void unmlq(
                                 std::move(A_panel),
                                 Tlocal.sub(k, k, k, A_nt-1),
                                 std::move(C_trail),
-                                std::move(W_trail),
-                                priority_0, queue_0, opts );
+                                std::move(W_trail) );
 
                 // Left,  NoTrans:     Qi C   = Qi_reduce Qi_local C, or
                 // Right, (Conj)Trans: C Qi^H = C Qi_local^H Qi_reduce^H,
@@ -221,7 +218,7 @@ void unmlq(
                                     std::move(A_panel),
                                     Treduce.sub(k, k, k, A_nt-1),
                                     std::move(C_trail),
-                                    tag_0, opts );
+                                    tag_0 );
                 }
             }
 

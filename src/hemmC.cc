@@ -47,8 +47,6 @@ void hemmC(
 
     // Constants
     const scalar_t one = 1.0;
-    const int priority_0 = 0;
-    const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -150,8 +148,7 @@ void hemmC(
                     Side::Left,
                     alpha, A.sub( 0, 0 ),
                            std::move( Brow_0 ),
-                    beta,  C.sub( 0, 0, 0, C.nt()-1 ),
-                    priority_0, opts );
+                    beta,  C.sub( 0, 0, 0, C.nt()-1 ) );
 
                 // Erase local & remote tile on all devices including host.
                 A.releaseRemoteWorkspaceTile( 0, 0 );
@@ -163,7 +160,7 @@ void hemmC(
                         alpha, std::move( Acol_0 ),
                                std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout, priority_0, queue_0, opts );
+                        layout );
 
                     // Don't release local Acol_0 here, because it may be
                     // bcast again, creating a race condition.
@@ -236,7 +233,7 @@ void hemmC(
                         alpha,  conj_transpose( Arow_k ),
                                 std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout, priority_0, queue_0, opts );
+                        layout );
 
                     Arow_k.releaseRemoteWorkspace();
                     Arow_k.releaseLocalWorkspace();
@@ -245,8 +242,7 @@ void hemmC(
                         Side::Left,
                         alpha,  A.sub( k, k ),
                                 std::move( Brow_k ),
-                        one,    C.sub( k, k, 0, C.nt()-1 ),
-                        priority_0, opts );
+                        one,    C.sub( k, k, 0, C.nt()-1 ) );
 
                     A.releaseRemoteWorkspaceTile( k, k );
                     A.releaseLocalWorkspaceTile( k, k );
@@ -257,7 +253,7 @@ void hemmC(
                             alpha,  std::move( Acol_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout, priority_0, queue_0, opts );
+                            layout );
 
                         // Don't release local Acol_k here, because it may be
                         // bcast again, creating a race condition.
@@ -343,8 +339,7 @@ void hemmC(
                     Side::Left,
                     alpha, A.sub( 0, 0 ),
                            std::move( Brow_0 ),
-                    beta,  C.sub( 0, 0, 0, C.nt()-1 ),
-                    priority_0, opts );
+                    beta,  C.sub( 0, 0, 0, C.nt()-1 ) );
 
                 A.releaseRemoteWorkspaceTile( 0, 0 );
                 A.releaseLocalWorkspaceTile( 0, 0 );
@@ -355,7 +350,7 @@ void hemmC(
                         alpha, conj_transpose( Arow_0 ),
                                std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout, priority_0, queue_0, opts );
+                        layout );
 
                     // Don't release local Arow_0 here, because it may be
                     // bcast again, creating a race condition.
@@ -426,7 +421,7 @@ void hemmC(
                         alpha,  std::move( Acol_k ),
                                 std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout, priority_0, queue_0, opts );
+                        layout );
 
                     Acol_k.releaseRemoteWorkspace();
                     Acol_k.releaseLocalWorkspace();
@@ -435,8 +430,7 @@ void hemmC(
                         Side::Left,
                         alpha,  A.sub( k, k ),
                                 std::move( Brow_k ),
-                        one,    C.sub( k, k, 0, C.nt()-1 ),
-                        priority_0, opts );
+                        one,    C.sub( k, k, 0, C.nt()-1 ) );
 
                     A.releaseRemoteWorkspaceTile( k, k );
                     A.releaseLocalWorkspaceTile( k, k );
@@ -447,7 +441,7 @@ void hemmC(
                             alpha,  conj_transpose( Arow_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout, priority_0, queue_0, opts );
+                            layout );
 
                         // Don't release local Arow_k here, because it may be
                         // bcast again, creating a race condition.

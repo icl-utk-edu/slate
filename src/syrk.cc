@@ -107,7 +107,7 @@ void syrk(
             internal::syrk<target>(
                 alpha, std::move( A_col0 ),
                 beta,  std::move( C ),
-                priority_0, queue_0, layout, opts );
+                priority_0, queue_0, layout );
 
             // Erase remote tiles on all devices including host
             A_col0.releaseRemoteWorkspace();
@@ -146,7 +146,7 @@ void syrk(
                 internal::syrk<target>(
                     alpha, std::move( A_colk ),
                     one,   std::move( C ),
-                    priority_0, queue_0, layout, opts );
+                    priority_0, queue_0, layout );
 
                 // Erase remote tiles on all devices including host
                 A_colk.releaseRemoteWorkspace();

@@ -23,12 +23,11 @@ namespace internal {
 template <Target target, typename src_scalar_t, typename dst_scalar_t>
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
-          int priority, int queue_index,
-          Options const& opts)
+          int priority, int queue_index )
 {
     copy(internal::TargetType<target>(),
          A, B,
-         priority, queue_index, opts);
+         priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -42,8 +41,7 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::HostTask>,
           BaseTrapezoidMatrix<src_scalar_t>& A,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
-          int priority, int queue_index,
-          Options const& opts)
+          int priority, int queue_index )
 {
     // trace::Block trace_block("copy");
 
@@ -105,8 +103,7 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::Devices>,
           BaseTrapezoidMatrix<src_scalar_t>& A,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
-          int priority, int queue_index,
-          Options const& opts)
+          int priority, int queue_index )
 {
     using ij_tuple = typename BaseMatrix<src_scalar_t>::ij_tuple;
     slate_error_if(A.uplo() != B.uplo());
@@ -220,116 +217,100 @@ template
 void copy<Target::HostTask, float, float>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy<Target::HostTask, float, double>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy<Target::Devices, float, float>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy<Target::Devices, float, double>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 // ----------------------------------------
 template
 void copy<Target::HostTask, double, double>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy<Target::HostTask, double, float>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy<Target::Devices, double, double>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy<Target::Devices, double, float>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 // ----------------------------------------
 template
 void copy< Target::HostTask, std::complex<float>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy< Target::HostTask, std::complex<float>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy< Target::Devices, std::complex<float>, std::complex<float>  >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy< Target::Devices, std::complex<float>, std::complex<double>  >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 // ----------------------------------------
 template
 void copy< Target::HostTask, std::complex<double>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy< Target::HostTask, std::complex<double>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy< Target::Devices, std::complex<double>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 template
 void copy< Target::Devices, std::complex<double>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority, int queue_index,
-    Options const& opts);
+    int priority, int queue_index );
 
 } // namespace internal
 } // namespace slate

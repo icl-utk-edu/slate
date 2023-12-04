@@ -38,8 +38,6 @@ void gemmC(
 
     // Constants
     const scalar_t one = 1.0;
-    const int priority_0 = 0;
-    const int queue_0 = 0;
     const Layout layout = Layout::ColMajor;
 
     // Options
@@ -120,7 +118,7 @@ void gemmC(
                     alpha, A.sub(0, A.mt()-1, 0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
                     beta,  std::move(C),
-                    layout, priority_0, queue_0, opts );
+                    layout );
 
             auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
             auto B_rowblock = B.sub(0, 0, 0, B.nt()-1);
@@ -169,7 +167,7 @@ void gemmC(
                     alpha, A.sub(0, A.mt()-1, k, k),
                            B.sub(k, k, 0, B.nt()-1),
                     one,   std::move( C ),
-                    layout, priority_0, queue_0, opts );
+                    layout );
             }
 
             #pragma omp task depend(in:gemm[k])

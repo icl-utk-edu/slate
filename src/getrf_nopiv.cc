@@ -107,7 +107,7 @@ int64_t getrf_nopiv(
                 internal::trsm<target>(
                     Side::Right,
                     one, std::move( Tkk ), A.sub(k+1, A_mt-1, k, k),
-                    priority_1, layout, queue_0, opts );
+                    priority_1, layout, queue_0 );
 
 
                 BcastListTag bcast_list;
@@ -136,7 +136,7 @@ int64_t getrf_nopiv(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_1, layout, queue_jk1, opts );
+                        priority_1, layout, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag_j);
@@ -152,7 +152,7 @@ int64_t getrf_nopiv(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, A_mt-1, j, j),
-                        layout, priority_1, queue_jk1, opts );
+                        layout, priority_1, queue_jk1 );
                 }
             }
             // update trailing submatrix, normal priority
@@ -171,7 +171,7 @@ int64_t getrf_nopiv(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_0, layout, queue_1, opts );
+                        priority_0, layout, queue_1 );
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
@@ -195,7 +195,7 @@ int64_t getrf_nopiv(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, k+1+lookahead, A_nt-1),
                         one,  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        layout, priority_0, queue_1, opts );
+                        layout, priority_0, queue_1 );
                 }
             }
             #pragma omp task depend(inout:column[k])

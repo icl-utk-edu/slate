@@ -27,11 +27,10 @@ void ttmlq(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           int tag,
-           Options const& opts)
+           int tag )
 {
     ttmlq(internal::TargetType<target>(),
-          side, op, A, T, C, tag, opts);
+          side, op, A, T, C, tag );
 }
 
 //------------------------------------------------------------------------------
@@ -45,8 +44,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
-           int tag,
-           Options const& opts)
+           int tag )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -301,8 +299,7 @@ void ttmlq<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& T,
     Matrix<float>&& C,
-    int tag,
-    Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -311,8 +308,7 @@ void ttmlq<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& T,
     Matrix<double>&& C,
-    int tag,
-    Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -321,8 +317,7 @@ void ttmlq< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
-    int tag,
-    Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -331,8 +326,7 @@ void ttmlq< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
-    int tag,
-    Options const& opts);
+    int tag );
 
 } // namespace internal
 } // namespace slate

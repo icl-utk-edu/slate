@@ -194,7 +194,7 @@ void he2hb(
                 depend( inout:block[ k ] ) \
                 shared( dwork_array ) \
                 firstprivate(  A_panel, Tlocal_panel, Treduce_panel, ib, \
-                               max_panel_threads, work_size, priority_1, opts )
+                               max_panel_threads, work_size, priority_1 )
             {
                 internal::geqrf<target>(
                     std::move( A_panel ),
@@ -206,8 +206,7 @@ void he2hb(
                 // ttqrt handles tile transfers internally
                 internal::ttqrt<Target::HostTask>(
                     std::move( A_panel ),
-                    std::move( Treduce_panel ),
-                    opts );
+                    std::move( Treduce_panel ) );
             }
 
             // if trailing matrix exists.
@@ -394,7 +393,7 @@ void he2hb(
                         firstprivate( zero, half, one, r_one, i0, k, nt, \
                                       panel_rank, panel_rank_rows, \
                                       panel_rank_rows_sub, mpi_rank, \
-                                      layout, layoutc, priority_0, queue_0, opts )
+                                      layout, layoutc, priority_0, queue_0 )
                     {
                         // Compute W = A V T.
                         // 1a. Wi_part = sum_j Aij Vj, local partial sum,
@@ -403,8 +402,7 @@ void he2hb(
                             A.sub( k+1, nt-1 ),
                             A.sub( k+1, nt-1, k, k ),
                             W.sub( k+1, nt-1, k, k ),
-                            panel_rank_rows_sub,
-                            priority_0, queue_0, opts );
+                            panel_rank_rows_sub );
 
                         // 1b. Wi = Wi_part1 + Wi_part2.
                         // At most 2 ranks contribute to each Wi; if I am one,
@@ -460,7 +458,7 @@ void he2hb(
                             A.sub( k+1, nt-1 ), // Needed to get the rank
                             Tlocal.sub( i0, i0, k, k ),
                             W.sub( k+1, nt-1, k, k ),
-                            panel_rank_rows_sub, priority_0, queue_0, opts );
+                            panel_rank_rows_sub );
 
                         if (A.tileIsLocal( i0, i0 )) {
                             //--------------------
@@ -480,7 +478,7 @@ void he2hb(
                                 one,  conj_transpose( A.sub( k+1, nt-1, k, k ) ),
                                       W.sub( k+1, nt-1, k, k ),
                                 zero, std::move( TVAVT ),
-                                panel_rank, priority_0, queue_0, opts );
+                                panel_rank );
 
                             // 1e. TVAVT = T^H (V^H A V T).
                             auto T0     = Tlocal.sub( i0, i0, k, k );
@@ -510,7 +508,7 @@ void he2hb(
                                 -half, A.sub( k+1, nt-1, k, k ),
                                        std::move( TVAVT ),
                                 one,   W.sub( k+1, nt-1, k, k ),
-                                panel_rank, priority_0, queue_0, opts );
+                                panel_rank );
 
                             // 2. Update trailing matrix.
                             // A = A - V Y^H - Y V^H, with Y in W.
@@ -518,7 +516,7 @@ void he2hb(
                                 -one,  A.sub( k+1, nt-1, k, k ),
                                        W.sub( k+1, nt-1, k, k ),
                                 r_one, A.sub( k+1, nt-1 ),
-                                priority_0, queue_0, layout, opts );
+                                priority_0, queue_0, layout );
                         }
                         else { // off-diag
                             //--------------------
@@ -540,7 +538,7 @@ void he2hb(
                                 -one, A.sub( k+1, nt-1, k, k ),
                                       W.sub( k+1, nt-1, k, k ),
                                 one,  A.sub( k+1, nt-1 ),
-                                panel_rank_rows_sub, priority_0, queue_0, opts );
+                                panel_rank_rows_sub );
                         }
                     }
 
@@ -566,7 +564,7 @@ void he2hb(
                     depend( inout:block[ nt-1 ] ) \
                     depend( inout:fetch_trailing[ 0 ] ) \
                     shared( A ) \
-                    firstprivate( A_panel, Treduce_panel, k, nt, opts )
+                    firstprivate( A_panel, Treduce_panel, k, nt )
                 {
                     int tag_base = A.mt()*A.mt();
                     // Do 2-sided Hermitian update:
@@ -576,7 +574,7 @@ void he2hb(
                         std::move( A_panel ),
                         std::move( Treduce_panel ),
                         A.sub( k+1, nt-1 ),
-                        tag_base, opts );
+                        tag_base );
                 }
             }
 

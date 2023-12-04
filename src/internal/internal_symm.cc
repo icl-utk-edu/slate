@@ -27,7 +27,7 @@ void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority, Options const& opts)
+          int priority )
 {
     // check dimensions
     assert(A.mt() == 1);
@@ -48,7 +48,7 @@ void symm(Side side,
          side,
          alpha, A, B,
          beta,  C,
-         priority, opts);
+         priority );
 }
 
 //------------------------------------------------------------------------------
@@ -62,7 +62,7 @@ void symm(internal::TargetType<Target::HostTask>,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority, Options const& opts)
+          int priority )
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::symm() to take layout param
@@ -137,7 +137,7 @@ void symm(internal::TargetType<Target::HostNest>,
           scalar_t alpha, SymmetricMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority, Options const& opts)
+          int priority )
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::symm() to take layout param
@@ -201,7 +201,7 @@ void symm<Target::HostTask, float>(
     float alpha, SymmetricMatrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority, Options const& opts);
+    int priority );
 
 template
 void symm<Target::HostNest, float>(
@@ -209,7 +209,7 @@ void symm<Target::HostNest, float>(
     float alpha, SymmetricMatrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority, Options const& opts);
+    int priority );
 
 // ----------------------------------------
 template
@@ -218,7 +218,7 @@ void symm<Target::HostTask, double>(
     double alpha, SymmetricMatrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority, Options const& opts);
+    int priority );
 
 template
 void symm<Target::HostNest, double>(
@@ -226,7 +226,7 @@ void symm<Target::HostNest, double>(
     double alpha, SymmetricMatrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority, Options const& opts);
+    int priority );
 
 // ----------------------------------------
 template
@@ -235,7 +235,7 @@ void symm< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, SymmetricMatrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority, Options const& opts);
+    int priority );
 
 template
 void symm< Target::HostNest, std::complex<float> >(
@@ -243,7 +243,7 @@ void symm< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, SymmetricMatrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority, Options const& opts);
+    int priority );
 
 // ----------------------------------------
 template
@@ -252,7 +252,7 @@ void symm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, SymmetricMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority, Options const& opts);
+    int priority );
 
 template
 void symm< Target::HostNest, std::complex<double> >(
@@ -260,7 +260,7 @@ void symm< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, SymmetricMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority, Options const& opts);
+    int priority );
 
 } // namespace internal
 } // namespace slate

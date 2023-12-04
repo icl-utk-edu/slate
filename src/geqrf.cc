@@ -160,8 +160,7 @@ void geqrf(
                 // ttqrt handles tile transfers internally
                 internal::ttqrt<Target::HostTask>(
                                 std::move(A_panel),
-                                std::move(Tr_panel),
-                                opts );
+                                std::move(Tr_panel) );
 
                 // if a trailing matrix exists
                 if (k < A_nt-1) {
@@ -213,7 +212,7 @@ void geqrf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, j),
-                                    priority_1, queue_jk1, opts );
+                                    priority_1, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
@@ -223,7 +222,7 @@ void geqrf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    tag_j, opts );
+                                    tag_j );
                 }
             }
 
@@ -244,7 +243,7 @@ void geqrf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1),
-                                    priority_0, queue_jk1, opts );
+                                    priority_0, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors.
                     // ttmqr handles the tile broadcasting internally.
@@ -254,7 +253,7 @@ void geqrf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    tag_j, opts );
+                                    tag_j );
                 }
             }
 

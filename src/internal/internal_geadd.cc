@@ -23,12 +23,12 @@ namespace internal {
 template <Target target, typename scalar_t>
 void add(scalar_t alpha, Matrix<scalar_t>&& A,
          scalar_t beta, Matrix<scalar_t>&& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     add(internal::TargetType<target>(),
         alpha, A,
         beta,  B,
-        priority, queue_index, opts);
+        priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ template <typename scalar_t>
 void add(internal::TargetType<Target::HostTask>,
          scalar_t alpha, Matrix<scalar_t>& A,
          scalar_t beta, Matrix<scalar_t>& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     // trace::Block trace_block("add");
 
@@ -77,7 +77,7 @@ template <typename scalar_t>
 void add(internal::TargetType<Target::HostNest>,
          scalar_t alpha, Matrix<scalar_t>& A,
          scalar_t beta, Matrix<scalar_t>& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -88,7 +88,7 @@ template <typename scalar_t>
 void add(internal::TargetType<Target::HostBatch>,
          scalar_t alpha, Matrix<scalar_t>& A,
          scalar_t beta, Matrix<scalar_t>& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -105,7 +105,7 @@ template <typename scalar_t>
 void add(internal::TargetType<Target::Devices>,
          scalar_t alpha, Matrix<scalar_t>& A,
          scalar_t beta, Matrix<scalar_t>& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -189,100 +189,100 @@ template
 void add<Target::HostTask, float>(
      float alpha, Matrix<float>&& A,
      float beta, Matrix<float>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::HostNest, float>(
      float alpha, Matrix<float>&& A,
      float beta, Matrix<float>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::HostBatch, float>(
      float alpha, Matrix<float>&& A,
      float beta, Matrix<float>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::Devices, float>(
      float alpha, Matrix<float>&& A,
      float beta, Matrix<float>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 // ----------------------------------------
 template
 void add<Target::HostTask, double>(
      double alpha, Matrix<double>&& A,
      double beta, Matrix<double>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::HostNest, double>(
      double alpha, Matrix<double>&& A,
      double beta, Matrix<double>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::HostBatch, double>(
      double alpha, Matrix<double>&& A,
      double beta, Matrix<double>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::Devices, double>(
      double alpha, Matrix<double>&& A,
      double beta, Matrix<double>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 // ----------------------------------------
 template
 void add< Target::HostTask, std::complex<float> >(
      std::complex<float> alpha, Matrix< std::complex<float> >&& A,
      std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::HostNest, std::complex<float> >(
      std::complex<float> alpha, Matrix< std::complex<float> >&& A,
      std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::HostBatch, std::complex<float> >(
      std::complex<float> alpha, Matrix< std::complex<float> >&& A,
      std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority, int queue_index, Options const& opts);
+    int priority, int queue_index );
 
 // ----------------------------------------
 template
 void add< Target::HostTask, std::complex<double> >(
      std::complex<double> alpha, Matrix< std::complex<double> >&& A,
      std::complex<double> beta, Matrix< std::complex<double> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::HostNest, std::complex<double> >(
      std::complex<double> alpha, Matrix< std::complex<double> >&& A,
      std::complex<double> beta, Matrix< std::complex<double> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::HostBatch, std::complex<double> >(
      std::complex<double> alpha, Matrix< std::complex<double> >&& A,
      std::complex<double> beta, Matrix< std::complex<double> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::Devices, std::complex<double> >(
      std::complex<double> alpha, Matrix< std::complex<double> >&& A,
      std::complex<double> beta, Matrix< std::complex<double> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 } // namespace internal
 } // namespace slate

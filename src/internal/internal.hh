@@ -112,15 +112,13 @@ template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
           Matrix<dst_scalar_t>&& B,
-          int priority=0, int queue_index=0,
-          Options const& opts = Options());
+          int priority=0, int queue_index=0 );
 
 template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
-          int priority=0, int queue_index=0,
-          Options const& opts = Options());
+          int priority=0, int queue_index=0 );
 
 //-----------------------------------------
 // scale()
@@ -176,8 +174,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          Layout layout, int priority=0, int64_t queue_index=0,
-          Options const& opts = Options());
+          Layout layout, int priority=0, int64_t queue_index=0 );
 
 //-----------------------------------------
 // gemmA()
@@ -185,8 +182,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  Matrix<scalar_t>&& C,
-           Layout layout, int priority=0, int64_t queue_index=0,
-           Options const& opts = Options());
+           Layout layout, int priority=0, int64_t queue_index=0 );
 
 //-----------------------------------------
 // hemm()
@@ -195,8 +191,7 @@ void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority=0,
-          Options const& opts = Options());
+          int priority=0 );
 
 // forward real-symmetric matrices to hemm;
 // disabled for complex
@@ -206,11 +201,10 @@ void hemm(Side side,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
           int priority=0,
-          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     hemm<target>(side, alpha, std::move(A),
-                 beta, HermitianMatrix<scalar_t>(C), priority, opts);
+                 beta, HermitianMatrix<scalar_t>(C), priority );
 }
 
 //-----------------------------------------
@@ -220,15 +214,14 @@ void hemmA(Side side,
            scalar_t alpha, HermitianMatrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  Matrix<scalar_t>&& C,
-           int priority=0, Options const& opts = Options());
+           int priority=0 );
 
 //-----------------------------------------
 // herk()
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
-          Options const& opts = Options());
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor );
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
@@ -236,12 +229,11 @@ template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
-          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     herk<target>(alpha, std::move(A),
                  beta, HermitianMatrix<scalar_t>(C),
-                 priority, queue_index, layout, opts);
+                 priority, queue_index, layout );
 }
 
 //-----------------------------------------
@@ -250,8 +242,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void her2k(scalar_t alpha,                 Matrix<scalar_t>&& A,
                                            Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>&& C,
-           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
-           Options const& opts = Options());
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor );
 
 // forward real-symmetric matrices to her2k;
 // disabled for complex
@@ -260,12 +251,11 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
                                             Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
            int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
-           Options const& opts = Options(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     her2k<target>(alpha, std::move(A),
                   beta, HermitianMatrix<scalar_t>(C),
-                  priority, queue_index, layout, opts);
+                  priority, queue_index, layout );
 }
 
 //-----------------------------------------
@@ -275,8 +265,7 @@ void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority=0,
-          Options const& opts = Options());
+          int priority=0 );
 
 // forward real-Hermitian matrices to symm;
 // disabled for complex
@@ -286,11 +275,10 @@ void symm(Side side,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
           int priority=0,
-          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     symm<target>(side, alpha, std::move(A),
-                 beta, SymmetricMatrix<scalar_t>(C), priority, opts);
+                 beta, SymmetricMatrix<scalar_t>(C), priority );
 }
 
 //-----------------------------------------
@@ -298,8 +286,7 @@ void symm(Side side,
 template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
-          Options const& opts = Options());
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor );
 
 // forward real-Hermitian matrices to syrk;
 // disabled for complex
@@ -307,7 +294,6 @@ template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  HermitianMatrix<scalar_t>&& C,
           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
-          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     syrk<target>(alpha, std::move(A),
@@ -321,8 +307,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
-           Options const& opts = Options());
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor );
 
 // forward real-Hermitian matrices to syr2k;
 // disabled for complex
@@ -331,12 +316,11 @@ void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  HermitianMatrix<scalar_t>&& C,
            int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
-           Options const& opts = Options(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     syr2k<target>(alpha, std::move(A), std::move(B),
                   beta, SymmetricMatrix<scalar_t>(C),
-                  priority, queue_index, layout, opts);
+                  priority, queue_index, layout );
 }
 
 //-----------------------------------------
@@ -345,8 +329,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority=0, int64_t queue_index=0,
-          Options const& opts = Options());
+          int priority=0, int64_t queue_index=0 );
 
 //-----------------------------------------
 // trsm()
@@ -355,7 +338,7 @@ void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor,
-          int64_t queue_index=0, Options const& opts = Options());
+          int64_t queue_index=0 );
 
 //-----------------------------------------
 // trsmA()
@@ -364,7 +347,7 @@ void trsmA(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor,
-          int64_t queue_index=0, Options const& opts = Options());
+          int64_t queue_index=0 );
 
 //-----------------------------------------
 // trtri()
@@ -397,14 +380,12 @@ void permuteRowsCols(
 template <Target target=Target::HostTask, typename scalar_t>
 void add(scalar_t alpha, Matrix<scalar_t>&& A,
          scalar_t beta,  Matrix<scalar_t>&& B,
-         int priority=0, int queue_index=0,
-         Options const& opts = Options());
+         int priority=0, int queue_index=0 );
 
 template <Target target=Target::HostTask, typename scalar_t>
 void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
          scalar_t beta,  BaseTrapezoidMatrix<scalar_t>&& B,
-         int priority=0, int queue_index=0,
-         Options const& opts = Options());
+         int priority=0, int queue_index=0 );
 
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t> A11,
@@ -560,8 +541,7 @@ void he2hb_hemm(HermitianMatrix<scalar_t>&& A,
             Matrix<scalar_t>&& B,
             Matrix<scalar_t>&& C,
             std::vector<int64_t>& panel_rank_rows,
-            int priority=0, int64_t queue_index=0,
-            Options const& opts = Options());
+            int priority=0, int64_t queue_index=0 );
 
 //-----------------------------------------
 // he2hb_trmm()
@@ -570,8 +550,7 @@ void he2hb_trmm(HermitianMatrix<scalar_t>&& AH,
             Matrix<scalar_t>&& A,
             Matrix<scalar_t>&& B,
             std::vector<int64_t>& panel_rank_rows,
-            int priority=0, int64_t queue_index=0,
-            Options const& opts = Options());
+            int priority=0, int64_t queue_index=0 );
 
 
 //-----------------------------------------
@@ -581,8 +560,7 @@ void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                                 Matrix<scalar_t>&& B,
                 scalar_t beta,  Matrix<scalar_t>&& T,
                 int panel_rank,
-                int priority=0, int64_t queue_index=0,
-                Options const& opts = Options());
+                int priority=0, int64_t queue_index=0 );
 
 //-----------------------------------------
 // he2hb_her2k_offdiag_ranks()
@@ -592,21 +570,18 @@ void he2hb_her2k_offdiag_ranks(
                         Matrix<scalar_t>&& B,
         scalar_t beta,  HermitianMatrix<scalar_t>&& C,
         std::vector<int64_t>& panel_rank_rows,
-        int priority=0, int64_t queue_index=0,
-        Options const& opts = Options());
+        int priority=0, int64_t queue_index=0 );
 
 //-----------------------------------------
 // ttqrt()
 template <Target target=Target::HostTask, typename scalar_t>
 void ttqrt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T,
-           Options const& opts = Options());
+           Matrix<scalar_t>&& T );
 
 // ttlqt()
 template <Target target=Target::HostTask, typename scalar_t>
 void ttlqt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T,
-           Options const& opts = Options());
+           Matrix<scalar_t>&& T );
 
 //-----------------------------------------
 // ttmqr()
@@ -615,8 +590,7 @@ void ttmqr(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           int tag=0,
-           Options const& opts = Options());
+           int tag=0 );
 
 // ttmlq()
 template <Target target=Target::HostTask, typename scalar_t>
@@ -624,8 +598,7 @@ void ttmlq(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           int tag=0,
-           Options const& opts = Options());
+           int tag=0 );
 
 // hettmqr()
 template <Target target=Target::HostTask, typename scalar_t>
@@ -633,7 +606,7 @@ void hettmqr(Op op,
              Matrix<scalar_t>&& A,
              Matrix<scalar_t>&& T,
              HermitianMatrix<scalar_t>&& C,
-             int tag=0, Options const& opts = Options());
+             int tag=0 );
 
 //-----------------------------------------
 // unmqr()
@@ -643,8 +616,7 @@ void unmqr(Side side, Op op,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            Matrix<scalar_t>&& W,
-           int priority=0, int64_t queue_index=0,
-           Options const& opts = Options());
+           int priority=0, int64_t queue_index=0 );
 
 // unmlq()
 template <Target target=Target::HostTask, typename scalar_t>
@@ -653,24 +625,21 @@ void unmlq(Side side, Op op,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            Matrix<scalar_t>&& W,
-           int priority=0, int64_t queue_index=0,
-           Options const& opts = Options());
+           int priority=0, int64_t queue_index=0 );
 
 //-----------------------------------------
 // unmtr_hb2st()
 template <Target target=Target::HostTask, typename scalar_t>
 void unmtr_hb2st(Side side, Op op,
                  Matrix<scalar_t>& V,
-                 Matrix<scalar_t>& C,
-                 const std::map<Option, Value>& opts);
+                 Matrix<scalar_t>& C );
 
 //-----------------------------------------
 // unmbr_tb2bd()
 template <Target target=Target::HostTask, typename scalar_t>
 void unmbr_tb2bd(Side side, Op op,
                  Matrix<scalar_t>& V,
-                 Matrix<scalar_t>& C,
-                 const std::map<Option, Value>& opts);
+                 Matrix<scalar_t>& C );
 
 //-----------------------------------------
 // potrf()
@@ -695,8 +664,7 @@ void norm1est(
     Matrix<int64_t>& S,
     blas::real_type<scalar_t>* one_normest,
     int* kase,
-    std::vector<int64_t>& isave,
-    Options const& opts = Options());
+    std::vector<int64_t>& isave );
 
 //------------------------------------------------------------------------------
 // MPI reduce info, used in getrf, hetrf, etc.

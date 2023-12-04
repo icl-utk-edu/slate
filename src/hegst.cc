@@ -93,7 +93,7 @@ void hegst(
                         internal::trsm<target>(
                             Side::Right,  one,  conj_transpose( TBkk ),
                                                 std::move(Asub),
-                            priority_0, layout, queue_0, opts );
+                            priority_0, layout );
                     }
 
                     #pragma omp task depend(inout:column[k])
@@ -115,8 +115,7 @@ void hegst(
                         internal::hemm<Target::HostTask>(
                             Side::Right, -half, std::move(Akk),
                                                 std::move(Bsub),
-                                          one,  std::move(Asub),
-                            priority_0, opts );
+                                          one,  std::move(Asub) );
 
                         BcastList bcast_list;
                         for (int64_t i = k+1; i < nt; ++i) {
@@ -129,14 +128,13 @@ void hegst(
                             -one,  std::move( Asub ),
                                    std::move( Bsub ),
                             r_one, A.sub(k+1, nt-1),
-                            priority_0, queue_0, layout, opts );
+                            priority_0, queue_0, layout );
 
                         internal::hemm<Target::HostTask>(
                             Side::Right,
                             -half, std::move( Akk  ),
                                    std::move( Bsub ),
-                            one,   std::move( Asub ),
-                            priority_0, opts );
+                            one,   std::move( Asub ) );
 
                         auto Bk1  = B.sub(k+1, nt-1);
                         auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
@@ -176,8 +174,7 @@ void hegst(
                         internal::hemm<Target::HostTask>(
                             Side::Left,  half, std::move(Akk),
                                                std::move(Bsub),
-                                         one,  std::move(Asub),
-                            priority_0, opts );
+                                         one,  std::move(Asub) );
 
                         BcastList bcast_list;
                         for (int64_t i = 0; i < k; ++i) {
@@ -190,18 +187,16 @@ void hegst(
                             one,   conj_transpose( Asub ),
                                    conj_transpose( Bsub ),
                             r_one, A.sub(0, k-1),
-                            priority_0, queue_0, layout, opts );
+                            priority_0, queue_0, layout );
 
                         internal::hemm<Target::HostTask>(
                             Side::Left, half, std::move(Akk),
                                               std::move(Bsub),
-                                        one,  std::move(Asub),
-                            priority_0, opts );
+                                        one,  std::move(Asub) );
 
                         internal::trmm<Target::HostTask>(
                             Side::Left, one,  conj_transpose( TBkk ),
-                                              std::move(Asub),
-                            priority_0, queue_0, opts );
+                                              std::move(Asub) );
                     }
                 }
 

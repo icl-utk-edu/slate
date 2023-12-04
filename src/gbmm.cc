@@ -42,8 +42,6 @@ void gbmm(
     const Layout layout = Layout::ColMajor;
 
     const scalar_t one = 1.0;
-    const int64_t priority_0 = 0;
-    const int64_t queue_0 = 0;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -126,7 +124,7 @@ void gbmm(
                     alpha, A.sub(i_begin, i_end-1, 0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
                     beta,  C.sub(i_begin, i_end-1, 0, C.nt()-1),
-                    layout, priority_0, queue_0, opts );
+                    layout );
 
             if (beta != one) {
                 // Scale block rows of C below the bandwidth of A:
@@ -191,7 +189,7 @@ void gbmm(
                         alpha, A.sub(i_begin, i_end-1, k, k),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(i_begin, i_end-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts );
+                        layout );
                 }
 
                 #pragma omp task depend(in:gemm[k])

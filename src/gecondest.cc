@@ -114,7 +114,7 @@ blas::real_type<scalar_t> gecondest(
 
     // initial and final value of kase is 0
     kase = 0;
-    internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
+    internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave );
 
     MPI_Bcast( &isave[0], 4, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
     MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
@@ -137,7 +137,7 @@ blas::real_type<scalar_t> gecondest(
             slate::trsm( Side::Left, alpha, LH, X, opts );
         }
 
-        internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
+        internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave );
         MPI_Bcast( &isave[0], 4, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
         MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)

@@ -23,7 +23,7 @@ namespace internal {
 template <Target target, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-          int priority, int queue_index, Layout layout, Options const& opts)
+          int priority, int queue_index, Layout layout )
 {
     if (! ((C.uplo() == Uplo::Lower)
            &&
@@ -34,7 +34,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
     herk(internal::TargetType<target>(),
          alpha, A,
          beta,  C,
-         priority, queue_index, layout, opts);
+         priority, queue_index, layout );
 }
 
 //------------------------------------------------------------------------------
@@ -47,7 +47,7 @@ template <typename scalar_t>
 void herk(internal::TargetType<Target::HostTask>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
-          int priority, int queue_index, Layout layout, Options const& opts)
+          int priority, int queue_index, Layout layout )
 {
     scalar_t alpha_ = scalar_t(alpha);
     scalar_t beta_  = scalar_t(beta);
@@ -119,7 +119,7 @@ template <typename scalar_t>
 void herk(internal::TargetType<Target::HostNest>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout, Options const& opts)
+          int priority, int queue_index, Layout layout )
 {
 #if defined(SLATE_HAVE_OMPTARGET) || defined(SLATE_SKIP_HOSTNEST)
     // SYCL/OMP-target-offload can't process this section
@@ -200,7 +200,7 @@ template <typename scalar_t>
 void herk(internal::TargetType<Target::HostBatch>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout, Options const& opts)
+          int priority, int queue_index, Layout layout )
 {
 #ifdef BLAS_HAVE_MKL
     // CPU assumes column major
@@ -351,7 +351,7 @@ template <typename scalar_t>
 void herk(internal::TargetType<Target::Devices>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout, Options const& opts)
+          int priority, int queue_index, Layout layout )
 {
     int err = 0;
     using std::swap;
@@ -541,100 +541,100 @@ template
 void herk<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 // ----------------------------------------
 template
 void herk<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 // ----------------------------------------
 template
 void herk< Target::HostTask, std::complex<float> >(
     float alpha, Matrix< std::complex<float> >&& A,
     float beta,  HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk< Target::HostNest, std::complex<float> >(
     float alpha, Matrix< std::complex<float> >&& A,
     float beta,  HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk< Target::HostBatch, std::complex<float> >(
     float alpha, Matrix< std::complex<float> >&& A,
     float beta,  HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk< Target::Devices, std::complex<float> >(
     float alpha, Matrix< std::complex<float> >&& A,
     float beta,  HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 // ----------------------------------------
 template
 void herk< Target::HostTask, std::complex<double> >(
     double alpha, Matrix< std::complex<double> >&& A,
     double beta,  HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk< Target::HostNest, std::complex<double> >(
     double alpha, Matrix< std::complex<double> >&& A,
     double beta,  HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk< Target::HostBatch, std::complex<double> >(
     double alpha, Matrix< std::complex<double> >&& A,
     double beta,  HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void herk< Target::Devices, std::complex<double> >(
     double alpha, Matrix< std::complex<double> >&& A,
     double beta,  HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 } // namespace internal
 } // namespace slate

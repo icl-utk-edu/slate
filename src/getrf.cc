@@ -139,7 +139,7 @@ int64_t getrf(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_1, Layout::ColMajor, queue_jk1, opts );
+                        priority_1, Layout::ColMajor, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -150,7 +150,7 @@ int64_t getrf(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, A_mt-1, j, j),
-                        target_layout, priority_1, queue_jk1, opts );
+                        target_layout, priority_1, queue_jk1 );
                 }
             }
             // pivot to the left
@@ -196,7 +196,7 @@ int64_t getrf(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_0, Layout::ColMajor, queue_1, opts );
+                        priority_0, Layout::ColMajor, queue_1 );
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -213,7 +213,7 @@ int64_t getrf(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, k+1+lookahead, A_nt-1),
                         one,  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        target_layout, priority_0, queue_1, opts );
+                        target_layout, priority_0, queue_1 );
                 }
             }
             #pragma omp task depend(inout:column[k])

@@ -117,7 +117,7 @@ int64_t potrf(
                         Side::Right,
                         one, conj_transpose( Tkk ),
                         A.sub(k+1, A_nt-1, k, k),
-                        priority_0, layout, queue_1, opts );
+                        priority_0, layout, queue_1 );
                 }
 
                 BcastListTag bcast_list_A;
@@ -145,7 +145,7 @@ int64_t potrf(
                     internal::herk<target>(
                         real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
                         real_t( 1.0), A.sub(k+1+lookahead, A_nt-1),
-                        priority_0, queue_0, layout, opts );
+                        priority_0, queue_0, layout );
                 }
             }
 
@@ -163,7 +163,7 @@ int64_t potrf(
                     internal::herk<target>(
                         real_t(-1.0), A.sub(j, j, k, k),
                         real_t( 1.0), A.sub(j, j),
-                        priority_0, queue_jk2, layout, opts );
+                        priority_0, queue_jk2, layout );
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
@@ -172,7 +172,7 @@ int64_t potrf(
                             -one, A.sub(j+1, A_nt-1, k, k),
                                   conj_transpose( Ajk ),
                             one,  A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_0, queue_jk2, opts );
+                            layout, priority_0, queue_jk2 );
                     }
                 }
             }

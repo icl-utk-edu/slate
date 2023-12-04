@@ -28,11 +28,10 @@ void he2hb_hemm(
     Matrix<scalar_t>&& B,
     Matrix<scalar_t>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     he2hb_hemm( internal::TargetType<target>(),
-                A, B, C, panel_rank_rows, priority, queue_index, opts );
+                A, B, C, panel_rank_rows, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -47,8 +46,7 @@ void he2hb_hemm(
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     int64_t mt = A.mt();
     const scalar_t one  = 1;
@@ -109,8 +107,7 @@ void he2hb_hemm(
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
     std::vector<int64_t> panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     int64_t mt = A.mt();
     const scalar_t one  = 1;
@@ -730,8 +727,7 @@ void he2hb_hemm<Target::HostTask, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -740,8 +736,7 @@ void he2hb_hemm<Target::HostTask, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -750,8 +745,7 @@ void he2hb_hemm< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -760,8 +754,7 @@ void he2hb_hemm< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -770,8 +763,7 @@ void he2hb_hemm<Target::Devices, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -780,8 +772,7 @@ void he2hb_hemm<Target::Devices, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -790,8 +781,7 @@ void he2hb_hemm< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -800,8 +790,7 @@ void he2hb_hemm< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

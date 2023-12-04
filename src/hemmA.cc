@@ -37,8 +37,6 @@ void hemmA(
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const scalar_t one = 1.0;
-    const int priority_0 = 0;
-    const int queue_0 = 0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -192,15 +190,14 @@ void hemmA(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, 0, 0, C.nt()-1),
-                    priority_0, opts );
+                    beta,  C.sub(0, 0, 0, C.nt()-1) );
 
                 if (A.mt()-1 > 0) {
                     internal::gemmA<target>(
                         alpha,  A.sub(1, A.mt()-1, 0, 0),
                                 B.sub(0, 0, 0, B.nt()-1),
                         beta,   C.sub(1, C.mt()-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts );
+                        layout );
                 }
             }
 
@@ -279,21 +276,20 @@ void hemmA(
                         alpha, conj_transpose( Arow_k ),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(0, k-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts );
+                        layout );
 
                     internal::hemmA<Target::HostTask>(
                         Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, B.nt()-1),
-                        one,   C.sub(k, k, 0, C.nt()-1),
-                        priority_0, opts );
+                        one,   C.sub(k, k, 0, C.nt()-1) );
 
                     if (A.mt()-1 > k) {
                         internal::gemmA<target>(
                             alpha, A.sub(k+1, A.mt()-1, k, k),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
-                            layout, priority_0, queue_0, opts );
+                            layout );
                     }
                 }
 
@@ -442,8 +438,7 @@ void hemmA(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, 0, 0, C.nt()-1),
-                    priority_0, opts );
+                    beta,  C.sub(0, 0, 0, C.nt()-1) );
 
                 if (A.mt()-1 > 0) {
                     auto Arow_k = A.sub(0, 0, 1, A.nt()-1);
@@ -451,7 +446,7 @@ void hemmA(
                         alpha, conj_transpose( Arow_k ),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, C.mt()-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts );
+                        layout );
                 }
             }
 
@@ -528,14 +523,13 @@ void hemmA(
                         alpha, A.sub(0, k-1, k, k),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(0, k-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts );
+                        layout );
 
                     internal::hemmA<Target::HostTask>(
                         Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, B.nt()-1),
-                        one,   C.sub(k, k, 0, C.nt()-1),
-                        priority_0, opts );
+                        one,   C.sub(k, k, 0, C.nt()-1) );
 
                     if (A.nt()-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, A.nt()-1);
@@ -543,7 +537,7 @@ void hemmA(
                             alpha, conj_transpose( Arow_k ),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
-                            layout, priority_0, queue_0, opts );
+                            layout );
                     }
                 }
 

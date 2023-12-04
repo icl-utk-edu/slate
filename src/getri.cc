@@ -38,7 +38,6 @@ void getri(
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
     const int priority_0 = 0;
-    const int queue_0 = 0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -73,7 +72,7 @@ void getri(
             internal::trsm<Target::HostTask>(
                 Side::Right,
                 one, std::move( Wkk ), A.sub(0, A.nt()-1, k, k),
-                priority_0, layout, queue_0, opts );
+                priority_0, layout );
 
             // W is deleted here, releasing its tiles
         }
@@ -114,7 +113,7 @@ void getri(
                 -one, A.sub(0, A.nt()-1, k+1, A.nt()-1),
                       W.sub(1, W.mt()-1, 0, 0),
                 one,  A.sub(0, A.nt()-1, k, k),
-                layout, priority_0, queue_0, opts );
+                layout );
 
             // reduce A(0:nt-1, k)
             ReduceList reduce_list_A;
@@ -138,7 +137,7 @@ void getri(
             internal::trsm<Target::HostTask>(
                 Side::Right,
                 one, std::move( Tkk ), A.sub(0, A.nt()-1, k, k),
-                priority_0, layout, queue_0, opts );
+                priority_0, layout );
 
             // W is deleted here, releasing its tiles
         }

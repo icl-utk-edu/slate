@@ -111,13 +111,13 @@ void gerbt_iterate_1d(Op trans, int64_t d, int64_t inner_len, int64_t mt,
 /// Applies a 2-sided RBT to the given matrix.
 ///
 /// @param[in] U_in
-///     The left transform in packed storage.  Should be transposed
+///     The left transform in packed storage. Should be transposed.
 ///
 /// @param[in, out] A
 ///     The matrix to transform
 ///
 /// @param[in] V
-///     The right tranform in packed storage.  Should not be transposed
+///     The right transform in packed storage. Should not be transposed.
 ///
 /// @ingroup gesv_computational
 ///

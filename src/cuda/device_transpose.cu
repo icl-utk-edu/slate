@@ -236,7 +236,7 @@ __global__ void transpose_batch_kernel(
 
 //------------------------------------------------------------------------------
 /// out-of-place transpose of a rectangular buffer
-/// transopses A onto AT
+/// transposes A onto AT
 ///
 template <typename scalar_t, int NX>
 __global__ void transpose_kernel(
@@ -250,7 +250,7 @@ __global__ void transpose_kernel(
 
 //------------------------------------------------------------------------------
 /// out-of-place transpose of an array of rectangular buffers
-/// transopses dA_array onto dAT_array
+/// transposes dA_array onto dAT_array
 ///
 template <typename scalar_t, int NX>
 __global__ void transpose_batch_kernel(

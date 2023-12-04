@@ -56,7 +56,7 @@ private:
 //------------------------------------------------------------------------------
 /// @return true if MPI is GPU-aware.
 /// Initially checks if environment variable $SLATE_GPU_AWARE_MPI is set
-/// and either empty or 1. Can be overriden by gpu_aware_mpi( bool ).
+/// and either empty or 1. Can be overridden by gpu_aware_mpi( bool ).
 /// In the future, could also check
 /// `MPIX_GPU_query_support` (MPICH) or
 /// `MPIX_Query_cuda_support` (Open MPI).

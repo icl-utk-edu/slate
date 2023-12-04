@@ -123,7 +123,7 @@ void permutation_to_sequential_pivot(
 /// Multi-threaded LU factorization of local tiles.
 ///
 /// @param[in] target
-///     Target for dispacth to correct implementation.
+///     Target for dispatch to correct implementation.
 ///
 /// @param[in,out] tiles
 ///     List of tiles to factor on the CPU.

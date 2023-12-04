@@ -32,7 +32,7 @@ public:
           msg_(msg + " in " + func + " at " + file + ":" + std::to_string(line))
     {}
 
-    /// @return message describing the execption.
+    /// @return message describing the exception.
     virtual char const* what() const noexcept override
     {
         return msg_.c_str();

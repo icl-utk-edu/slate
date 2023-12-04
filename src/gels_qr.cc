@@ -40,7 +40,7 @@ namespace slate {
 /// matrix $X$.
 ///
 /// Note these (m, n) differ from (M, N) in (Sca)LAPACK, where the original
-/// $A$ is M-by-N, _before_ appyling any transpose,
+/// $A$ is M-by-N, _before_ applying any transpose,
 /// while here $A$ is m-by-n, _after_ applying any transpose,.
 ///
 //------------------------------------------------------------------------------

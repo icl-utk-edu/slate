@@ -17,7 +17,7 @@ namespace internal {
 /// column of tiles.
 /// Dispatches to target implementations.
 /// todo: This assumes A and T have already been communicated as needed.
-/// However, it necesarily handles communication for C.
+/// However, it necessarily handles communication for C.
 /// Tag is used in geqrf to differentiate communication for look-ahead panel
 /// from rest of trailing matrix.
 /// @ingroup geqrf_internal
@@ -259,7 +259,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             firstprivate( i, j, k, rank_ind, layout, i1, j1 ) \
                             firstprivate( side, op, tag, recv_index )
                         {
-                            // Don't start compute until the tile's been recieved
+                            // Don't start compute until the tile's been received
                             MPI_Wait( &requests[ recv_index ], MPI_STATUS_IGNORE );
 
                             A.tileGetForReading(rank_ind, 0, LayoutConvert(layout));

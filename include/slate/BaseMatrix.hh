@@ -457,7 +457,7 @@ public:
     /// Returns how many times the tile {i, j} is received
     /// through MPI.
     /// This function is used to track tiles that may be
-    /// communicated twice due to symmetricity
+    /// communicated twice due to symmetry
     /// during hemm and symm operations.
     int64_t tileReceiveCount(int64_t i, int64_t j) const
     {
@@ -651,7 +651,7 @@ public:
     void releaseLocalWorkspace( std::set<ij_tuple>& tile_set );
 
     void releaseRemoteWorkspaceTile( int64_t i, int64_t j, int64_t release_count = 1 );
-    void releaseRemoteWorkspace( int64_t recieve_count = 1 );
+    void releaseRemoteWorkspace( int64_t receive_count = 1 );
     void releaseRemoteWorkspace( std::set<ij_tuple>& tile_set, int64_t release_count = 1 );
 
     /// Removes all temporary host and device workspace tiles from matrix.
@@ -2102,7 +2102,7 @@ void BaseMatrix<scalar_t>::listBcast(
 
 //------------------------------------------------------------------------------
 /// Send tile {i, j} of op(A) to all MPI ranks in the list of submatrices
-/// bcast_list (using OpenMP tasksloop and multi-threaded MPI).
+/// bcast_list (using OpenMP taskloop and multi-threaded MPI).
 /// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// @tparam target
@@ -2388,7 +2388,7 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
 
 //------------------------------------------------------------------------------
 /// [internal]
-/// WARNING: Sent and Recevied tiles are converted to 'layout' major.
+/// WARNING: Sent and received tiles are converted to 'layout' major.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileReduceFromSet(
@@ -2565,7 +2565,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 
 //------------------------------------------------------------------------------
 /// Acquire tile(i, j) on device without copying data if not already exists.
-/// This is used when the destination tile's data will be overriden.
+/// This is used when the destination tile's data will be overridden.
 /// Converts destination Layout to 'layout' param.
 /// Assumes the TileNode(i, j) already exists.
 ///
@@ -3284,7 +3284,7 @@ bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int dev
 ///     - Layout::RowMajor.
 ///
 /// @param[in] reset
-///     Optinally resets the tile extended buffers.
+///     Optionally resets the tile extended buffers.
 ///
 /// todo: handle op(A), sub-matrix, and sliced-matrix
 template <typename scalar_t>
@@ -3347,7 +3347,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 ///     - Layout::RowMajor.
 ///
 /// @param[in] reset
-///     Optinally resets the tiles extended buffers.
+///     Optionally resets the tiles extended buffers.
 ///
 // todo: async API
 template <typename scalar_t>
@@ -3533,7 +3533,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 ///     - Layout::RowMajor.
 ///
 /// @param[in] reset
-///     Optinally resets the tiles extended buffers.
+///     Optionally resets the tiles extended buffers.
 ///
 // todo: override on BaseTrapezoidMatrix and BandMatrix
 template <typename scalar_t>
@@ -3564,7 +3564,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(int device, Layout layout, bool res
 ///     - Layout::RowMajor.
 ///
 /// @param[in] reset
-///     Optinally resets the tile extended buffers.
+///     Optionally resets the tile extended buffers.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvertOnDevices(Layout layout, bool reset)

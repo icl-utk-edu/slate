@@ -21,11 +21,11 @@ namespace slate {
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
-///         One of float, double, std::complex<float>, std::complex<double>.
+///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in] A
-///         On entry, the n-by-n Hermitian matrix $A$.
-///         On exit, contents are destroyed.
+///     On entry, the n-by-n Hermitian matrix $A$.
+///     On exit, contents are destroyed.
 ///
 /// @param[out] Lambda
 ///     The vector Lambda of length n.

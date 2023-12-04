@@ -260,7 +260,7 @@ public:
 };
 
 //------------------------------------------------------------------------------
-/// Marks the paramters used by allocate_test_Matrix
+/// Marks the parameters used by allocate_test_Matrix
 inline void mark_params_for_test_Matrix(Params& params)
 {
     params.grid.m();
@@ -273,7 +273,7 @@ inline void mark_params_for_test_Matrix(Params& params)
 }
 
 //------------------------------------------------------------------------------
-/// Marks the paramters used by allocate_test_HermitianMatrix
+/// Marks the parameters used by allocate_test_HermitianMatrix
 inline void mark_params_for_test_HermitianMatrix(Params& params)
 {
     params.uplo();
@@ -281,14 +281,14 @@ inline void mark_params_for_test_HermitianMatrix(Params& params)
 }
 
 //------------------------------------------------------------------------------
-/// Marks the paramters used by allocate_test_SymmetricMatrix
+/// Marks the parameters used by allocate_test_SymmetricMatrix
 inline void mark_params_for_test_SymmetricMatrix(Params& params)
 {
     mark_params_for_test_HermitianMatrix( params );
 }
 
 //------------------------------------------------------------------------------
-/// Marks the paramters used by allocate_test_TriangularMatrix
+/// Marks the parameters used by allocate_test_TriangularMatrix
 inline void mark_params_for_test_TriangularMatrix(Params& params)
 {
     params.uplo();
@@ -297,7 +297,7 @@ inline void mark_params_for_test_TriangularMatrix(Params& params)
 }
 
 // -----------------------------------------------------------------------------
-/// Marks the paramters used by allocate_test_TrapezoidMatrix
+/// Marks the parameters used by allocate_test_TrapezoidMatrix
 inline void mark_params_for_test_TrapezoidMatrix(Params& params)
 {
     params.uplo();

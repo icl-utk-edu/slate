@@ -274,7 +274,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 /// Used by subclasses' fromDevices.
 /// Construct matrix by wrapping existing memory of an m-by-n lower
 /// or upper trapezoidal storage that is 2D block-cyclic across nodes
-/// and 1D block-cyclic across GPU devicse within a node.
+/// and 1D block-cyclic across GPU devices within a node.
 ///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.

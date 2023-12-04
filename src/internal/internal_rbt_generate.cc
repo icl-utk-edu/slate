@@ -58,7 +58,7 @@ void rbt_fill(Matrix<scalar_t>& U, const int64_t seed)
 }
 
 //------------------------------------------------------------------------------
-/// Constructs two random bufferfly matrice in packed storage to transform the
+/// Constructs two random butterfly matrices in packed storage to transform the
 /// given matrix.
 ///
 /// @param[in] A

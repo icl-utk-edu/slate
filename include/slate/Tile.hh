@@ -32,7 +32,7 @@ namespace slate {
 /// changing op flag from NoTrans to Trans, or from Trans to NoTrans.
 /// @return copy of Tile, etc. with updated op flag.
 ///
-/// Making this a template avoids repeating the code ad nauseum in each class.
+/// Making this a template avoids repeating the code ad nauseam in each class.
 /// Tile and BaseMatrix make this a friend, to change op.
 ///
 /// @ingroup util

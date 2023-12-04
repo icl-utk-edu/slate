@@ -399,7 +399,7 @@ public:
         tiles_.at( ij )->receiveCount() -= release_count;
     }
 
-    /// Ensures the tile node exists and increments the recieve count.
+    /// Ensures the tile node exists and increments the receive count.
     /// If the tile node doesn't exist (i.e., no tile on any device),
     /// this inserts a new tile on the given device, which may be host.
     /// This does not currently ensure that a tile exists on the given device.
@@ -566,7 +566,7 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 }
 
 //------------------------------------------------------------------------------
-/// Initializes BLAS++ compute and communcation queues on each device.
+/// Initializes BLAS++ compute and communication queues on each device.
 /// Also initializes the host and device batch arrays.
 /// Called in constructor.
 ///
@@ -590,7 +590,7 @@ void MatrixStorage<scalar_t>::initQueues()
 }
 
 //------------------------------------------------------------------------------
-/// Destroys BLAS++ compute and communcation queues on each device.
+/// Destroys BLAS++ compute and communication queues on each device.
 /// As this is called in the destructor, it should NOT throw exceptions.
 ///
 template <typename scalar_t>

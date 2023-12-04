@@ -19,7 +19,7 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// max that propogates nan consistently:
+/// max that propagates nan consistently:
 ///
 ///     max_nan( 1,   nan ) = nan
 ///     max_nan( nan, 1   ) = nan

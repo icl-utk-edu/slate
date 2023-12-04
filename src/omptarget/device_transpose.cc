@@ -227,7 +227,7 @@ void transpose_rect_batch_func(
 }
 
 //------------------------------------------------------------------------------
-/// Device routine handles single rectangular matrox
+/// Device routine handles a single rectangular matrix.
 ///
 /// The routine loads blocks of data into small NX x NB local storage
 /// and then writes the blocks back transposed into the correct

@@ -76,7 +76,7 @@ inline std::array<uint64_t, 2> philox_2x64(std::array<uint64_t, 2> state, uint64
 
 
 //------------------------------------------------------------------------------
-/// Helper function to make a real number in [0, 1) from psuedorandom bits.
+/// Helper function to make a real number in [0, 1) from pseudorandom bits.
 template<typename real_t>
 real_t rand_to_real(uint64_t bits)
 {

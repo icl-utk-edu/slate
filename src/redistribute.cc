@@ -109,7 +109,7 @@ void redistribute(
                         auto Bij = B(i, j);
                         if (Aij.data() != Bij.data() ) {
                             tile::gecopy( Aij, Bij );
-                            // deep conj tile after recieve if its square
+                            // deep conj tile after receive if it is square
                             // if rectangular, recv in a tmp tile then transpose it
                         }
                     }

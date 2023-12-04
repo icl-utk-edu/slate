@@ -28,7 +28,7 @@ namespace tile {
 ///    Compute trailing matrix update at qr2 level (for a full factorization)
 /// by manually changing #ifdef specific to desired computation
 ///     We care for two reasons:
-///     1) Performance comparision, evaluate panel performance without
+///     1) Performance comparison, evaluate panel performance without
 ///         trailing matrix update and/or constructing T
 ///     2) As a random orthogonal matrix generator code (no need to update)
 ///

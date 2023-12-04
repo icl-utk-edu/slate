@@ -31,7 +31,7 @@ namespace slate {
 ///     as computed by getrf.
 ///
 /// @param[out] B
-///     On exit, if return value = 0, the n-by-n inverse of marix $A$.
+///     On exit, if return value = 0, the n-by-n inverse of matrix $A$.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

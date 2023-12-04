@@ -12,7 +12,7 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// max that propogates nan consistently:
+/// max that propagates nan consistently:
 ///     max_nan( 1,   nan ) = nan
 ///     max_nan( nan, 1   ) = nan
 template <typename real_t>
@@ -23,7 +23,7 @@ inline real_t max_nan(real_t x, real_t y)
 }
 
 //------------------------------------------------------------------------------
-/// Max reduction of n-element array x, leaving total in x[0]. Propogates NaN
+/// Max reduction of n-element array x, leaving total in x[0]. Propagates NaN
 /// values consistently.
 /// With k threads, can reduce array up to 2*k in size. Assumes number of
 /// threads <= 1024, which is the current max number of CUDA threads.

@@ -41,7 +41,7 @@ namespace internal {
 /// QR triangle-triangle factorization of column of tiles.
 /// Dispatches to target implementations.
 /// todo: This assumes A and T have already been communicated as needed.
-/// However, it necesarily handles communication for C.
+/// However, it necessarily handles communication for C.
 /// Tag is used in geqrf to differentiate communication for look-ahead panel
 /// from rest of trailing matrix.
 /// @ingroup heev_internal

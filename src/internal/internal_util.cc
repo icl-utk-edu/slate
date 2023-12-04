@@ -30,7 +30,7 @@ int pow<int>(int base, int exp);
 
 //------------------------------------------------------------------------------
 /// [internal]
-/// Implememts a custom MPI reduction that propagates NaNs.
+/// Implements a custom MPI reduction that propagates NaNs.
 ///
 void mpi_max_nan(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype)
 {

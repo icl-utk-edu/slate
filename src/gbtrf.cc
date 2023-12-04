@@ -262,7 +262,7 @@ int64_t gbtrf(
 ///     data outside the bandwidth should be explicitly set to zero.
 ///     On exit, the factors $L$ and $U$ from the factorization $A = L U$;
 ///     the unit diagonal elements of $L$ are not stored.
-///     The upper bandwidth is increased to accomodate fill-in of $U$.
+///     The upper bandwidth is increased to accommodate fill-in of $U$.
 ///
 /// @param[out] pivots
 ///     The pivot indices that define the permutations.

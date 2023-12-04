@@ -116,7 +116,7 @@ void hb2st_step(
 
 //------------------------------------------------------------------------------
 /// @internal
-/// Implements multithreaded tridiagonal bulge chasing.
+/// Implements multi-threaded tridiagonal bulge chasing.
 /// This is the main routine that each thread runs.
 ///
 /// @param[in,out] A

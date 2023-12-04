@@ -61,7 +61,7 @@ void gerfg(Matrix<scalar_t>& A, int64_t n, scalar_t* v)
 }
 
 //------------------------------------------------------------------------------
-/// Applies a Houselolder reflector $H = I - \tau v v^H$ to the matrix $A$
+/// Applies a Householder reflector $H = I - \tau v v^H$ to the matrix $A$
 /// from the left. Takes the $\tau$ factor from $v[0]$.
 ///
 /// @param[in] n

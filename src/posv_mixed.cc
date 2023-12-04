@@ -92,7 +92,7 @@ namespace slate {
 ///     - Option::MaxIterations:
 ///       Maximum number of refinement iterations. Default 30
 ///     - Option::UseFallbackSolver:
-///       If true and iterative refinement fails to convergene, the problem is
+///       If true and iterative refinement fails to converge, the problem is
 ///       resolved with partial-pivoted LU. Default true
 ///
 /// @return 0: successful exit

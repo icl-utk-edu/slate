@@ -21,11 +21,11 @@ namespace slate {
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
-///         One of float, double, std::complex<float>, std::complex<double>.
+///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in] A
-///         On entry, the m-by-n matrix $A$.
-///         On exit, contents are destroyed.
+///     On entry, the m-by-n matrix $A$.
+///     On exit, contents are destroyed.
 ///
 /// @param[out] Sigma
 ///     The vector Sigma of length min(m, n).

@@ -464,7 +464,7 @@ void permuteRows(
 /// Permutes rows according to the pivot vector.
 /// Dispatches to target implementations.
 ///
-/// @prama[in] direction
+/// @param[in] direction
 ///     Whether the permutation matrix should be applied from the left or right
 ///
 /// @param[in,out] A

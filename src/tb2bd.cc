@@ -143,7 +143,7 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
 
 //------------------------------------------------------------------------------
 /// @internal
-/// Implements multithreaded bidiagonal bulge chasing.
+/// Implements multi-threaded bidiagonal bulge chasing.
 ///
 /// @param[in,out] A
 ///     The band matrix A.
@@ -342,19 +342,19 @@ void tb2bd(
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
-///         One of float, double, std::complex<float>, std::complex<double>.
+///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///         The band matrix A.
+///     The band matrix A.
 ///
 /// @param[in] opts
-///         Additional options, as map of name = value pairs. Possible options:
-///         - Option::Target:
-///           Implementation to target. Possible values:
-///           - HostTask:  OpenMP tasks on CPU host [default].
-///           - HostNest:  nested OpenMP parallel for loop on CPU host.
-///           - HostBatch: batched BLAS on CPU host.
-///           - Devices:   batched BLAS on GPU device.
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup svd_computational
 ///

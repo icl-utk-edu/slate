@@ -42,7 +42,7 @@ bool need_Bi0(HermitianMatrix<scalar_t> AH,
 /// Triangular matrix multiply. Compute B = B A
 /// AH is a Hermitian matrix. It's needed here just to check if the rank is an
 /// upper or lower rank that contribute to compute Bi, i = 0:mt-1.
-/// B is a block cloumn.
+/// B is a block column.
 /// A contains upper triangular or trapezoid T.
 /// indices contains the local indices for panel_rank,
 /// If A contains upper triangular T, then call trmm B = B T

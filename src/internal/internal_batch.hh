@@ -189,7 +189,7 @@ std::vector<int64_t> device_regions_range( RowCol dim, BaseMatrix<scalar_t>& A )
 /// Helper class to store the information on a device region.
 ///
 /// @tparam store_diag
-///     Wheather the diagonal tiles may need to be special cased
+///     Whether the diagonal tiles may need to be special cased
 ///
 /// @tparam mat_count
 ///     The number of matrices used by the kernel

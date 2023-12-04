@@ -14,7 +14,7 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// max that propogates nan consistently:
+/// max that propagates nan consistently:
 ///     max_nan( 1,   nan ) = nan
 ///     max_nan( nan, 1   ) = nan
 #pragma omp declare target
@@ -25,7 +25,7 @@ inline real_t max_nan(real_t x, real_t y)
 }
 #pragma omp end declare target
 
-// OpenMP reduction operation that allows for the nan propogation
+// OpenMP reduction operation that allows for the nan propagation
 #pragma omp declare reduction(max_nan_reduction: float, double: omp_out = max_nan(omp_out, omp_in))
 
 //------------------------------------------------------------------------------

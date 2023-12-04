@@ -61,7 +61,7 @@ These include:
     CXX                 C++ compiler
     CXXFLAGS            C++ compiler flags
         * SLATE_HAVE_MT_BCAST uses multiple OMP threads for MPI broadcast communication.
-        Using this flag to enable multithreading broadcast communication achieves
+        Using this flag to enable multi-threaded broadcast communication achieves
         better performance but causes hangs on certain systems, particularly Frontier.
         using make.inc file:
             CXXFLAGS = -DSLATE_HAVE_MT_BCAST

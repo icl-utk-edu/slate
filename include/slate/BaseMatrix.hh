@@ -2535,6 +2535,9 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
     // TODO Consider inter-Queue dependencies instead of disabling async
     async &= !(dst_device != HostNum && src_device != HostNum);
 
+    if (dst_tile->layout() != target_layout && ! dst_tile->isTransposable()) {
+        storage_->tileMakeTransposable( dst_tile );
+    }
 
     if (is_square || ! need_convert) {
         lapack::Queue* queue = comm_queue( work_device );
@@ -2546,9 +2549,6 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         }
     }
     else {
-        if (dst_tile->layout() != target_layout && ! dst_tile->isTransposable()) {
-            storage_->tileMakeTransposable( dst_tile );
-        }
         dst_tile->setLayout( target_layout );
 
         scalar_t* work_data = nullptr;

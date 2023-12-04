@@ -52,10 +52,10 @@ void hettmqr(
     Matrix<scalar_t>&& V,
     Matrix<scalar_t>&& T,
     HermitianMatrix<scalar_t>&& C,
-    int tag)
+    int tag, Options const& opts )
 {
     hettmqr( internal::TargetType<target>(),
-             op, V, T, C, tag );
+             op, V, T, C, tag, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ void hettmqr(
     Matrix<scalar_t>& V,
     Matrix<scalar_t>& T,
     HermitianMatrix<scalar_t>& C,
-    int tag )
+    int tag, Options const& opts )
 {
     trace::Block trace_block("internal::hettmqr");
     using blas::conj;
@@ -82,6 +82,12 @@ void hettmqr(
     int64_t V_mt = V.mt();
     assert(V.nt() == 1);
     assert(V_mt == C.mt());
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     // Find ranks in this column of V.
     std::set<int> ranks_set;
@@ -185,8 +191,10 @@ void hettmqr(
 
                 C.tileSend(i1, i1, src11, tag);
                 C.tileSend(i2, i2, src22, tag);
-                C.tileTick(i1, i1);
-                C.tileTick(i2, i2);
+                if (call_tile_tick) {
+                    C.tileTick(i1, i1);
+                    C.tileTick(i2, i2);
+                }
                 C.tileErase(i1, i2);  // Discard results; equals C(i2, i1)^H.
             }
 
@@ -233,7 +241,7 @@ void hettmqr(
 
                 if (C.tileIsLocal(i2, j)) {
                     // Applies Q, then sends updated tile back.
-                    #pragma omp task shared(V, T, C)
+                    #pragma omp task shared(V, T, C) firstprivate(call_tile_tick)
                     {
                         V.tileGetForReading(i2, 0, LayoutConvert(layout));
                         T.tileGetForReading(i2, 0, LayoutConvert(layout));
@@ -244,9 +252,11 @@ void hettmqr(
                         tpmqrt(Side::Left, op, std::min(V.tileMb(i2), V.tileNb(0)),
                                V(i2, 0), T(i2, 0), C(i1, j), C(i2, j));
 
-                        // todo: should tileRelease()?
-                        V.tileTick(i2, 0);
-                        T.tileTick(i2, 0);
+                        if (call_tile_tick) {
+                            // todo: should tileRelease()?
+                            V.tileTick(i2, 0);
+                            T.tileTick(i2, 0);
+                        }
                     }
                 }
             } // for j
@@ -275,7 +285,9 @@ void hettmqr(
                               : C.tileRank(j, i1));
                     // Send updated tile back.
                     C.tileSend(i1, j, src, tag);
-                    C.tileTick(i1, j);
+                    if (call_tile_tick) {
+                        C.tileTick(i1, j);
+                    }
                 }
             } // for j
         } // for index
@@ -307,7 +319,7 @@ void hettmqr(
             for (int64_t i = j2+1; i < C.mt(); ++i) {
                 if (C.tileIsLocal(i, j2)) {
                     // Applies Q, then sends updated tile back.
-                    #pragma omp task shared(V, T, C)
+                    #pragma omp task shared(V, T, C) firstprivate(call_tile_tick)
                     {
                         V.tileGetForReading(j2, 0, LayoutConvert(layout));
                         T.tileGetForReading(j2, 0, LayoutConvert(layout));
@@ -317,9 +329,11 @@ void hettmqr(
                         tpmqrt(Side::Right, opR, std::min(V.tileMb(j2), V.tileNb(0)),
                                V(j2, 0), T(j2, 0), C(i, j1), C(i, j2));
 
-                        // todo: should tileRelease()?
-                        V.tileTick(j2, 0);
-                        T.tileTick(j2, 0);
+                        if (call_tile_tick) {
+                            // todo: should tileRelease()?
+                            V.tileTick(j2, 0);
+                            T.tileTick(j2, 0);
+                        }
                     }
                 }
             } // for i
@@ -336,7 +350,9 @@ void hettmqr(
 
                     // Send updated tile back.
                     C.tileSend(i, j1, src, tag);
-                    C.tileTick(i, j1);
+                    if (call_tile_tick) {
+                        C.tileTick(i, j1);
+                    }
                 }
             } // for i
         } // for index
@@ -359,7 +375,7 @@ void hettmqr<Target::HostTask, float>(
     Matrix<float>&& V,
     Matrix<float>&& T,
     HermitianMatrix<float>&& C,
-    int tag);
+    int tag, Options const& opts);
 
 // ----------------------------------------
 template
@@ -368,7 +384,7 @@ void hettmqr<Target::HostTask, double>(
     Matrix<double>&& V,
     Matrix<double>&& T,
     HermitianMatrix<double>&& C,
-    int tag);
+    int tag, Options const& opts);
 
 // ----------------------------------------
 template
@@ -377,7 +393,7 @@ void hettmqr< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     HermitianMatrix< std::complex<float> >&& C,
-    int tag);
+    int tag, Options const& opts);
 
 // ----------------------------------------
 template
@@ -386,7 +402,7 @@ void hettmqr< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     HermitianMatrix< std::complex<double> >&& C,
-    int tag);
+    int tag, Options const& opts);
 
 } // namespace internal
 } // namespace slate

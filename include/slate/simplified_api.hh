@@ -359,6 +359,20 @@ void lu_inverse_using_factor_out_of_place(
 }
 
 //-----------------------------------------
+// lu_condest_using_factor()
+
+// gecondest
+template <typename scalar_t>
+blas::real_type<scalar_t> lu_rcondest_using_factor(
+    Norm in_norm,
+    Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options())
+{
+    return gecondest( in_norm, A, Anorm, opts );
+}
+
+//-----------------------------------------
 // Cholesky
 
 //-----------------------------------------
@@ -376,24 +390,24 @@ void chol_solve(
 
 // posv
 template <typename scalar_t>
-void chol_solve(
+int64_t chol_solve(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
-    posv(A, B, opts);
+    return posv( A, B, opts );
 }
 
 // forward real-symmetric matrices to posv;
 // disabled for complex
 template <typename scalar_t>
-void chol_solve(
+int64_t chol_solve(
     SymmetricMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    posv(A, B, opts);
+    return posv( A, B, opts );
 }
 
 //-----------------------------------------
@@ -401,31 +415,31 @@ void chol_solve(
 
 // pbtrf
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     HermitianBandMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    pbtrf(A, opts);
+    return pbtrf( A, opts );
 }
 
 // potrf
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     HermitianMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    potrf(A, opts);
+    return potrf( A, opts );
 }
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     SymmetricMatrix<scalar_t>& A,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    potrf(A, opts);
+    return potrf( A, opts );
 }
 
 //-----------------------------------------
@@ -473,6 +487,20 @@ void chol_inverse_using_factor(
     Options const& opts = Options())
 {
     potri(A, opts);
+}
+
+//-----------------------------------------
+// chol_condest_using_factor()
+
+// pocondest
+template <typename scalar_t>
+blas::real_type<scalar_t> chol_rcondest_using_factor(
+    Norm in_norm,
+    HermitianMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options())
+{
+    return pocondest( in_norm, A, Anorm, opts );
 }
 
 //-----------------------------------------
@@ -647,6 +675,20 @@ void lq_multiply_by_q(
     Options const& opts = Options())
 {
     unmlq(side, op, A, T, C, opts);
+}
+
+//-----------------------------------------
+// triangular_condest()
+
+// trcondest
+template <typename scalar_t>
+blas::real_type<scalar_t> triangular_rcondest(
+    Norm in_norm,
+    TriangularMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options())
+{
+    return trcondest( in_norm, A, Anorm, opts );
 }
 
 //------------------------------------------------------------------------------

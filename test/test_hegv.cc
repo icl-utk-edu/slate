@@ -46,6 +46,7 @@ void test_hegv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -55,6 +56,28 @@ void test_hegv_work(Params& params, bool run)
     params.time();
     params.ref_time();
     params.error2();
+    if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time5();
+        params.time6();
+        params.time7();
+        params.time8();
+        params.time9();
+        params.time10();
+        params.time11();
+        params.time2.name( "potrf (s)" );
+        params.time3.name( "hegst (s)" );
+        params.time4.name( "heev (s)" );
+        params.time5.name( "trsm (s)" );
+        params.time6.name( "trmm (s)" );
+        params.time7.name( "he2hb (s)" );
+        params.time8.name( "hb2st (s)" );
+        params.time9.name( "stev (s)" );
+        params.time10.name( "unmtr_hb2st (s)" );
+        params.time11.name( "unmtr_he2hb (s)" );
+    }
 
     if (! run) {
         // B matrix must be Symmetric Positive Definite (SPD) for scalapack_phegvx
@@ -208,6 +231,19 @@ void test_hegv_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "hegv::potrf" ];
+            params.time3() = slate::timers[ "hegv::hegst" ];
+            params.time4() = slate::timers[ "hegv::heev" ];
+            params.time5() = slate::timers[ "hegv::trsm" ];
+            params.time6() = slate::timers[ "hegv::trmm" ];
+            params.time7() = slate::timers[ "heev::he2hb" ];
+            params.time8() = slate::timers[ "heev::hb2st" ];
+            params.time9() = slate::timers[ "heev::stev" ];
+            params.time10() = slate::timers[ "heev::unmtr_hb2st" ];
+            params.time11() = slate::timers[ "heev::unmtr_he2hb" ];
+        }
+
     }
 
     print_matrix("A", A, params);

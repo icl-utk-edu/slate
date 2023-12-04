@@ -26,12 +26,13 @@ void he2hb_her2k_offdiag_ranks(
                     Matrix<scalar_t>&& B,
     scalar_t beta,  HermitianMatrix<scalar_t>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index )
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     he2hb_her2k_offdiag_ranks(
         internal::TargetType<target>(),
         alpha, A, B, beta, C,
-        panel_rank_rows, priority, queue_index );
+        panel_rank_rows, priority, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -46,7 +47,8 @@ void he2hb_her2k_offdiag_ranks(
                     Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -54,12 +56,18 @@ void he2hb_her2k_offdiag_ranks(
 
     int64_t nt = C.nt();
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     // try to loop over one tile and do two gemm, similar to her2k
     #pragma omp taskgroup
     for (int64_t j = 0; j < nt; ++j) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, panel_rank_rows ) \
-            firstprivate( alpha, beta, j, layoutc )
+            firstprivate( alpha, beta, j, layoutc, call_tile_tick )
         {
             for (int64_t i : panel_rank_rows) {
                 // todo: if HermitianMatrix returned conjTrans
@@ -72,8 +80,11 @@ void he2hb_her2k_offdiag_ranks(
                         // Aij -= Vik Wjk^H
                         tile::gemm( alpha, A( i, 0 ), conj_transpose( B( j, 0 ) ),
                                     beta, C( i, j ) );
-                        A.tileTick( i, 0 );
-                        B.tileTick( j, 0 );
+
+                        if (call_tile_tick) {
+                            A.tileTick( i, 0 );
+                            B.tileTick( j, 0 );
+                        }
                     }
                 }
                 else if (i < j) {  // upper
@@ -84,8 +95,10 @@ void he2hb_her2k_offdiag_ranks(
                         // Aji -= Wjk Vik^H
                         tile::gemm( alpha, B( j, 0 ), conj_transpose( A( i, 0 ) ),
                                     beta, C( j, i ) );
-                        B.tileTick( j, 0 );
-                        A.tileTick( i, 0 );
+                        if (call_tile_tick) {
+                            B.tileTick( j, 0 );
+                            A.tileTick( i, 0 );
+                        }
                     }
                 }
                 else { // i == j
@@ -111,7 +124,8 @@ void he2hb_her2k_offdiag_ranks(
                     Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -129,12 +143,19 @@ void he2hb_her2k_offdiag_ranks(
 
     assert( C.num_devices() > 0 );
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     int err = 0;
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err, panel_rank_rows ) \
             firstprivate( alpha, beta, device, nt, layout, layoutc, queue_index ) \
+            firstprivate( call_tile_tick ) \
             priority( priority )
         {
             Op opA = A.op();
@@ -353,33 +374,35 @@ void he2hb_her2k_offdiag_ranks(
                 queue->sync();
             }
 
-            // todo: release tiles in top-level routine.
-            //for (int64_t j = 0; j < nt; ++j) {
-            //    for (int64_t i : panel_rank_rows) {
-            //        if (i > j) {
-            //            if (C.tileIsLocal( i, j )
-            //                && device == C.tileDevice( i, j )) {
-            //                // erase tmp local and remote device tiles;
-            //                A.tileRelease( i, 0, device );
-            //                B.tileRelease( j, 0, device );
-            //                // decrement life for remote tiles
-            //                A.tileTick( i, 0 );
-            //                B.tileTick( j, 0 );
-            //            }
-            //        }
-            //        else if (i < j) {
-            //            if (C.tileIsLocal( j, i )
-            //                && device == C.tileDevice( j, i )) {
-            //                // erase tmp local and remote device tiles;
-            //                A.tileRelease( i, 0, device );
-            //                B.tileRelease( j, 0, device );
-            //                // decrement life for remote tiles
-            //                A.tileTick( i, 0 );
-            //                B.tileTick( j, 0 );
-            //            }
-            //        }
-            //    }
-            //}
+            if (call_tile_tick) {
+                // todo: release tiles in top-level routine.
+                //for (int64_t j = 0; j < nt; ++j) {
+                //    for (int64_t i : panel_rank_rows) {
+                //        if (i > j) {
+                //            if (C.tileIsLocal( i, j )
+                //                && device == C.tileDevice( i, j )) {
+                //                // erase tmp local and remote device tiles;
+                //                A.tileRelease( i, 0, device );
+                //                B.tileRelease( j, 0, device );
+                //                // decrement life for remote tiles
+                //                A.tileTick( i, 0 );
+                //                B.tileTick( j, 0 );
+                //            }
+                //        }
+                //        else if (i < j) {
+                //            if (C.tileIsLocal( j, i )
+                //                && device == C.tileDevice( j, i )) {
+                //                // erase tmp local and remote device tiles;
+                //                A.tileRelease( i, 0, device );
+                //                B.tileRelease( j, 0, device );
+                //                // decrement life for remote tiles
+                //                A.tileTick( i, 0 );
+                //                B.tileTick( j, 0 );
+                //            }
+                //        }
+                //    }
+                //}
+            }
         }
     }
 
@@ -396,7 +419,8 @@ void he2hb_her2k_offdiag_ranks<Target::HostTask, float>(
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -405,7 +429,8 @@ void he2hb_her2k_offdiag_ranks<Target::HostTask, double>(
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -414,7 +439,8 @@ void he2hb_her2k_offdiag_ranks< Target::HostTask, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -423,7 +449,8 @@ void he2hb_her2k_offdiag_ranks< Target::HostTask, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -432,7 +459,8 @@ void he2hb_her2k_offdiag_ranks<Target::Devices, float>(
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -441,7 +469,8 @@ void he2hb_her2k_offdiag_ranks<Target::Devices, double>(
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -450,7 +479,8 @@ void he2hb_her2k_offdiag_ranks< Target::Devices, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -459,7 +489,8 @@ void he2hb_her2k_offdiag_ranks< Target::Devices, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 } // namespace internal
 } // namespace slate

@@ -60,7 +60,7 @@ namespace slate {
 ///     (return value = 0 and iter < 0, see description below), then the
 ///     array $A$ contains the factor $U$ or $L$ from the Cholesky
 ///     factorization $A = U^H U$ or $A = L L^H$.
-///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+///     If scalar_t is real, $A$ can be a SymmetricMatrix.
 ///
 /// @param[in] B
 ///     On entry, the n-by-nrhs right hand side matrix $B$.
@@ -69,9 +69,13 @@ namespace slate {
 ///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
 ///
 /// @param[out] iter
-///     The number of the iterations in the iterative refinement
-///     process, needed for the convergence. If failed, it is set
-///     to be -(1+itermax), where itermax = 30.
+///     > 0: The number of the iterations the iterative refinement
+///          process needed for convergence.
+///     < 0: Iterative refinement failed; it falls back to a double
+///          precision factorization and solve.
+///          -3: single precision matrix was not positive definite in potrf.
+///          -(itermax+1): iterative refinement failed to converge in
+///          itermax iterations.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -92,37 +96,39 @@ namespace slate {
 ///       If true and iterative refinement fails to convergene, the problem is
 ///       resolved with partial-pivoted LU. Default true
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the leading minor of order $i$ of $A$ is not
+/// @return 0: successful exit
+/// @return i > 0: the leading minor of order $i$ of $A$ is not
 ///         positive definite, so the factorization could not
 ///         be completed, and the solution has not been computed.
 ///
 /// @ingroup posv
 ///
 template <typename scalar_hi, typename scalar_lo>
-void posv_mixed(
+int64_t posv_mixed(
     HermitianMatrix<scalar_hi>& A,
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
     int& iter,
     Options const& opts)
 {
-    // XXX This is only used for the memory management and may be inconsistent
-    // with the routines called in this routine.
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    using real_hi = blas::real_type<scalar_hi>;
 
+    Timer t_posv_mixed;
+
+    // Constants
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-
-    bool converged = false;
-    using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
-    const scalar_hi one_hi      = 1.0;
+    const scalar_hi one_hi = 1.0;
 
+    // Options
+    // XXX target is used only for the memory management and may be inconsistent
+    // with the routines called in this routine.
+    Target target = get_option( opts, Option::Target, Target::HostTask );
     int64_t itermax = get_option<int64_t>( opts, Option::MaxIterations, 30 );
     double tol = get_option<double>( opts, Option::Tolerance, eps*std::sqrt(A.m()) );
     bool use_fallback = get_option<int64_t>( opts, Option::UseFallbackSolver, true );
+    bool converged = false;
     iter = 0;
 
     assert( B.mt() == A.mt() );
@@ -175,80 +181,103 @@ void posv_mixed(
     copy( A, A_lo, opts );
 
     // Compute the Cholesky factorization of A_lo.
-    potrf(  A_lo, opts );
-
-    // Solve the system A_lo * X_lo = B_lo.
-    potrs( A_lo, X_lo, opts );
-
-    // Convert X_lo to high precision.
-    copy( X_lo, X, opts );
-
-    // Compute R = B - A * X.
-    slate::copy( B, R, opts );
-    hemm<scalar_hi>(
-        Side::Left,
-        -one_hi, A,
-                 X,
-        one_hi,  R, opts );
-
-    // Check whether the nrhs normwise backward error satisfies the
-    // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(), opts );
-    colNorms( Norm::Max, R, colnorms_R.data(), opts );
-
-    if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte) ) {
-        iter = 0;
-        converged = true;
+    Timer t_potrf_lo;
+    int64_t info = potrf( A_lo, opts );
+    timers[ "posv_mixed::potrf_lo" ] = t_potrf_lo.stop();
+    if (info != 0) {
+        iter = -3;
     }
-
-    // iterative refinement
-    for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
-        // Convert R from high to low precision, store result in X_lo.
-        copy( R, X_lo, opts );
-
-        // Solve the system A_lo * X_lo = R_lo.
+    else {
+        // Solve the system A_lo * X_lo = B_lo.
+        Timer t_potrs_lo;
         potrs( A_lo, X_lo, opts );
+        timers[ "posv_mixed::potrs_lo" ] = t_potrs_lo.stop();
 
-        // Convert X_lo back to double precision and update the current iterate.
-        copy( X_lo, R, opts );
-        add<scalar_hi>(
-              one_hi, R,
-              one_hi, X, opts );
+        // Convert X_lo to high precision.
+        copy( X_lo, X, opts );
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
+        Timer t_hemm_hi;
         hemm<scalar_hi>(
             Side::Left,
             -one_hi, A,
                      X,
             one_hi,  R, opts );
+        timers[ "posv_mixed::hemm_hi" ] = t_hemm_hi.stop();
 
-
-        // Check whether nrhs normwise backward error satisfies the
-        // stopping criterion. If yes, set iter = iiter > 0 and return.
+        // Check whether the nrhs normwise backward error satisfies the
+        // stopping criterion. If yes, set iter=0 and return.
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
         if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
-            iter = iiter+1;
+            iter = 0;
             converged = true;
+        }
+
+        // iterative refinement
+        timers[ "posv_mixed::add_hi" ] = 0;
+        for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
+            // Convert R from high to low precision, store result in X_lo.
+            copy( R, X_lo, opts );
+
+            // Solve the system A_lo * X_lo = R_lo.
+            t_potrs_lo.start();
+            potrs( A_lo, X_lo, opts );
+            timers[ "posv_mixed::potrs_lo" ] += t_potrs_lo.stop();
+
+            // Convert X_lo back to double precision and update the current iterate.
+            copy( X_lo, R, opts );
+            Timer t_add_hi;
+            add<scalar_hi>(
+                  one_hi, R,
+                  one_hi, X, opts );
+            timers[ "posv_mixed::add_hi" ] += t_add_hi.stop();
+
+            // Compute R = B - A * X.
+            slate::copy( B, R, opts );
+            t_hemm_hi.start();
+            hemm<scalar_hi>(
+                Side::Left,
+                -one_hi, A,
+                         X,
+                one_hi,  R, opts );
+            timers[ "posv_mixed::hemm_hi" ] += t_hemm_hi.stop();
+
+            // Check whether nrhs normwise backward error satisfies the
+            // stopping criterion. If yes, set iter = iiter > 0 and return.
+            colNorms( Norm::Max, X, colnorms_X.data(), opts );
+            colNorms( Norm::Max, R, colnorms_R.data(), opts );
+
+            if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
+                iter = iiter+1;
+                converged = true;
+            }
         }
     }
 
     if (! converged) {
-        // If we are at this place of the code, this is because we have performed
-        // iter = itermax iterations and never satisfied the stopping criterion,
-        // set up the iter flag accordingly and follow up with double precision
-        // routine.
-        iter = -itermax - 1;
+        if (info == 0) {
+            // If we performed iter = itermax iterations and never satisfied
+            // the stopping criterion, set up the iter flag accordingly.
+            iter = -itermax - 1;
+        }
 
         if (use_fallback) {
+            // Fall back to double precision factor and solve.
             // Compute the Cholesky factorization of A.
-            potrf( A, opts );
+            Timer t_potrf_hi;
+            info = potrf( A, opts );
+            timers[ "posv_mixed::potrf_hi" ] = t_potrf_hi.stop();
 
             // Solve the system A * X = B.
-            slate::copy( B, X, opts );
-            potrs( A, X, opts );
+            Timer t_potrs_hi;
+            if (info == 0) {
+                slate::copy( B, X, opts );
+                potrs( A, X, opts );
+            }
+            timers[ "posv_mixed::potrs_hi" ] = t_potrs_hi.stop();
         }
     }
 
@@ -258,32 +287,35 @@ void posv_mixed(
         B.clearWorkspace();
         X.clearWorkspace();
     }
+    timers[ "posv_mixed" ] = t_posv_mixed.stop();
 
-    // todo: return value for errors?
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template <>
-void posv_mixed<double>(
+int64_t posv_mixed<double>(
     HermitianMatrix<double>& A,
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
     Options const& opts)
 {
-    posv_mixed<double, float>( A, B, X, iter, opts );
+    return posv_mixed<double, float>(
+        A, B, X, iter, opts );
 }
 
 template <>
-void posv_mixed< std::complex<double> >(
+int64_t posv_mixed< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
     Options const& opts)
 {
-    posv_mixed<std::complex<double>, std::complex<float>>( A, B, X, iter, opts );
+    return posv_mixed< std::complex<double>, std::complex<float> >(
+        A, B, X, iter, opts );
 }
 
 } // namespace slate

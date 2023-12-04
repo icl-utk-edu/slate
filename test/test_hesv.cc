@@ -40,6 +40,7 @@ void test_hesv_work(Params& params, bool run)
     int64_t panel_threads = params.panel_threads();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -49,6 +50,12 @@ void test_hesv_work(Params& params, bool run)
     // mark non-standard output values
     params.time();
     params.gflops();
+    if (timer_level >=2) {
+        params.time2();
+        params.time3();
+        params.time2.name( "hetrf (s)" );
+        params.time3.name( "hetrs (s)" );
+    }
 
     if (! run)
         return;
@@ -202,6 +209,11 @@ void test_hesv_work(Params& params, bool run)
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
     params.time() = time;
     params.gflops() = gflop / time;
+    if (timer_level >= 2) {
+        params.time2() = slate::timers[ "hesv::hetrf" ];
+        params.time3() = slate::timers[ "hesv::hetrs" ];
+    }
+
 
     if (check) {
         // todo: replace with SLATE code to check error. ScaLAPACK doesn't have hesv.

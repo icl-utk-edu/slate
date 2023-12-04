@@ -157,6 +157,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "potri",              test_potri,        Section::posv },
     { "",                   nullptr,           Section::newline },
+    { "pocondest",          test_pocondest,    Section::posv },
 
     // -----
     // symmetric indefinite

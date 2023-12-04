@@ -90,17 +90,15 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
+    // Use only TileReleaseStrategy::Slate for trsm.
+    // Internal routines (trsm and gemm) called here won't release
+    // any tiles. Trsm will clean up tiles.
     Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // Requires 2+lookahead queues
     if (target == Target::Devices) {
         assert(B.numComputeQueues() >= 2+lookahead);
-
-        // Use only TileReleaseStrategy::Slate for trsm.
-        // Internal routines (trsm and gemm) called here
-        // won't release any tiles. Trsm will
-        // clean up tiles.
-        opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
     }
 
     if (A.uplo() == Uplo::Lower) {

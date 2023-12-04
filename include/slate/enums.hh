@@ -43,7 +43,7 @@ enum class TileReleaseStrategy : char {
     None      = 'N',    ///< tiles are not release at all
     Internal  = 'I',    ///< tiles are released by routines in slate::internal namespace
     Slate     = 'S',    ///< tiles are released by routines directly in slate namespace
-    All       = 'A',    ///< tiles are released by rotines in all namespaces
+    All       = 'A',    ///< tiles are released by routines in all namespaces
 };
 
 namespace internal {

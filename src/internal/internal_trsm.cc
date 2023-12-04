@@ -53,6 +53,12 @@ void trsm(internal::TargetType<Target::HostTask>,
     assert(layout == Layout::ColMajor);
     assert(A.mt() == 1);
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     if (B.numLocalTiles() > 0) {
         A.tileGetForReading(0, 0, LayoutConvert(layout));
     }
@@ -65,14 +71,16 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(i, layout, side, alpha) priority(priority)
+                    firstprivate(i, layout, side, alpha, call_tile_tick) priority(priority)
                 {
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
                     tile::trsm(
                         side, A.diag(),
                         alpha, A(0, 0), B(i, 0) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(0, 0);
+                    }
                 }
             }
         }
@@ -83,14 +91,16 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(j, layout, side, alpha) priority(priority)
+                    firstprivate(j, layout, side, alpha, call_tile_tick) priority(priority)
                 {
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
                     tile::trsm(
                         side, A.diag(),
                         alpha, A(0, 0), B(0, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(0, 0);
+                    }
                 }
             }
         }

@@ -111,19 +111,23 @@ int64_t gesv_mixed(
     int& iter,
     Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    using real_hi = blas::real_type<scalar_hi>;
 
+    Timer t_gesv_mixed;
+
+    // Constants
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-
-    bool converged = false;
-    using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
     const scalar_hi one_hi = 1.0;
 
+    // Options
+    Target target = get_option( opts, Option::Target, Target::HostTask );
     int64_t itermax = get_option<int64_t>( opts, Option::MaxIterations, 30 );
     double tol = get_option<double>( opts, Option::Tolerance, eps*std::sqrt(A.m()) );
     bool use_fallback = get_option<int64_t>( opts, Option::UseFallbackSolver, true );
+
+    bool converged = false;
     iter = 0;
 
     assert( B.mt() == A.mt() );
@@ -144,7 +148,6 @@ int64_t gesv_mixed(
     if (target == Target::Devices) {
         #pragma omp parallel
         #pragma omp master
-        #pragma omp taskgroup
         {
             #pragma omp task slate_omp_default_none \
                 shared( A ) firstprivate( layout )
@@ -177,23 +180,29 @@ int64_t gesv_mixed(
     copy( A, A_lo, opts );
 
     // Compute the LU factorization of A_lo.
+    Timer t_getrf_lo;
     int64_t info = getrf( A_lo, pivots, opts );
+    timers[ "gesv_mixed::getrf_lo" ] = t_getrf_lo.stop();
     if (info != 0) {
         iter = -3;
     }
     else {
         // Solve the system A_lo * X_lo = B_lo.
+        Timer t_getrs_lo;
         getrs( A_lo, pivots, X_lo, opts );
+        timers[ "gesv_mixed::getrs_lo" ] = t_getrs_lo.stop();
 
         // Convert X_lo to high precision.
         copy( X_lo, X, opts );
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
+        Timer t_gemm_hi;
         gemm<scalar_hi>(
             -one_hi, A,
                      X,
             one_hi,  R, opts );
+        timers[ "gesv_mixed::gemm_hi" ] = t_gemm_hi.stop();
 
         // Check whether the nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter=0 and return.
@@ -205,26 +214,33 @@ int64_t gesv_mixed(
             converged = true;
         }
 
+        timers[ "gesv_mixed::add_hi" ] = 0;
         // iterative refinement
         for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
             // Convert R from high to low precision, store result in X_lo.
             copy( R, X_lo, opts );
 
             // Solve the system A_lo * X_lo = R_lo.
+            t_getrs_lo.start();
             getrs( A_lo, pivots, X_lo, opts );
+            timers[ "gesv_mixed::getrs_lo" ] += t_getrs_lo.stop();
 
             // Convert X_lo back to double precision and update the current iterate.
             copy( X_lo, R, opts );
+            Timer t_add_hi;
             add<scalar_hi>(
                   one_hi, R,
                   one_hi, X, opts );
+            timers[ "gesv_mixed::add_hi" ] += t_add_hi.stop();
 
             // Compute R = B - A * X.
             slate::copy( B, R, opts );
+            t_gemm_hi.start();
             gemm<scalar_hi>(
                 -one_hi, A,
                          X,
                 one_hi,  R, opts );
+            timers[ "gesv_mixed::gemm_hi" ] += t_gemm_hi.stop();
 
             // Check whether nrhs normwise backward error satisfies the
             // stopping criterion. If yes, set iter = iiter > 0 and return.
@@ -248,13 +264,17 @@ int64_t gesv_mixed(
         if (use_fallback) {
             // Fall back to double precision factor and solve.
             // Compute the LU factorization of A.
+            Timer t_getrf_hi;
             info = getrf( A, pivots, opts );
+            timers[ "gesv_mixed::getrf_hi" ] = t_getrf_hi.stop();
 
             // Solve the system A * X = B.
+            Timer t_getrs_hi;
             if (info == 0) {
                 slate::copy( B, X, opts );
                 getrs( A, pivots, X, opts );
             }
+            timers[ "gesv_mixed::getrs_hi" ] = t_getrs_hi.stop();
         }
     }
 
@@ -264,6 +284,8 @@ int64_t gesv_mixed(
         B.clearWorkspace();
         X.clearWorkspace();
     }
+    timers[ "gesv_mixed" ] = t_gesv_mixed.stop();
+
     return info;
 }
 

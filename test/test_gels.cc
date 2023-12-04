@@ -65,12 +65,21 @@ void test_gels_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
-    if (timer_level >= 2) {
+    if (timer_level >= 2 && (methodGels == slate::MethodGels::Auto
+                             || methodGels == slate::MethodGels::Geqrf)) {
         params.time2();
         params.time3();
         params.time4();
         params.time2.name( "geqrf (s)" );
         params.time3.name( "unmqr (s)" );
+        params.time4.name( "trsm (s)" );
+    }
+    else if (timer_level >= 2 && methodGels == slate::MethodGels::Cholqr) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time2.name( "cholqr (s)" );
+        params.time3.name( "gemm (s)" );
         params.time4.name( "trsm (s)" );
     }
 
@@ -242,10 +251,16 @@ void test_gels_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        if (timer_level >= 2) {
+        if (timer_level >= 2 && (methodGels == slate::MethodGels::Auto
+                                 || methodGels == slate::MethodGels::Geqrf)) {
             params.time2() = slate::timers[ "gels::geqrf" ];
             params.time3() = slate::timers[ "gels::unmqr" ];
             params.time4() = slate::timers[ "gels::trsm"  ];
+        }
+        else if (timer_level >= 2 && methodGels == slate::MethodGels::Cholqr) {
+            params.time2() = slate::timers[ "gels_cholqr::cholqr" ];
+            params.time3() = slate::timers[ "gels_cholqr::gemm" ];
+            params.time4() = slate::timers[ "gels_cholqr::trsm" ];
         }
 
         print_matrix( "A2", A, params );

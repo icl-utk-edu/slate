@@ -37,6 +37,7 @@ int64_t getrf_tntpiv(
     const int priority_1 = 1;
     const int queue_0 = 0;
     const int queue_1 = 1;
+    const int queue_2 = 2;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -73,7 +74,7 @@ int64_t getrf_tntpiv(
 
     if (target == Target::Devices) {
         const int64_t batch_size_default = 0;
-        int num_queues = 2 + lookahead;
+        int num_queues = 3 + lookahead;
         A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
 
@@ -135,6 +136,9 @@ int64_t getrf_tntpiv(
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
     SLATE_UNUSED( column ); // Used only by OpenMP
+    std::vector< uint8_t > diag_vector(A_nt);
+    uint8_t* diag = diag_vector.data();
+    SLATE_UNUSED( diag ); // Used only by OpenMP
 
     // Running two listBcastMT's simultaneously can hang due to task ordering
     // This dependency avoids that
@@ -158,6 +162,7 @@ int64_t getrf_tntpiv(
 
             // panel, high priority
             #pragma omp task depend(inout:column[k]) \
+                             depend(inout:diag[k]) \
                              priority(1)
             {
                 auto Apanel = Awork.sub( k, A_mt-1, k, k );
@@ -208,8 +213,8 @@ int64_t getrf_tntpiv(
 
             // Finish computing panel using trsm below diagonal tile.
             // A_k+1:mt,k = A_k+1:mt,k * Tkk^{-1}
-            #pragma omp task depend(inout:column[k]) \
-                             depend(inout:listBcastMT_token) \
+            #pragma omp task depend(in:diag[k]) \
+                             depend(inout:column[k]) \
                              priority(1)
             {
                 auto Akk = A.sub(k, k, k, k);
@@ -221,7 +226,12 @@ int64_t getrf_tntpiv(
                     one, std::move(Tkk),
                          A.sub( k+1, A_mt-1, k, k ),
                     priority_1, Layout::ColMajor, queue_0 );
+            }
 
+            #pragma omp task depend(inout:column[k]) \
+                             depend(inout:listBcastMT_token) \
+                             priority(1)
+            {
                 BcastListTag bcast_list;
                 // bcast the tiles of the panel to the right hand side
                 for (int64_t i = k+1; i < A_mt; ++i) {
@@ -235,13 +245,13 @@ int64_t getrf_tntpiv(
 
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
-                #pragma omp task depend(in:column[k]) \
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[j]) \
                                  priority(1)
                 {
                     // swap rows in A(k:mt-1, j)
-                    int tag_j = j;
-                    int queue_jk1 = j-k+1;
+                    int tag_j = j + A_mt;
+                    int queue_jk1 = j-(k+1)+3;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
                         target_layout, priority_1, tag_j, queue_jk1 );
@@ -261,7 +271,13 @@ int64_t getrf_tntpiv(
                     A.tileBcast(
                         k, j, A.sub( k+1, A_mt-1, j, j ),
                         Layout::ColMajor, tag_j );
+                }
 
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[j]) \
+                                 priority(1)
+                {
+                    int queue_jk1 = j-(k+1)+3;
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
                         -one, A.sub( k+1, A_mt-1, k, k ),
@@ -271,29 +287,14 @@ int64_t getrf_tntpiv(
                 }
             }
 
-            // pivot to the left
-            if (k > 0) {
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[0]) \
-                                 depend(inout:column[k-1])
-                {
-                    // swap rows in A(k:mt-1, 0:k-1)
-                    int tag = 1 + k + A_mt * 2;
-                    internal::permuteRows<Target::HostTask>(
-                        Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                        host_layout, priority_0, tag, queue_0 );
-                }
-            }
-
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
-                #pragma omp task depend(in:column[k]) \
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
-                                 depend(inout:listBcastMT_token) \
                                  depend(inout:column[A_nt-1])
                 {
                     // swap rows in A(k:mt-1, kl+1:nt-1)
-                    int tag_kl1 = k+1+lookahead;
+                    int tag_kl1 = k+1+lookahead + A_mt;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
                         pivots.at(k), target_layout, priority_0, tag_kl1, queue_1 );
@@ -308,7 +309,12 @@ int64_t getrf_tntpiv(
                         one, std::move( Tkk ),
                              A.sub( k, k, k+1+lookahead, A_nt-1 ),
                         priority_0, Layout::ColMajor, queue_1 );
+                }
 
+                #pragma omp task depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:column[A_nt-1]) \
+                                 depend(inout:listBcastMT_token)
+                {
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
                     for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
@@ -320,6 +326,12 @@ int64_t getrf_tntpiv(
                     A.template listBcastMT<target>(
                         bcast_list, Layout::ColMajor);
 
+                }
+
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:column[A_nt-1])
+                {
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                         -one, A.sub( k+1, A_mt-1, k, k ),
@@ -328,6 +340,27 @@ int64_t getrf_tntpiv(
                         host_layout, priority_0, queue_1 );
                 }
             }
+            // pivot to the left
+            if (k > 0) {
+                #pragma omp task depend(in:diag[k]) \
+                                 depend(inout:column[0]) \
+                                 depend(inout:column[k-1])
+                {
+                    // swap rows in A(k:mt-1, 0:k-1)
+                    int tag = A_mt * 2; // permuteRows uses tag:tag+k-1 as tags
+                    if (A.origin() == Target::Devices && target == Target::Devices) {
+                        internal::permuteRows<Target::Devices>(
+                            Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+                            target_layout, priority_0, tag, queue_2 );
+                    }
+                    else {
+                        internal::permuteRows<Target::HostTask>(
+                            Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+                            host_layout, priority_0, tag, queue_2 );
+                    }
+                }
+            }
+
             if (is_shared) {
                 #pragma omp task depend(inout:column[k])
                 {

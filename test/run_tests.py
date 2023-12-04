@@ -614,12 +614,12 @@ if (opts.norms):
 if (opts.cond):
     cmds += [
     [ 'gecondest', gen + dtype + n ],
+    [ 'pocondest', gen + dtype + n + uplo ],
 
     # Triangle
     [ 'trcondest', gen + dtype + n ],
 
     #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
-    #[ 'pocon', gen + dtype + la + n + uplo ],
     #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
     ]
 

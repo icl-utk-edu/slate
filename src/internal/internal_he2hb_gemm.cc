@@ -28,11 +28,12 @@ void he2hb_gemm(
     scalar_t alpha, Matrix<scalar_t>&& A, Matrix<scalar_t>&& B,
     scalar_t beta,  Matrix<scalar_t>&& C,
     int panel_rank,
-    int priority, int64_t queue_index )
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     he2hb_gemm( internal::TargetType<target>(),
                 alpha, A, B, beta, C,
-                panel_rank, priority, queue_index );
+                panel_rank, priority, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -46,7 +47,8 @@ void he2hb_gemm(
     scalar_t alpha, Matrix<scalar_t>& A, Matrix<scalar_t>& B,
     scalar_t beta,  Matrix<scalar_t>& C,
     int panel_rank,
-    int priority, int64_t queue_index )
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -54,11 +56,17 @@ void he2hb_gemm(
 
     assert( A.nt() == B.mt() );
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C ) \
-            firstprivate( alpha, beta, panel_rank, i, layoutc ) \
+            firstprivate( alpha, beta, panel_rank, i, layoutc, call_tile_tick ) \
             priority( priority )
         {
             scalar_t beta_ = beta;
@@ -69,8 +77,10 @@ void he2hb_gemm(
                     C.tileGetForWriting( i, 0, layoutc );
                     tile::gemm( alpha, A( i, k ), B( k, 0 ),
                                 beta_, C( i, 0 ) );
-                    A.tileTick( i, k );
-                    B.tileTick( k, 0 );
+                    if (call_tile_tick) {
+                        A.tileTick( i, k );
+                        B.tileTick( k, 0 );
+                    }
                 }
                 beta_ = 1.0;
             }
@@ -89,7 +99,8 @@ void he2hb_gemm(
     scalar_t alpha, Matrix<scalar_t>& A, Matrix<scalar_t>& B,
     scalar_t beta,  Matrix<scalar_t>& C,
     int panel_rank,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -107,6 +118,12 @@ void he2hb_gemm(
 
     assert( C.num_devices() > 0 );
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     int err = 0;
 
     #pragma omp taskgroup
@@ -114,7 +131,7 @@ void he2hb_gemm(
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err ) \
             firstprivate( alpha, beta, panel_rank, queue_index, device, \
-                          layout, layoutc ) \
+                          layout, layoutc, call_tile_tick ) \
             priority( priority )
         {
             Op opA = A.op();
@@ -260,18 +277,20 @@ void he2hb_gemm(
                     queue->sync();
                 }
 
-                // todo: release tiles in top-level routine.
-                // for (int64_t i = 0; i < A.mt(); ++i) {
-                //     if (A.tileRank( i, k ) == panel_rank
-                //         && device == C.tileDevice( i, 0 )) {
-                //         // erase tmp local and remote device tiles;
-                //         A.tileRelease( i, k, device );
-                //         B.tileRelease( k, 0, device );
-                //         // decrement life for remote tiles
-                //         A.tileTick( i, k );
-                //         B.tileTick( k, 0 );
-                //     }
-                // }
+                if (call_tile_tick) {
+                    // todo: release tiles in top-level routine.
+                    // for (int64_t i = 0; i < A.mt(); ++i) {
+                    //     if (A.tileRank( i, k ) == panel_rank
+                    //         && device == C.tileDevice( i, 0 )) {
+                    //         // erase tmp local and remote device tiles;
+                    //         A.tileRelease( i, k, device );
+                    //         B.tileRelease( k, 0, device );
+                    //         // decrement life for remote tiles
+                    //         A.tileTick( i, k );
+                    //         B.tileTick( k, 0 );
+                    //     }
+                    // }
+                }
                 beta = 1.0;
             } // for loop (k)
         } // pragma
@@ -288,7 +307,8 @@ void he2hb_gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A, Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
     int panel_rank,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -296,7 +316,8 @@ void he2hb_gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A, Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     int panel_rank,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -305,7 +326,8 @@ void he2hb_gemm< Target::HostTask, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int panel_rank,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -314,7 +336,8 @@ void he2hb_gemm< Target::HostTask, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     int panel_rank,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -322,7 +345,8 @@ void he2hb_gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A, Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
     int panel_rank,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -330,7 +354,8 @@ void he2hb_gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A, Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
     int panel_rank,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -339,7 +364,8 @@ void he2hb_gemm< Target::Devices, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
     int panel_rank,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -348,7 +374,8 @@ void he2hb_gemm< Target::Devices, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     int panel_rank,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 } // namespace internal
 } // namespace slate

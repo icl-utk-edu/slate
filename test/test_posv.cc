@@ -54,7 +54,13 @@ void test_posv_work(Params& params, bool run)
     slate::Method methodHemm = params.method_hemm();
 
     // Currently only posv* supports timer_level >= 2.
-    if (params.routine != "posv")
+    std::vector<std::string> timer_lvl_support{ "posv", "posv_mixed",
+                                                "posv_mixed_gmres" };
+    bool supported = std::find( timer_lvl_support.begin(),
+                                timer_lvl_support.end(), params.routine )
+                     != timer_lvl_support.end();
+
+    if (! supported)
         timer_level = 1;
 
     // mark non-standard output values
@@ -73,11 +79,34 @@ void test_posv_work(Params& params, bool run)
         params.gflops2();
         params.gflops2.name( "trs gflop/s" );
     }
-    if (timer_level >= 2) {
+    if (timer_level >= 2 && params.routine == "posv") {
         params.time2();
         params.time3();
         params.time2.name( "potrf (s)" );
         params.time3.name( "potrs (s)" );
+    }
+    else if (timer_level >=2 && (params.routine == "posv_mixed"
+                                 || params.routine == "posv_mixed_gmres")) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time5();
+        params.time6();
+        params.time7();
+        params.time2.name( "potrf_lo (s)" );
+        params.time3.name( "potrs_lo (s)" );
+        params.time4.name( "hemm_hi (s)" );
+        params.time5.name( "add_hi (s)" );
+        params.time6.name( "potrf_hi (s)" );
+        params.time7.name( "potrs_hi (s)" );
+        if (params.routine == "posv_mixed_gmres") {
+            params.time8();
+            params.time9();
+            params.time10();
+            params.time8.name( "rotations (s)" );
+            params.time9.name( "trsm_hi (s)" );
+            params.time10.name( "gemm_hi (s)" );
+        }
     }
 
     bool is_iterative = params.routine == "posv_mixed"
@@ -128,6 +157,8 @@ void test_posv_work(Params& params, bool run)
         params.msg() = "skipping: unsupported devices support";
         return;
     }
+
+    int64_t info = 0;
 
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
@@ -247,26 +278,26 @@ void test_posv_work(Params& params, bool run)
 
         if (params.routine == "potrf" || params.routine == "potrs") {
             // Factor matrix A.
-            slate::chol_factor(A, opts);
+            info = slate::chol_factor( A, opts );
             // Using traditional BLAS/LAPACK name
             // slate::potrf(A, opts);
         }
         else if (params.routine == "posv") {
-            slate::chol_solve(A, B, opts);
+            info = slate::chol_solve( A, B, opts );
             // Using traditional BLAS/LAPACK name
             // slate::posv(A, B, opts);
         }
         else if (params.routine == "posv_mixed") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::posv_mixed( A, B, X, iters, opts );
+                info = slate::posv_mixed( A, B, X, iters, opts );
                 params.iters() = iters;
             }
         }
         else if (params.routine == "posv_mixed_gmres") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::posv_mixed_gmres(A, B, X, iters, opts);
+                info = slate::posv_mixed_gmres(A, B, X, iters, opts);
                 params.iters() = iters;
             }
         }
@@ -275,16 +306,35 @@ void test_posv_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        if (timer_level >= 2) {
+        if (timer_level >= 2 && params.routine == "posv") {
             params.time2() = slate::timers[ "posv::potrf" ];
             params.time3() = slate::timers[ "posv::potrs" ];
+        }
+        else if (timer_level >= 2 && params.routine == "posv_mixed") {
+            params.time2() = slate::timers[ "posv_mixed::potrf_lo" ];
+            params.time3() = slate::timers[ "posv_mixed::potrs_lo" ];
+            params.time4() = slate::timers[ "posv_mixed::hemm_hi" ];
+            params.time5() = slate::timers[ "posv_mixed::add_hi" ];
+            params.time6() = slate::timers[ "posv_mixed::potrf_hi" ];
+            params.time7() = slate::timers[ "posv_mixed::potrs_hi" ];
+        }
+        else if (timer_level >= 2 && params.routine == "posv_mixed_gmres") {
+            params.time2() = slate::timers[ "posv_mixed_gmres::potrf_lo" ];
+            params.time3() = slate::timers[ "posv_mixed_gmres::potrs_lo" ];
+            params.time4() = slate::timers[ "posv_mixed_gmres::hemm_hi" ];
+            params.time5() = slate::timers[ "posv_mixed_gmres::add_hi" ];
+            params.time6() = slate::timers[ "posv_mixed_gmres::potrf_hi" ];
+            params.time7() = slate::timers[ "posv_mixed_gmres::potrs_hi" ];
+            params.time8() = slate::timers[ "posv_mixed_gmres::rotations" ];
+            params.time9() = slate::timers[ "posv_mixed_gmres::trsm_hi" ];
+            params.time10() = slate::timers[ "posv_mixed_gmres::gemm_hi" ];
         }
 
         //==================================================
         // Run SLATE test: potrs
         // potrs: Solve AX = B, after factoring A above.
         //==================================================
-        if (do_potrs) {
+        if (do_potrs && info == 0) {
             double time2 = barrier_get_wtime(MPI_COMM_WORLD);
 
             if ((check && params.routine == "potrf")
@@ -304,9 +354,22 @@ void test_posv_work(Params& params, bool run)
         }
 
         if (trace) slate::trace::Trace::finish();
-    }
 
-    if (check) {
+        if (info != 0) {
+            char buf[ 80 ];
+            snprintf( buf, sizeof(buf), "info = %lld, cond = %.2e",
+                      llong( info ), params.matrix.cond_actual() );
+            params.msg() = buf;
+        }
+    }
+    print_matrix( "X_out", X, params );
+
+    if (info != 0 || std::isinf( params.matrix.cond_actual() )) {
+        // info != 0 if and only if cond == inf (singular matrix).
+        // Matrices with unknown cond (nan) that are singular are marked failed.
+        params.okay() = info != 0 && std::isinf( params.matrix.cond_actual() );
+    }
+    else if (check) {
         //==================================================
         // Test results by checking the residual
         //
@@ -370,7 +433,6 @@ void test_posv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int64_t info;
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 

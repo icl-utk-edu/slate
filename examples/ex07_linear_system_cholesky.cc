@@ -81,7 +81,9 @@ void test_cholesky_mixed()
     slate::posv_mixed_gmres( A, B1, X1, iters );  // only one RHS
     //---------- end mixed2
 
-    printf( "rank %d: iters %d\n", mpi_rank, iters );
+    if (mpi_rank == 0) {
+        printf( "rank %d: iters %d\n", mpi_rank, iters );
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -139,6 +141,44 @@ void test_cholesky_inverse()
 }
 
 //------------------------------------------------------------------------------
+template <typename scalar_type>
+void test_cholesky_cond()
+{
+    using real_t = blas::real_type<scalar_type>;
+
+    print_func( mpi_rank );
+
+    int64_t n=1000, nrhs=100, nb=256;
+
+    //---------- begin cond1
+    slate::HermitianMatrix<scalar_type>
+        A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    // ...
+    //---------- end cond1
+
+    A.insertLocalTiles();
+    random_matrix_diag_dominant( A );
+
+    //---------- begin cond2
+
+    // Compute A_norm before factoring.
+    real_t A_norm = slate::norm( slate::Norm::One, A );
+
+    // Factor using chol_factor or chol_solve.
+    slate::chol_factor( A );
+
+    // reciprocal condition number, 1 / (||A|| * ||A^{-1}||)
+    real_t A_rcond = slate::chol_rcondest_using_factor( slate::Norm::One, A, A_norm );
+    real_t A_cond = 1. / A_rcond;
+    //---------- end cond2
+
+    if (mpi_rank == 0) {
+        printf( "rank %d: norm %.2e, rcond %.2e, cond %.2e\n",
+                mpi_rank, A_norm, A_rcond, 1 / A_rcond );
+    }
+}
+
+//------------------------------------------------------------------------------
 int main( int argc, char** argv )
 {
     try {
@@ -171,6 +211,7 @@ int main( int argc, char** argv )
             test_cholesky< float >();
             test_cholesky_factor< float >();
             test_cholesky_inverse< float >();
+            test_cholesky_cond< float >();
         }
         if (mpi_rank == 0)
             printf( "\n" );
@@ -180,6 +221,7 @@ int main( int argc, char** argv )
             test_cholesky_factor< double >();
             test_cholesky_inverse< double >();
             test_cholesky_mixed< double >();
+            test_cholesky_cond< double >();
         }
         if (mpi_rank == 0)
             printf( "\n" );
@@ -188,6 +230,7 @@ int main( int argc, char** argv )
             test_cholesky< std::complex<float> >();
             test_cholesky_factor< std::complex<float> >();
             test_cholesky_inverse< std::complex<float> >();
+            test_cholesky_cond< std::complex<float> >();
         }
         if (mpi_rank == 0)
             printf( "\n" );
@@ -197,6 +240,7 @@ int main( int argc, char** argv )
             test_cholesky_factor< std::complex<double> >();
             test_cholesky_inverse< std::complex<double> >();
             test_cholesky_mixed< std::complex<double> >();
+            test_cholesky_cond< std::complex<double> >();
         }
 
         slate_mpi_call(

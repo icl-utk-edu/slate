@@ -38,9 +38,8 @@ int64_t potrf(
     const Layout layout = Layout::ColMajor;
 
     // Options
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    bool hold_local_workspace = get_option<bool>(
-            opts, Option::HoldLocalWorkspace, 0 );
+    int64_t lookahead = get_option<Option::Lookahead>( opts, 1 );
+    bool hold_local_workspace = get_option<Option::HoldLocalWorkspace>( opts, false );
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
@@ -266,7 +265,7 @@ int64_t potrf(
 {
     using internal::TargetType;
 
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    Target target = get_option<Option::Target>( opts, Target::HostTask );
 
     switch (target) {
         case Target::Host:

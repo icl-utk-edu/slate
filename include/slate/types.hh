@@ -59,6 +59,9 @@ using Options = std::map<Option, OptionValue>;
 using Value   = OptionValue; ///< @deprecated
 
 //------------------------------------------------------------------------------
+typedef int Method;
+
+//------------------------------------------------------------------------------
 class Pivot {
 public:
     Pivot()
@@ -212,6 +215,39 @@ inline double get_option<double>( Options opts, Option option, double defval )
         retval = defval;
 
     return retval;
+}
+
+//------------------------------------------------------------------------------
+// Dispatch type mapping Option enum to corresponding types
+template <slate::Option option> struct OptValueType {};
+template<> struct OptValueType<Option::ChunkSize>          { using T = int64_t; };
+template<> struct OptValueType<Option::Lookahead>          { using T = int64_t; };
+template<> struct OptValueType<Option::BlockSize>          { using T = int64_t; };
+template<> struct OptValueType<Option::InnerBlocking>      { using T = int64_t; };
+template<> struct OptValueType<Option::MaxPanelThreads>    { using T = int64_t; };
+template<> struct OptValueType<Option::Tolerance>          { using T = double; };
+template<> struct OptValueType<Option::Target>             { using T = Target; };
+template<> struct OptValueType<Option::HoldLocalWorkspace> { using T = bool; };
+template<> struct OptValueType<Option::Depth>              { using T = int64_t; };
+template<> struct OptValueType<Option::MaxIterations>      { using T = int64_t; };
+template<> struct OptValueType<Option::UseFallbackSolver>  { using T = bool; };
+template<> struct OptValueType<Option::PivotThreshold>     { using T = double; };
+template<> struct OptValueType<Option::PrintVerbose>       { using T = int; };
+template<> struct OptValueType<Option::PrintEdgeItems>     { using T = int; };
+template<> struct OptValueType<Option::PrintWidth>         { using T = int; };
+template<> struct OptValueType<Option::PrintPrecision>     { using T = int; };
+template<> struct OptValueType<Option::MethodCholQR>       { using T = Method; };
+template<> struct OptValueType<Option::MethodEig>          { using T = MethodEig; };
+template<> struct OptValueType<Option::MethodGels>         { using T = Method; };
+template<> struct OptValueType<Option::MethodGemm>         { using T = Method; };
+template<> struct OptValueType<Option::MethodHemm>         { using T = Method; };
+template<> struct OptValueType<Option::MethodLU>           { using T = Method; };
+template<> struct OptValueType<Option::MethodTrsm>         { using T = Method; };
+
+template <slate::Option option>
+auto get_option( Options opts, typename OptValueType<option>::T defval )
+{
+    return get_option<typename OptValueType<option>::T>( opts, option, defval );
 }
 
 //------------------------------------------------------------------------------

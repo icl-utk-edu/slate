@@ -20,12 +20,12 @@ void test_gemm()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0, beta = 1.0;
+    scalar_type alpha = 2.0, beta = 1.0;
     int64_t m=2000, n=1000, k=500, nb=256;
 
-    slate::Matrix<double> A( m, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( k, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> C( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> A( m, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( k, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> C( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     C.insertLocalTiles();
@@ -58,13 +58,13 @@ void test_gemm_trans()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0, beta = 1.0;
+    scalar_type alpha = 2.0, beta = 1.0;
     int64_t m=2000, n=1000, k=500, nb=256;
 
     // Dimensions of A, B are backwards from A, B in test_gemm().
-    slate::Matrix<double> A( k, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> C( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> A( k, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> C( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     C.insertLocalTiles();
@@ -94,14 +94,14 @@ void test_symm_left()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0, beta = 1.0;
+    scalar_type alpha = 2.0, beta = 1.0;
     int64_t m=2000, n=1000, nb=256;
 
     // A is m-by-m, B and C are m-by-n.
-    slate::SymmetricMatrix<double>
+    slate::SymmetricMatrix<scalar_type>
         A( slate::Uplo::Lower, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> C( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> C( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     C.insertLocalTiles();
@@ -123,14 +123,14 @@ void test_symm_right()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0, beta = 1.0;
+    scalar_type alpha = 2.0, beta = 1.0;
     int64_t m=2000, n=1000, nb=256;
 
     // A is m-by-m, B and C are n-by-m (reverse of left case above).
-    slate::SymmetricMatrix<double>
+    slate::SymmetricMatrix<scalar_type>
         A( slate::Uplo::Lower, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> C( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> C( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     C.insertLocalTiles();
@@ -153,14 +153,14 @@ void test_hemm_left()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0, beta = 1.0;
+    scalar_type alpha = 2.0, beta = 1.0;
     int64_t m=2000, n=1000, nb=256;
 
     // A is m-by-m, B and C are m-by-n.
-    slate::HermitianMatrix<double>
+    slate::HermitianMatrix<scalar_type>
         A( slate::Uplo::Lower, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> C( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> C( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     C.insertLocalTiles();
@@ -182,14 +182,14 @@ void test_hemm_right()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0, beta = 1.0;
+    scalar_type alpha = 2.0, beta = 1.0;
     int64_t m=2000, n=1000, nb=256;
 
     // A is m-by-m, B and C are n-by-m (reverse of left case above).
-    slate::HermitianMatrix<double>
+    slate::HermitianMatrix<scalar_type>
         A( slate::Uplo::Lower, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> C( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> C( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     C.insertLocalTiles();
@@ -212,12 +212,12 @@ void test_syrk_syr2k()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0, beta = 1.0;
+    scalar_type alpha = 2.0, beta = 1.0;
     int64_t n=1000, k=500, nb=256;
 
-    slate::Matrix<double> A( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::SymmetricMatrix<double>
+    slate::Matrix<scalar_type> A( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::SymmetricMatrix<scalar_type>
         C( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
@@ -247,12 +247,13 @@ void test_herk_her2k()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0, beta = 1.0;
+    scalar_type alpha = 2.0;
+    blas::real_type<scalar_type> alpha_real = 2.0, beta = 1.0;
     int64_t n=1000, k=500, nb=256;
 
-    slate::Matrix<double> A( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::HermitianMatrix<double>
+    slate::Matrix<scalar_type> A( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( n, k, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::HermitianMatrix<scalar_type>
         C( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
@@ -264,8 +265,8 @@ void test_herk_her2k()
     //---------- begin herk
 
     // C = alpha A A^H + beta C, where C is Hermitian
-    slate::rank_k_update( alpha, A, beta, C );      // simplified API
-    slate::herk( alpha, A, beta, C );               // traditional API
+    slate::rank_k_update( alpha_real, A, beta, C );      // simplified API
+    slate::herk( alpha_real, A, beta, C );               // traditional API
     //---------- end herk
 
     //---------- begin her2k
@@ -282,14 +283,14 @@ void test_trmm_trsm_left()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0;
+    scalar_type alpha = 2.0;
     int64_t m=2000, n=1000, nb=256;
 
     // A is m-by-m, B is m-by-n
-    slate::TriangularMatrix<double>
+    slate::TriangularMatrix<scalar_type>
         A( slate::Uplo::Lower, slate::Diag::NonUnit, m, nb,
            grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     random_matrix( A );
@@ -315,14 +316,14 @@ void test_trmm_trsm_right()
 {
     print_func( mpi_rank );
 
-    double alpha = 2.0;
+    scalar_type alpha = 2.0;
     int64_t m=2000, n=1000, nb=256;
 
     // A is m-by-m, B is n-by-m (reverse of left case above).
-    slate::TriangularMatrix<double>
+    slate::TriangularMatrix<scalar_type>
         A( slate::Uplo::Lower, slate::Diag::NonUnit, m, nb,
            grid_p, grid_q, MPI_COMM_WORLD );
-    slate::Matrix<double> B( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type> B( n, m, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     random_matrix( A );

@@ -13,7 +13,6 @@ docs/doxygen/errors.txt
 docs/html/
 files.txt
 include/slate/c_api/matrix.h
-include/slate/c_api/util.hh
 include/slate/c_api/wrappers.h
 issues/
 lib/*.a
@@ -22,6 +21,7 @@ lib/pkgconfig/*.pc
 make.inc
 src/c_api/matrix.cc
 src/c_api/util.cc
+src/c_api/util.hh
 src/c_api/wrappers_precisions.cc
 src/cuda/*.md5
 src/fortran/slate_module.f90

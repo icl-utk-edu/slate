@@ -928,7 +928,6 @@ install: lib ${pkg}
 	if [ ${c_api} -eq 1 ]; then \
 		mkdir -p ${DESTDIR}${abs_prefix}/include/slate/c_api; \
 		cp include/slate/c_api/*.h  ${DESTDIR}${abs_prefix}/include/slate/c_api; \
-		cp include/slate/c_api/*.hh ${DESTDIR}${abs_prefix}/include/slate/c_api; \
 	fi
 	if [ ${fortran_api} -eq 1 ]; then \
 		cp slate.mod                ${DESTDIR}${abs_prefix}/include/; \
@@ -960,17 +959,17 @@ ifeq ($(c_api),1)
     include/slate/c_api/matrix.h: include/slate/Tile.hh include/slate/types.hh
 		${python} tools/c_api/generate_matrix.py $^ $@ src/c_api/matrix.cc
 
-    include/slate/c_api/util.hh: include/slate/c_api/types.h
+    src/c_api/util.hh: include/slate/c_api/types.h
 		${python} tools/c_api/generate_util.py $< $@ src/c_api/util.cc
 
-    src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
-    src/c_api/matrix.cc: include/slate/c_api/matrix.h
-    src/c_api/util.cc: include/slate/c_api/util.hh
-    src/c_api/wrappers.o: include/slate/c_api/wrappers.h
+    src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h src/c_api/util.hh
+    src/c_api/matrix.cc: include/slate/c_api/matrix.h src/c_api/util.hh
+    src/c_api/util.cc: src/c_api/util.hh
+    src/c_api/wrappers.o: include/slate/c_api/wrappers.h src/c_api/util.hh
 
     generate: include/slate/c_api/wrappers.h
     generate: include/slate/c_api/matrix.h
-    generate: include/slate/c_api/util.hh
+    generate: src/c_api/util.hh
 endif
 
 #-------------------------------------------------------------------------------

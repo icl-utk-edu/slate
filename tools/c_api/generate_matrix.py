@@ -83,7 +83,7 @@ file_hh.write('\n')
 
 file_cc.write(copyright + '\n')
 file_cc.write('#include "slate/c_api/matrix.h"\n')
-file_cc.write('#include "slate/c_api/util.hh"\n')
+file_cc.write('#include "c_api/util.hh"\n')
 file_cc.write('#include "slate/slate.hh"\n\n')
 
 file_hh.write('''\

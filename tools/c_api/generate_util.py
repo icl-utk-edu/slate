@@ -72,7 +72,7 @@ file_hh.write('#include "slate/slate.hh"\n')
 file_hh.write('\n')
 
 file_cc.write(copyright + '\n')
-file_cc.write('#include "slate/c_api/util.hh"\n\n')
+file_cc.write('#include "c_api/util.hh"\n\n')
 
 file_hh.write('namespace slate {\n\n')
 file_cc.write('namespace slate {\n\n')

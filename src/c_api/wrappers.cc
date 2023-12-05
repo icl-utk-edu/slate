@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/c_api/wrappers.h"
-#include "slate/c_api/util.hh"
+#include "c_api/util.hh"
 
 //--------------------
 // begin/end markup used by generate_wrappers.py script;

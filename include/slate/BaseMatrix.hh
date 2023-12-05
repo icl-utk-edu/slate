@@ -504,24 +504,36 @@ public:
     template <Target target = Target::Host>
     [[deprecated( "Tile life has been removed. The 6 argument tileBcast will be removed 2024-12." )]]
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& B,
-                   Layout layout, int tag, int64_t life_factor) {
+                   Layout layout, int tag, int64_t life_factor)
+    {
         tileBcast( i, j, B, layout, tag );
     }
 
-    // TODO add deprecation warnings
     template <Target target = Target::Host>
+    void listBcast( BcastList& bcast_list, Layout layout, int tag = 0, bool is_shared = false );
+
+    template <Target target = Target::Host>
+    [[deprecated( "Tile life has been removed. The 5 argument listBcast will be removed 2024-12." )]]
     void listBcast(
-        BcastList& bcast_list, Layout layout,
-        int tag = 0, int64_t life_factor = 1,
-        bool is_shared = false);
+        BcastList& bcast_list, Layout layout, int tag,
+        int64_t life_factor, bool is_shared = false)
+    {
+        listBcast( bcast_list, layout, tag, is_shared );
+    }
 
     // This variant takes a BcastListTag where each <i,j> tile has
     // its own message tag
     template <Target target = Target::Host>
+    void listBcastMT( BcastListTag& bcast_list, Layout layout, bool is_shared = false );
+
+    template <Target target = Target::Host>
+    [[deprecated( "Tile life has been removed. The 4 argument listBcastMT will be removed 2024-12." )]]
     void listBcastMT(
         BcastListTag& bcast_list, Layout layout,
-        int64_t life_factor = 1,
-        bool is_shared = false);
+        int64_t life_factor, bool is_shared = false)
+    {
+        listBcastMT( bcast_list, layout, is_shared );
+    }
 
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, Layout layout, int tag = 0);
@@ -1940,9 +1952,6 @@ void BaseMatrix<scalar_t>::tileBcast(
 /// @param[in] tag
 ///     MPI tag, default 0.
 ///
-/// @param[in] life_factor
-///     A unused argument from tile life
-///
 /// @param[in] is_shared
 ///     A flag to get and hold the broadcasted (prefetched) tiles on the
 ///     devices. This flag prevents any subsequent calls of tileRelease()
@@ -1953,8 +1962,7 @@ void BaseMatrix<scalar_t>::tileBcast(
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcast(
-    BcastList& bcast_list, Layout layout,
-    int tag, int64_t life_factor, bool is_shared)
+    BcastList& bcast_list, Layout layout, int tag, bool is_shared )
 {
     if (target == Target::Devices) {
         assert(num_devices() > 0);
@@ -2071,9 +2079,6 @@ void BaseMatrix<scalar_t>::listBcast(
 ///     Indicates the Layout (ColMajor/RowMajor) of the broadcasted data.
 ///     WARNING: must match the layout of the tile in the sender MPI rank.
 ///
-/// @param[in] life_factor
-///     An unused argument from tile life
-///
 /// @param[in] is_shared
 ///     A flag to get and hold the broadcasted (prefetched) tiles on the
 ///     devices. This flag prevents any subsequent calls of tileRelease()
@@ -2084,8 +2089,7 @@ void BaseMatrix<scalar_t>::listBcast(
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcastMT(
-    BcastListTag& bcast_list, Layout layout,
-    int64_t life_factor, bool is_shared)
+    BcastListTag& bcast_list, Layout layout, bool is_shared )
 {
     if (target == Target::Devices) {
         assert(num_devices() > 0);
@@ -2111,8 +2115,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
 
     #if defined( SLATE_HAVE_MT_BCAST )
         #pragma omp taskloop slate_omp_default_none \
-            shared( bcast_list ) \
-            firstprivate(layout, mpi_size, is_shared)
+            shared( bcast_list ) firstprivate( layout, mpi_size, is_shared )
     #endif
     for (size_t bcastnum = 0; bcastnum < bcast_list.size(); ++bcastnum) {
 

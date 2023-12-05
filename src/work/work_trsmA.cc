@@ -256,7 +256,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 auto B_row_k = B.sub( k, k, 0, nt-1 );
                 // XXX Should it be just 1 at the last iteration?
                 // XXX Should we ignore this since the life will be removed
-                B.template listBcast<target>( bcast_list_upd_B, layout, k, lookahead + 1 );
+                B.template listBcast<target>( bcast_list_upd_B, layout, k );
 
             }
 
@@ -409,7 +409,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     bcast_list_upd_B.push_back(
                         {k, j, { A.sub(0, k - 1, k, k), }});
                 }
-                B.template listBcast<target>(bcast_list_upd_B, layout, k, lookahead + 1 );
+                B.template listBcast<target>(bcast_list_upd_B, layout, k );
             }
 
             // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)

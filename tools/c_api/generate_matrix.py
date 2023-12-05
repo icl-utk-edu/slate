@@ -3,6 +3,8 @@
 import sys
 import re
 
+# Read include/slate/Tile.hh to get Tile structure
+
 data_members_is_found = False
 typename_is_found     = False
 templates             = []
@@ -35,8 +37,26 @@ file.close()
 template += '} slate_' + name + '@SUFFIX;\n'
 templates.append([name, typename, template])
 
-file_hh = open(sys.argv[2], 'w')
-file_cc = open(sys.argv[3], 'w')
+# Read include/slate/types.hh to get mapping of option enum to value types
+
+options = []
+
+file = open(sys.argv[2], 'r')
+for line in file:
+    s = re.search(r'^template<>\s*struct\s+OptValueType<Option::(\w+)>\s*{\s*using\s+T\s*=\s*(\w+);\s*};$',
+                  line)
+    if s:
+        val_type = s.group(2)
+        if val_type not in ('int64_t', 'int', 'bool', 'double'):
+            val_type = 'slate_' + val_type
+        options.append((s.group(1), val_type))
+file.close()
+
+
+# Write matrix.cc and matrix.hh
+
+file_hh = open(sys.argv[3], 'w')
+file_cc = open(sys.argv[4], 'w')
 
 copyright = '''\
 // Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
@@ -71,6 +91,56 @@ file_hh.write('''\
 extern "C" {
 #endif
 \n''')
+
+# Write Options accessors
+file_hh.write('typedef void* slate_Options;\n')
+
+file_hh.write('slate_Options slate_Options_create();\n')
+file_cc.write('slate_Options slate_Options_create()\n')
+file_cc.write('{\n')
+file_cc.write('    return (void*) new slate::Options();\n')
+file_cc.write('}\n')
+
+file_hh.write('void slate_Options_destroy( slate_Options opts );\n')
+file_cc.write('void slate_Options_destroy( slate_Options opts )\n')
+file_cc.write('{\n')
+file_cc.write('    delete static_cast<slate::Options*>( opts );\n')
+file_cc.write('}\n')
+
+file_hh.write('void slate_Options_copy( slate_Options opts1, slate_Options opts2 );\n')
+file_cc.write('void slate_Options_copy( slate_Options opts1, slate_Options opts2 )\n')
+file_cc.write('{\n')
+file_cc.write('    auto& opts1_ = *static_cast<slate::Options*>( opts1 );\n')
+file_cc.write('    auto& opts2_ = *static_cast<slate::Options*>( opts2 );\n')
+file_cc.write('    opts1_ = opts2_;\n')
+file_cc.write('}\n')
+
+for opt_name, val_type in options:
+    file_hh.write('void slate_Options_set_'+opt_name+'( slate_Options opts, '
+                 +val_type+' value );\n')
+    file_cc.write('void slate_Options_set_'+opt_name+'( slate_Options opts, '
+                 +val_type+' value )\n')
+    file_cc.write('{\n')
+    file_cc.write('    auto& opts_ = *static_cast<slate::Options*>( opts );\n')
+    file_cc.write('    opts_[ slate::Option::'+opt_name+' ] = value;\n')
+    file_cc.write('}\n')
+
+    file_hh.write(val_type+' slate_Options_get_'+opt_name+'( slate_Options opts, '
+                  +val_type+' defval );\n')
+    file_cc.write(val_type+' slate_Options_get_'+opt_name+'( slate_Options opts, '
+                  +val_type+' defval )\n')
+    file_cc.write('{\n')
+    file_cc.write('    auto& opts_ = *static_cast<slate::Options*>( opts );\n')
+    file_cc.write('    auto defval_ = static_cast<slate::OptValueType<'
+                  +'slate::Option::'+opt_name+'>::T>( defval );\n')
+    file_cc.write('    return static_cast<'+val_type+'>(slate::get_option'
+                  +'<slate::Option::'+opt_name+'>( opts_, defval_ ));\n')
+    file_cc.write('}\n')
+file_hh.write('\n')
+file_cc.write('\n')
+
+
+# Write Tile and Matrix types and accessors
 
 data_types = [
     ['float',           '_r32', 'float'],

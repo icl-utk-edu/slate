@@ -237,6 +237,7 @@ matrix_routines = [
     ['int64_t',      '_nt',                                'slate_Matrix',                                                  'nt()'],
     ['int64_t',      '_m',                                 'slate_Matrix',                                                  'm()'],
     ['int64_t',      '_n',                                 'slate_Matrix',                                                  'n()'],
+    ['int64_t',      '_num_devices',                       'slate_Matrix',                                                  'num_devices()'],
     ['bool',         '_tileIsLocal',                       'slate_Matrix, int64_t i, int64_t j',                            'tileIsLocal(i, j)'],
     ['slate_Tile',   '_at',                                'slate_Matrix, int64_t i, int64_t j',                            'at(i, j)'],
     ['void',         '_transpose_in_place',                'slate_Matrix',                                                  'transpose( *A_ )'],

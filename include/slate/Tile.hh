@@ -179,6 +179,7 @@ public:
     int64_t stride() const { return stride_; }
 
     /// Sets column stride of this tile
+    [[deprecated( "Use setLayout to manage the Tile's layout.  Will be removed 2024-12." )]]
     void stride(int64_t in_stride) { stride_ = in_stride; }
 
     /// Returns const pointer to data, i.e., A(0,0), where A is this tile

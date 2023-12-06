@@ -48,12 +48,21 @@ ${slate_exe}: %: %.o
 	${CXX} -o $@ $^ \
 		${LDFLAGS} ${slate_libs} ${LIBS}
 
+.PHONY: c_api
+c_api:
+	cd c_api && $(MAKE) all
+
+.PHONY: fortran
+fortran:
+	cd fortran && $(MAKE) all
+
+
 test_args ?= s d c z
 
 # CMake uses `make test`, GNU autotools uses `make check`; allow both.
 test: check
 check: ${exe}
-	./run_tests.py --type "${test_args}"
+	./run_tests.py --type "${test_args}" --c_api --fortran
 
 #-------------------------------------------------------------------------------
 # Generic rules.
@@ -61,7 +70,7 @@ check: ${exe}
 .SUFFIXES:
 .DEFAULT_GOAL := all
 
-all: ${exe}
+all: ${exe} c_api fortran
 
 %.o: %.cc
 	${CXX} ${CXXFLAGS} -c -o $@ $<

@@ -452,8 +452,6 @@ private:
     TilesMap tiles_;        ///< map of tiles and associated states
     mutable omp_nest_lock_t lock_;  ///< TilesMap lock
     slate::Memory memory_;  ///< memory allocator
-    scalar_t *host_mem;
-    std::map< int, std::stack<void*> > allocated_mem_;
 
     int mpi_rank_;
     static int num_devices_;

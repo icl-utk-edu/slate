@@ -194,7 +194,7 @@ void Debug::printTiles_(
         for (int64_t j = 0; j < A.nt(); ++j) {
             msg += pad;
             int life = 0;
-            for (int device = HostNum; device < A.num_devices_; ++device) {
+            for (int device = HostNum; device < A.num_devices(); ++device) {
                 // Space between tiles if multiple fields.
                 if (multi && device > HostNum)
                     msg += ' ';

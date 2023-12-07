@@ -160,7 +160,7 @@ public:
     }
 
     /// Returns number of devices (per MPI process) to distribute matrix to.
-    int num_devices() const { return num_devices_; }
+    int num_devices() const { return MatrixStorage<scalar_t>::num_devices(); }
 
     void gridinfo( GridOrder* order, int* nprow, int* npcol,
                    int* myrow, int* mycol );
@@ -774,9 +774,6 @@ protected:
     /// shared storage of tiles and buffers
     std::shared_ptr< MatrixStorage<scalar_t> > storage_;
 
-    // ----- consider where to put these, here or in MatrixStorage
-    static int num_devices_;
-
     MPI_Comm  mpi_comm_;
     MPI_Group mpi_group_;
     int mpi_rank_;
@@ -888,10 +885,6 @@ BaseMatrix<scalar_t>::BaseMatrix(
         MPI_Comm_rank(mpi_comm_, &mpi_rank_));
     slate_mpi_call(
         MPI_Comm_group(mpi_comm_, &mpi_group_));
-
-    // todo: these are static, but we (re-)initialize with each matrix.
-    // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
-    num_devices_ = storage_->num_devices_;
 }
 
 //------------------------------------------------------------------------------
@@ -955,10 +948,6 @@ BaseMatrix<scalar_t>::BaseMatrix(
         MPI_Comm_rank(mpi_comm_, &mpi_rank_));
     slate_mpi_call(
         MPI_Comm_group(mpi_comm_, &mpi_group_));
-
-    // todo: these are static, but we (re-)initialize with each matrix.
-    // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
-    num_devices_ = storage_->num_devices_;
 }
 
 //------------------------------------------------------------------------------
@@ -3894,7 +3883,7 @@ std::tuple<int64_t, int64_t, int>
     assert(0 <= j && j < nt());
     // Given AnyDevice = -3, AllDevices = -2, HostNum = -1,
     // GPU devices 0, 1, ..., num_devices-1.
-    assert( AnyDevice <= device && device < num_devices_ );
+    assert( AnyDevice <= device && device < num_devices() );
     if (op_ == Op::NoTrans)
         return { ioffset_ + i, joffset_ + j, device };
     else
@@ -3999,10 +3988,6 @@ void BaseMatrix<scalar_t>::releaseRemoteWorkspace(
         releaseRemoteWorkspaceTile( i, j );
     }
 }
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-int BaseMatrix<scalar_t>::num_devices_ = 0;
 
 //------------------------------------------------------------------------------
 // from ScaLAPACK's indxg2l

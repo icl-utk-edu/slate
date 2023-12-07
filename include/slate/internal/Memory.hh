@@ -54,14 +54,20 @@ public:
     /// which can be host.
     size_t available(int device) const
     {
-        return free_blocks_.at(device).size();
+        if (device == HostNum)
+            return 0;
+        else
+            return free_blocks_.at(device).size();
     }
 
     /// @return total number of blocks in device's memory pool,
     /// which can be host.
     size_t capacity(int device) const
     {
-        return capacity_.at(device);
+        if (device == HostNum)
+            return 0;
+        else
+            return capacity_.at(device);
     }
 
     /// @return total number of allocated blocks from device's memory pool,
@@ -89,9 +95,9 @@ private:
     size_t block_size_;
 
     // map device number to stack of blocks
-    std::map< int, std::stack<void*> > free_blocks_;
-    std::map< int, std::stack<void*> > allocated_mem_;
-    std::map< int, size_t > capacity_;
+    std::vector< std::stack<void*> > free_blocks_;
+    std::vector< std::stack<void*> > allocated_mem_;
+    std::vector< size_t > capacity_;
 };
 
 } // namespace slate

@@ -304,9 +304,9 @@ void Debug::printNumFreeMemBlocks(Memory const& m)
 {
     if (! debug_) return;
     printf("\n");
-    for (auto iter = m.free_blocks_.begin(); iter != m.free_blocks_.end(); ++iter) {
-        printf("\tdevice: %d\tfree blocks: %lu\n", iter->first,
-               (unsigned long) iter->second.size());
+    for (int dev = 0; dev < m.num_devices_; ++dev) {
+        printf("\tdevice: %d\tfree blocks: %lu\n",
+               dev, m.free_blocks_[dev].size());
     }
 }
 

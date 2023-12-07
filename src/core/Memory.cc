@@ -5,6 +5,7 @@
 
 #include "auxiliary/Debug.hh"
 #include "slate/internal/Memory.hh"
+#include "slate/Exception.hh"
 
 namespace slate {
 
@@ -14,16 +15,11 @@ Memory::StaticConstructor Memory::static_constructor_;
 //------------------------------------------------------------------------------
 /// Construct saves block size, but does not allocate any memory.
 Memory::Memory(size_t block_size):
-    block_size_(block_size)
+    block_size_(block_size),
+    free_blocks_( num_devices_ ),
+    allocated_mem_( num_devices_ ),
+    capacity_( num_devices_ )
 {
-    // touch maps to create entries;
-    // this allows available() and capacity() to be const by using at()
-    free_blocks_[ HostNum ];
-    capacity_[ HostNum ] = 0;
-    for (int device = 0; device < num_devices_; ++device) {
-        free_blocks_[device];
-        capacity_[device] = 0;
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -35,7 +31,7 @@ Memory::~Memory()
     // needed to release memory (and can't be passed in here).  So to
     // release the memory, an explicit clear must called using the
     // queue parameter ( Memory::clearDeviceBlocks(device, *queue) ).
-    assert(capacity_[ HostNum ] == 0);
+    //assert(capacity_[ HostNum ] == 0);
     for (int device = 0; device < num_devices_; ++device) {
         assert(capacity_[ device ] == 0);
     }
@@ -182,12 +178,16 @@ void* Memory::allocBlock(int device, blas::Queue *queue)
 ///
 void* Memory::allocHostMemory(size_t size)
 {
+    slate_not_implemented( "Memory pool currently doesn't handle host memory" );
+    return nullptr;
+    /*
     void* host_mem;
     host_mem = malloc(size);
     assert(host_mem != nullptr);
     allocated_mem_[ HostNum ].push( host_mem );
 
     return host_mem;
+    */
 }
 
 //------------------------------------------------------------------------------

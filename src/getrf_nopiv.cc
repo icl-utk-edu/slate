@@ -30,7 +30,6 @@ int64_t getrf_nopiv(
 
     // Constants
     const scalar_t one = 1.0;
-    const int life_1 = 1;
     const int priority_0 = 0;
     const int priority_1 = 1;
     const int queue_0 = 0;
@@ -40,6 +39,12 @@ int64_t getrf_nopiv(
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+
+    // Use only TileReleaseStrategy::Slate for getrf_nopiv.
+    // Internal routines won't release any tiles.
+    // getrf_nopiv will clean up tiles.
+    Options opts2 = Options( opts );
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     if (target == Target::Devices) {
         // two batch arrays plus one for each lookahead
@@ -52,7 +57,6 @@ int64_t getrf_nopiv(
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    bool is_shared = lookahead > 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -95,7 +99,7 @@ int64_t getrf_nopiv(
                 bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                                A.sub(k, k, k+1, A_nt-1)}});
                 A.template listBcast<target>(
-                    bcast_list_A, layout, tag_k, life_1, true );
+                    bcast_list_A, layout, tag_k );
             }
 
             #pragma omp task depend(inout:column[k]) \
@@ -109,7 +113,7 @@ int64_t getrf_nopiv(
                 internal::trsm<target>(
                     Side::Right,
                     one, std::move( Tkk ), A.sub(k+1, A_mt-1, k, k),
-                    priority_1, layout, queue_0 );
+                    priority_1, layout, queue_0, opts2 );
 
 
                 BcastListTag bcast_list;
@@ -120,7 +124,7 @@ int64_t getrf_nopiv(
                     bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
                 A.template listBcastMT<target>(
-                  bcast_list, layout, life_1, is_shared );
+                  bcast_list, layout );
             }
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
@@ -138,7 +142,7 @@ int64_t getrf_nopiv(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_1, layout, queue_jk1 );
+                        priority_1, layout, queue_jk1, opts2 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag_j);
@@ -154,7 +158,7 @@ int64_t getrf_nopiv(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, A_mt-1, j, j),
-                        layout, priority_1, queue_jk1 );
+                        layout, priority_1, queue_jk1, opts2 );
                 }
             }
             // update trailing submatrix, normal priority
@@ -173,7 +177,7 @@ int64_t getrf_nopiv(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_0, layout, queue_1 );
+                        priority_0, layout, queue_1, opts2 );
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
@@ -197,41 +201,26 @@ int64_t getrf_nopiv(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, k+1+lookahead, A_nt-1),
                         one,  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        layout, priority_0, queue_1 );
+                        layout, priority_0, queue_1, opts2 );
                 }
             }
-            if (target == Target::Devices) {
-                #pragma omp task depend(inout:diag[k])
-                {
-                    if (A.tileIsLocal(k, k) && k+1 < A_nt) {
-                        std::set<int> dev_set;
-                        A.sub(k+1, A_mt-1, k, k).getLocalDevices(&dev_set);
-                        A.sub(k, k, k+1, A_nt-1).getLocalDevices(&dev_set);
+            #pragma omp task depend(inout:column[k])
+            {
+                auto left_panel = A.sub( k, A_mt-1, k, k );
+                auto top_panel = A.sub( k, k, k+1, A_nt-1 );
 
-                        for (auto device : dev_set) {
-                            A.tileUnsetHold(k, k, device);
-                            A.tileRelease(k, k, device);
-                        }
-                    }
-                }
-                if (is_shared) {
-                    #pragma omp task depend(inout:column[k])
-                    {
-                        for (int64_t i = k+1; i < A_mt; ++i) {
-                            if (A.tileIsLocal(i, k)) {
-                                A.tileUpdateOrigin(i, k);
+                // Erase remote tiles on all devices including host
+                left_panel.releaseRemoteWorkspace();
+                top_panel.releaseRemoteWorkspace();
 
-                                std::set<int> dev_set;
-                                A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                left_panel.tileUpdateAllOrigin();
+                top_panel.tileUpdateAllOrigin();
 
-                                for (auto device : dev_set) {
-                                    A.tileUnsetHold(i, k, device);
-                                    A.tileRelease(i, k, device);
-                                }
-                            }
-                        }
-                    }
-                }
+                // Erase local workspace on devices.
+                left_panel.releaseLocalWorkspace();
+                top_panel.releaseLocalWorkspace();
             }
             kk += A.tileNb( k );
         }

@@ -30,9 +30,15 @@ void hegst(
     const scalar_t half = 0.5;
     const scalar_t one  = 1.0;
     const real_t r_one  = 1.0;
-    const int tag_0  = 0;
-    const int life_2 = 2;
+    const int priority_0 = 0;
+    const int queue_0 = 0;
     const Layout layout = Layout::ColMajor;
+
+    // Use only TileReleaseStrategy::Slate for hetrf
+    // Internal routines called here won't release any
+    // tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -92,21 +98,20 @@ void hegst(
 
                         internal::trsm<target>(
                             Side::Right,  one,  conj_transpose( TBkk ),
-                                                std::move(Asub));
+                                                std::move(Asub),
+                            priority_0, layout, queue_0, opts2 );
                     }
 
                     #pragma omp task depend(inout:column[k])
                     {
-                        A.tileBcast(
-                            k, k, Asub, layout, tag_0, life_2 );
+                        A.tileBcast( k, k, Asub, layout );
 
                         BcastList bcast_list;
                         for (int64_t i = k+1; i < nt; ++i) {
                             bcast_list.push_back({i, k, {A.sub(i, i, k+1, i),
                                                          A.sub(i, nt-1, i, i)}});
                         }
-                        B.template listBcast<target>(
-                            bcast_list, layout, tag_0, life_2 );
+                        B.template listBcast<target>( bcast_list, layout );
                     }
 
                     #pragma omp task depend(in:column[k]) \
@@ -116,7 +121,8 @@ void hegst(
                         internal::hemm<Target::HostTask>(
                             Side::Right, -half, std::move(Akk),
                                                 std::move(Bsub),
-                                          one,  std::move(Asub));
+                                          one,  std::move(Asub),
+                            priority_0, opts2 );
 
                         BcastList bcast_list;
                         for (int64_t i = k+1; i < nt; ++i) {
@@ -128,20 +134,22 @@ void hegst(
                         internal::her2k<target>(
                             -one,  std::move( Asub ),
                                    std::move( Bsub ),
-                            r_one, A.sub(k+1, nt-1) );
+                            r_one, A.sub(k+1, nt-1),
+                            priority_0, queue_0, layout, opts2 );
 
                         internal::hemm<Target::HostTask>(
                             Side::Right,
                             -half, std::move( Akk  ),
                                    std::move( Bsub ),
-                            one,   std::move( Asub ) );
+                            one,   std::move( Asub ),
+                            priority_0, opts2 );
 
                         auto Bk1  = B.sub(k+1, nt-1);
                         auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                         work::trsm<target, scalar_t>(
                             Side::Left,  one,  TBk1,
                                                Asub, column,
-                            { {slate::Option::Lookahead, lookahead} });
+                            opts2 );
                     }
                 }
             }
@@ -152,18 +160,15 @@ void hegst(
 
                     #pragma omp task depend(inout:column[0])
                     {
-                        A.tileBcast(
-                            k, k, Asub, layout, tag_0, life_2 );
+                        A.tileBcast( k, k, Asub, layout );
 
                         BcastList bcast_list;
                         for (int64_t i = 0; i < k; ++i) {
                             bcast_list.push_back({k, i, {A.sub(i, k-1, i, i),
                                                          A.sub(i, i,   0, i)}});
                         }
-                        B.template listBcast<target>(
-                            bcast_list, layout, tag_0, life_2 );
-
-                        B.template tileBcast<target>(k, k, Asub, layout);
+                        bcast_list.push_back({k, k, {Asub}});
+                        B.template listBcast<target>( bcast_list, layout );
                     }
 
                     #pragma omp task depend(inout:column[0])
@@ -177,7 +182,8 @@ void hegst(
                         internal::hemm<Target::HostTask>(
                             Side::Left,  half, std::move(Akk),
                                                std::move(Bsub),
-                                         one,  std::move(Asub));
+                                         one,  std::move(Asub),
+                            priority_0, opts2 );
 
                         BcastList bcast_list;
                         for (int64_t i = 0; i < k; ++i) {
@@ -189,25 +195,43 @@ void hegst(
                         internal::her2k<Target::HostTask>(
                             one,   conj_transpose( Asub ),
                                    conj_transpose( Bsub ),
-                            r_one, A.sub(0, k-1) );
+                            r_one, A.sub(0, k-1),
+                            priority_0, queue_0, layout, opts2 );
 
                         internal::hemm<Target::HostTask>(
                             Side::Left, half, std::move(Akk),
                                               std::move(Bsub),
-                                        one,  std::move(Asub));
+                                        one,  std::move(Asub),
+                            priority_0, opts2 );
 
                         internal::trmm<Target::HostTask>(
                             Side::Left, one,  conj_transpose( TBkk ),
-                                              std::move(Asub));
+                                              std::move(Asub),
+                            priority_0, queue_0, opts2 );
                     }
                 }
 
-                #pragma omp task depend(inout:column[0])
+                #pragma omp task depend(inout:column[0]) depend(inout:column[k])
                 {
                     internal::hegst<Target::HostTask>(
                       itype,  std::move(Akk),
                               std::move(Bkk));
                 }
+            }
+
+            #pragma omp task depend(inout:column[k])
+            {
+                auto A_panel = A.sub( k, nt-1, k, k );
+                auto B_panel = A.sub( k, nt-1, k, k );
+
+                A_panel.releaseRemoteWorkspace();
+                B_panel.releaseRemoteWorkspace();
+
+                A_panel.tileUpdateAllOrigin();
+                B_panel.tileUpdateAllOrigin();
+
+                A_panel.releaseLocalWorkspace();
+                B_panel.releaseLocalWorkspace();
             }
         }
     }

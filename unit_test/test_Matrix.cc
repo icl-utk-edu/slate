@@ -1676,6 +1676,75 @@ void test_tileSend_tileRecv()
     }
 }
 
+//------------------------------------------------------------------------------
+void test_releaseRemoteWorkspace()
+{
+    if (mpi_size <= 1) {
+        test_skip("requires mpi_size > 1");
+    }
+
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    bool is_rank_0  = (mpi_rank == 0);
+    bool is_rank_01 = (mpi_rank <= 1);
+
+    // Start w/ only rank 0 holding the tile
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_0, mpi_comm );
+
+    // Send the tile to rank 1
+    if (mpi_rank == 0) {
+        A.tileSend( 0, 0, 1 );
+    }
+    else if (mpi_rank == 1) {
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+    }
+    std::cout << mpi_rank << ": " << A.tileExists(0, 0) << std::endl;
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_01, mpi_comm );
+
+    // Release the tile
+    A.releaseRemoteWorkspace();
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_0, mpi_comm );
+
+    // Send the tile to rank 1 twice
+    if (mpi_rank == 0) {
+        A.tileSend( 0, 0, 1 );
+        A.tileSend( 0, 0, 1 );
+    }
+    else if (mpi_rank == 1) {
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+    }
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_01, mpi_comm );
+
+    // Release the tile once -- still have receive_count == 1
+    A.releaseRemoteWorkspace();
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_01, mpi_comm );
+
+    // Release the tile again -- actually gets released
+    A.releaseRemoteWorkspace();
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_0, mpi_comm );
+
+    // Send the tile to rank 1 twice
+    if (mpi_rank == 0) {
+        A.tileSend( 0, 0, 1 );
+        A.tileSend( 0, 0, 1 );
+    }
+    else if (mpi_rank == 1) {
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+    }
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_01, mpi_comm );
+
+    // Release the tile w/ a count of 2 -- actually gets released
+    A.releaseRemoteWorkspace( 2 );
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_0, mpi_comm );
+}
+
+
 //==============================================================================
 // tile MOSI & Layout conversion
 
@@ -2120,6 +2189,7 @@ void run_tests()
     if (mpi_rank == 0)
         printf("\nCommunication\n");
     run_test(test_tileSend_tileRecv, "tileSend, tileRecv", mpi_comm);
+    run_test(test_releaseRemoteWorkspace, "releaseRemoteWorkspace", mpi_comm);
 }
 
 }  // namespace test

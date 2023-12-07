@@ -472,9 +472,9 @@ public:
 
     /// Decrements the number of times the tile {i, j} is received
     /// through MPI.
-    void tileDecrementReceiveCount(int64_t i, int64_t j)
+    void tileDecrementReceiveCount(int64_t i, int64_t j, int64_t release_count = 1 )
     {
-        storage_->tileDecrementReceiveCount( globalIndex( i, j ) );
+        storage_->tileDecrementReceiveCount( globalIndex( i, j ), release_count );
     }
 
     void tileErase( int64_t i, int64_t j, int device=HostNum );
@@ -626,9 +626,9 @@ public:
     void releaseLocalWorkspace();
     void releaseLocalWorkspace( std::set<ij_tuple>& tile_set );
 
-    void releaseRemoteWorkspaceTile( int64_t i, int64_t j );
-    void releaseRemoteWorkspace();
-    void releaseRemoteWorkspace( std::set<ij_tuple>& tile_set );
+    void releaseRemoteWorkspaceTile( int64_t i, int64_t j, int64_t release_count = 1 );
+    void releaseRemoteWorkspace( int64_t recieve_count = 1 );
+    void releaseRemoteWorkspace( std::set<ij_tuple>& tile_set, int64_t release_count = 1 );
 
     /// Removes all temporary host and device workspace tiles from matrix.
     /// WARNING: currently, this clears the entire parent matrix,
@@ -3952,7 +3952,8 @@ void BaseMatrix<scalar_t>::releaseLocalWorkspace(
 /// reaches zero, the tile is erased. Otherwise, tile is not erased.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::releaseRemoteWorkspaceTile(int64_t i, int64_t j)
+void BaseMatrix<scalar_t>::releaseRemoteWorkspaceTile(
+    int64_t i, int64_t j, int64_t release_count )
 {
     if (! tileIsLocal( i, j )) { // erase remote tiles
         // This lock ensures that no other thread is trying to
@@ -3960,7 +3961,7 @@ void BaseMatrix<scalar_t>::releaseRemoteWorkspaceTile(int64_t i, int64_t j)
         LockGuard guard( storage_->getTilesMapLock() );
 
         if (tileExists( i, j, AnyDevice )) {
-            tileDecrementReceiveCount( i, j );
+            tileDecrementReceiveCount( i, j, release_count );
             if (tileReceiveCount( i, j ) <= 0) {
                 tileRelease( i, j, AllDevices );
             }
@@ -3973,11 +3974,11 @@ void BaseMatrix<scalar_t>::releaseRemoteWorkspaceTile(int64_t i, int64_t j)
 /// including host, if not on hold or modified.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::releaseRemoteWorkspace()
+void BaseMatrix<scalar_t>::releaseRemoteWorkspace( int64_t release_count )
 {
     for (int64_t j = 0; j < nt(); ++j) {
         for (int64_t i = 0; i < mt(); ++i) {
-            releaseRemoteWorkspaceTile( i, j );
+            releaseRemoteWorkspaceTile( i, j, release_count );
         }
     }
 }
@@ -3991,12 +3992,12 @@ void BaseMatrix<scalar_t>::releaseRemoteWorkspace()
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::releaseRemoteWorkspace(
-    std::set<ij_tuple>& tile_set)
+    std::set<ij_tuple>& tile_set, int64_t release_count )
 {
     for (auto ij : tile_set) {
         int64_t i = std::get<0>( ij );
         int64_t j = std::get<1>( ij );
-        releaseRemoteWorkspaceTile( i, j );
+        releaseRemoteWorkspaceTile( i, j, release_count );
     }
 }
 

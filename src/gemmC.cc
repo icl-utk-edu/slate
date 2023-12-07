@@ -176,7 +176,10 @@ void gemmC(
                            B.sub(k, k, 0, B.nt()-1),
                     one,   std::move( C ),
                     layout, priority_0, queue_0, opts2 );
+            }
 
+            #pragma omp task depend(in:gemm[k])
+            {
                 auto A_colblock = A.sub(0, A.mt()-1, k, k);
                 auto B_rowblock = B.sub(k, k, 0, B.nt()-1);
 

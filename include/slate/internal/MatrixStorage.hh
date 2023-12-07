@@ -385,10 +385,10 @@ public:
 
     //--------------------------------------------------------------------------
     /// Decrement tile's receive counter.
-    void tileDecrementReceiveCount(ij_tuple ij)
+    void tileDecrementReceiveCount( ij_tuple ij, int64_t release_count = 1 )
     {
         LockGuard guard( getTilesMapLock() );
-        tiles_.at( ij )->receiveCount()--;
+        tiles_.at( ij )->receiveCount() -= release_count;
     }
 
     /// Ensures the tile node exists and increments both the tile life and

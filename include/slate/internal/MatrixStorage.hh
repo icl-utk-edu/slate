@@ -329,18 +329,6 @@ public:
     void clear();
 
     //--------------------------------------------------------------------------
-    /// @return number of allocated tile nodes (size of tiles map).
-    size_t size() const
-    {
-        LockGuard guard(getTilesMapLock());
-        return tiles_.size();
-    }
-
-    //--------------------------------------------------------------------------
-    /// @return True if map has no tiles.
-    bool empty() const { return size() == 0; }
-
-    //--------------------------------------------------------------------------
     /// Return pointer to tiles-map OMP lock
     omp_nest_lock_t* getTilesMapLock()
     {

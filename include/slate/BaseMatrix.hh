@@ -378,8 +378,12 @@ public:
     {
         tileGetForReading( tile_set, HostNum, layout );
     }
+    [[deprecated( "tileGetForReading no longer obeys from_device. Will be removed 2024-10." )]]
     void tileGetForReading(std::set<ij_tuple>& tile_set, LayoutConvert layout,
-                            int from_device);
+                            int from_device)
+    {
+        tileGetForReading( tile_set, layout );
+    }
 
     void tileGetAllForReading(int device, LayoutConvert layout);
 
@@ -2860,31 +2864,6 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
 }
 
 //------------------------------------------------------------------------------
-/// Gets a set of tiles for reading on host from a specific device.
-/// @see tileGetForReading
-///
-/// @param[in] tile_set
-///     Set of (i, j) tuples indicating indices of Tiles' to be acquired.
-///     Tiles should exist on the specified device.
-///
-/// @param[in] layout
-///     Indicates whether to convert the Layout of the received data:
-///     - ColMajor: convert layout to column major.
-///     - RowMajor: convert layout to row major.
-///     - None: do not convert layout.
-///
-/// @param[in] from_device
-///     Tiles' source device ID.
-///
-// todo: async version
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
-                                             LayoutConvert layout, int from_device)
-{
-    tileGet( tile_set, HostNum, layout, false, false, false );
-}
-
-//------------------------------------------------------------------------------
 /// Gets tile(i, j) for writing on device.
 /// Sets destination tile's state to MOSI::Modified.
 /// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
@@ -3234,7 +3213,7 @@ Tile<scalar_t> BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 {
-    std::vector< std::set<ij_tuple> > tiles_set_host(num_devices());
+    std::set<ij_tuple> tiles_set_host;
     std::vector< std::set<ij_tuple> > tiles_set_dev(num_devices());
     for (int64_t j = 0; j < this->nt(); ++j) {
         for (int64_t i = 0; i < this->mt(); ++i) {
@@ -3247,14 +3226,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
                     && tile_node[ HostNum ]->origin()) {
                     if (tile_node[ HostNum ]->stateOn(MOSI::Invalid)) {
                         // tileGetForReading(i, j, LayoutConvert::None);
-                        for (int d = 0; d < num_devices(); ++d) {
-                            if (tile_node.existsOn(d)
-                                && tile_node[d]->state() != MOSI::Invalid)
-                            {
-                                tiles_set_host[d].insert({i, j});
-                                break;
-                            }
-                        }
+                        tiles_set_host.insert({i, j});
                     }
                 }
                 else {
@@ -3276,14 +3248,13 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 
     #pragma omp taskgroup
     {
-        for (int d = 0; d < num_devices(); ++d) {
-            if (! tiles_set_host[d].empty()) {
-                #pragma omp task slate_omp_default_none \
-                    firstprivate( d ) shared( tiles_set_host )
-                {
-                    tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
-                }
+        if (! tiles_set_host.empty()) {
+            #pragma omp task slate_omp_default_none shared( tiles_set_host )
+            {
+                tileGetForReading(tiles_set_host, HostNum, LayoutConvert::None);
             }
+        }
+        for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
                 #pragma omp task slate_omp_default_none \
                     firstprivate( d ) shared( tiles_set_dev )

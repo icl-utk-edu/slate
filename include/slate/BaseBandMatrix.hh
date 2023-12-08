@@ -287,7 +287,7 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
     int64_t kut = ceildiv(
             this->op() == Op::NoTrans ? this->ku_ : this->kl_, this->tileNb(0));
 
-    std::vector< std::set<ij_tuple> > tiles_set_host(this->num_devices());
+    std::set<ij_tuple> tiles_set_host;
     std::vector< std::set<ij_tuple> > tiles_set_dev(this->num_devices());
 
     for (int64_t j = 0; j < nt; ++j) {
@@ -303,14 +303,7 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
                     && tile_node[ HostNum ]->origin()) {
                     if (tile_node[ HostNum ]->stateOn( MOSI::Invalid )) {
                         // tileGetForReading(i, j, LayoutConvert::None);
-                        for (int d = 0; d < this->num_devices(); ++d) {
-                            if (tile_node.existsOn(d)
-                                && tile_node[d]->state() != MOSI::Invalid)
-                            {
-                                tiles_set_host[d].insert({i, j});
-                                break;
-                            }
-                        }
+                        tiles_set_host.insert({i, j});
                     }
                 }
                 else {
@@ -332,14 +325,13 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
 
     #pragma omp taskgroup
     {
-        for (int d = 0; d < this->num_devices(); ++d) {
-            if (! tiles_set_host[d].empty()) {
-                #pragma omp task slate_omp_default_none \
-                    firstprivate( d ) shared( tiles_set_host )
-                {
-                    this->tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
-                }
+        if (! tiles_set_host.empty()) {
+            #pragma omp task slate_omp_default_none shared( tiles_set_host )
+            {
+                this->tileGetForReading(tiles_set_host, LayoutConvert::None);
             }
+        }
+        for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
                 #pragma omp task slate_omp_default_none \
                     firstprivate( d ) shared( tiles_set_dev )

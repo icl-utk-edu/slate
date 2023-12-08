@@ -3724,9 +3724,58 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
 {
-    for (int64_t i = 0; i < mt(); ++i)
-        for (int64_t j = 0; j < nt(); ++j)
-            bcast_set->insert(tileRank(i, j));
+    if (order_ != GridOrder::Unknown) {
+        // If we know our grid is cyclic, we can compute the ranks analytically
+        // NB. We only use storage indices, so op_ doesn't affect it.
+
+        int row_start, row_end, col_start, col_end;
+
+        if (mt_ >= nprow_) {
+            row_start = 0;
+            row_end = nprow_;
+        }
+        else {
+            row_start = ioffset_ % nprow_;
+            row_end = row_start + mt_;
+        }
+
+        if (nt_ >= npcol_) {
+            col_start = 0;
+            col_end = npcol_;
+        }
+        else {
+            col_start = joffset_ % npcol_;
+            col_end = col_start + nt_;
+        }
+
+        bool col_major = (order_ == GridOrder::Col);
+
+        int k_start = col_major ? col_start : row_start;
+        int k_end   = col_major ? col_end   : row_end;
+        int k_grid  = col_major ? npcol_    : nprow_;
+        int l_start = col_major ? row_start : col_start;
+        int l_end   = col_major ? row_end   : col_end;
+        int l_grid  = col_major ? nprow_    : npcol_;
+
+        int k_mod_grid = k_start;
+        for (int k = k_start; k < k_end; ++k) {
+            int l_mod_grid = l_start;
+            for (int l = l_start; l < l_end; ++l) {
+                bcast_set->insert( l_mod_grid + k_mod_grid*l_grid );
+
+                // Manually wrap values around to avoid division
+                l_mod_grid += 1;
+                l_mod_grid = (l_mod_grid == l_grid) ? 0 : l_mod_grid;
+            }
+            k_mod_grid += 1;
+            k_mod_grid = (k_mod_grid == k_grid) ? 0 : k_mod_grid;
+        }
+    }
+    else {
+        for (int64_t i = 0; i < mt(); ++i)
+            for (int64_t j = 0; j < nt(); ++j)
+                bcast_set->insert(tileRank(i, j));
+    }
 }
 
 //------------------------------------------------------------------------------

@@ -19,11 +19,10 @@
 #include <utility>
 
 #include "../test/matrix_params.hh"
-#include "generate_matrix.hh"
+#include "slate/generate_matrix.hh"
 #include "../test/random.hh"
 #include "generate_matrix_utils.hh"
 #include "generate_sigma.hh"
-#include "set_lambdas.hh"
 
 namespace slate {
 

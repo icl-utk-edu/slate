@@ -22,7 +22,7 @@
 #include <utility>
 
 #include "../test/matrix_params.hh"
-#include "generate_matrix.hh"
+#include "slate/generate_matrix.hh"
 #include "../test/random.hh"
 #include "generate_matrix_utils.hh"
 

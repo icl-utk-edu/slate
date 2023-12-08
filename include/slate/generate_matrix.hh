@@ -12,7 +12,6 @@
 #include "slate/slate.hh"
 
 #include "../test/matrix_params.hh"
-#include "generate_matrix_utils.hh"
 
 namespace slate {
 

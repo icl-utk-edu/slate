@@ -152,9 +152,6 @@ class MatrixStorage {
 public:
     friend class Debug;
 
-    template <typename T>
-    friend class BaseMatrix;
-
     typedef Tile<scalar_t> Tile_t;
     typedef TileNode<scalar_t> TileNode_t;
 
@@ -194,6 +191,34 @@ protected:
 public:
     static int num_devices() { return Memory::num_devices_; };
 
+    /// @return BLAS++ communication queues
+    ///
+    /// @param[in] device
+    ///     Tile's device ID.
+    lapack::Queue* comm_queue( int device )
+    {
+        return comm_queues_.at( device );
+    }
+
+    /// @return BLAS++ compute queues
+    ///
+    /// @param[in] device
+    ///     Tile's device ID
+    ///
+    /// @param[in] queue_index
+    ///     The index of a specific set of queues
+    lapack::Queue* compute_queue( int device, int queue_index )
+    {
+        assert((queue_index >= 0) && (queue_index < num_compute_queues()));
+        return compute_queues_.at( queue_index ).at( device );
+    }
+
+    /// @return number of allocated BLAS++ compute queues
+    int num_compute_queues()
+    {
+        return int(compute_queues_.size());
+    }
+
     //--------------------------------------------------------------------------
     // batch arrays
     void allocateBatchArrays(int64_t batch_size, int64_t num_arrays);
@@ -203,6 +228,20 @@ public:
     int64_t batchArraySize() const
     {
         return batch_array_size_;
+    }
+
+    /// @return the batch array on host, to send to device
+    scalar_t** batchArrayHost( int device, int64_t batch_arrays_index )
+    {
+        assert(batch_arrays_index >= 0);
+        return array_host_.at( batch_arrays_index ).at( device );
+    }
+
+    /// @return the batch array on device
+    scalar_t** batchArrayDevice( int device, int64_t batch_arrays_index )
+    {
+        assert(batch_arrays_index >= 0);
+        return array_dev_.at( batch_arrays_index ).at( device );
     }
 
     //--------------------------------------------------------------------------
@@ -540,8 +579,8 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::initQueues()
 {
     comm_queues_   .resize(num_devices());
-    compute_queues_.resize(1);
 
+    compute_queues_.resize(1);
     compute_queues_.at(0).resize(num_devices(), nullptr);
     for (int device = 0; device < num_devices(); ++device) {
         comm_queues_        [ device ] = new lapack::Queue( device );

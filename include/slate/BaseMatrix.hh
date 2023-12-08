@@ -691,24 +691,17 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return batch arrays for the A, B, or C matrices,
-    /// on host, to send to device
+    /// @return batch arrays on host, to send to device
     scalar_t** array_host(int device, int64_t batch_arrays_index=0)
     {
-        assert(batch_arrays_index >= 0);
-        std::vector< scalar_t** >& array = storage_->array_host_.at(
-                                                            batch_arrays_index);
-        return array.at(device);
+        return storage_->batchArrayHost( device, batch_arrays_index );
     }
 
     //--------------------------------------------------------------------------
-    /// @return batch arrays for the A, B, or C matrices, on device
+    /// @return batch arrays on device
     scalar_t** array_device(int device, int64_t batch_arrays_index=0)
     {
-        assert(batch_arrays_index >= 0);
-        std::vector< scalar_t** >& array = storage_->array_dev_.at(
-                                                            batch_arrays_index);
-        return array.at(device);
+        return storage_->batchArrayDevice( device, batch_arrays_index );
     }
 
     //--------------------------------------------------------------------------
@@ -719,7 +712,7 @@ public:
     ///
     lapack::Queue* comm_queue(int device)
     {
-        return storage_->comm_queues_.at(device);
+        return storage_->comm_queue( device );
     }
 
     //--------------------------------------------------------------------------
@@ -733,9 +726,7 @@ public:
     ///
     lapack::Queue* compute_queue(int device, int queue_index=0)
     {
-        assert((queue_index >= 0) &&
-               (queue_index < int(storage_->compute_queues_.size())));
-        return storage_->compute_queues_.at(queue_index).at(device);
+        return storage_->compute_queue( device, queue_index );
     }
 
     //--------------------------------------------------------------------------
@@ -743,7 +734,7 @@ public:
     ///
     int numComputeQueues()
     {
-        return int(storage_->compute_queues_.size());
+        return storage_->num_compute_queues();
     }
 
 protected:

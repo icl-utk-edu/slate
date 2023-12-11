@@ -625,9 +625,6 @@ public:
     int       mpiRank()  const { return mpi_rank_; }
     MPI_Group mpiGroup() const { return mpi_group_; }
 
-    [[deprecated("use slate::HostNum constant")]]
-    int       hostNum()  const { return HostNum; }
-
     /// Removes all tiles from matrix.
     /// WARNING: currently this clears the entire parent matrix,
     /// not just a sub-matrix.

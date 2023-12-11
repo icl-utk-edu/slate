@@ -223,7 +223,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         int dest = B.tileRank(k, j);
                         if (dest == root) continue;
 
-                        B.template tileSend<target>(k, j, dest);
+                        B.tileSend(k, j, dest);
                     }
                 }
                 else {
@@ -379,7 +379,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         int dest = B.tileRank(k, j);
                         if (dest == root) continue;
 
-                        B.template tileSend<target>(k, j, dest);
+                        B.tileSend(k, j, dest);
                     }
                 }
                 else {

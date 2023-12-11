@@ -1355,30 +1355,13 @@ template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
 {
-    auto tile = *(storage_->at( globalIndex(i, j, device) ));
-
-    // Set op first, before setting offset, mb, nb!
-    tile.op(op_);
-
-    // Set row & col offset within first block-row & block-col; before mb, nb!
-    if (op_ == Op::NoTrans) {
-        tile.offset(i == 0 ? row0_offset_ : 0,
-                    j == 0 ? col0_offset_ : 0);
+    if (op_ != Op::NoTrans) {
+        std::swap( i, j );
     }
-    else {
-        tile.offset(i == 0 ? col0_offset_ : 0,
-                    j == 0 ? row0_offset_ : 0);
-    }
-
-    // Set tile size.
-    tile.mb(tileMb(i));
-    tile.nb(tileNb(j));
-
-    // Set uplo on diagonal tile (off-diagonal tiles are always general).
-    if (i == j)
-        tile.uplo(uplo_);
-
-    return tile;
+    auto* tile = storage_->at( { ioffset_+i, joffset_+j, device } );
+    return tile->slice( op_, (i == 0 ? row0_offset_ : 0), (j == 0 ? col0_offset_ : 0),
+                        tileMbInternal( i ), tileNbInternal( j ),
+                        (i == j ? uplo_ : Uplo::General) );
 }
 
 //------------------------------------------------------------------------------

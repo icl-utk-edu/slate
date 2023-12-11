@@ -353,7 +353,11 @@ public:
     Tile<scalar_t>* tileInsert(
         ijdev_tuple ijdev, scalar_t* data, int64_t lda,
         Layout layout=Layout::ColMajor);
-
+private:
+    Tile<scalar_t>* tileInsert(
+        ijdev_tuple ijdev, scalar_t* data, int64_t lda,
+        TileKind kind, Layout layout);
+public:
     bool tileExists( ijdev_tuple ijdev )
     {
         LockGuard guard( getTilesMapLock() );
@@ -1043,36 +1047,8 @@ template <typename scalar_t>
 Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, TileKind kind, Layout layout)
 {
-    assert(kind == TileKind::Workspace ||
-           kind == TileKind::SlateOwned);
-    int64_t i  = std::get<0>(ijdev);
-    int64_t j  = std::get<1>(ijdev);
-    int device = std::get<2>(ijdev);
-
-    LockGuard tiles_guard(getTilesMapLock());
-
-    // find the tileNode
-    // if not found, insert new-entry in TilesMap
-    if (find({i, j}) == end()) {
-        tiles_[{i, j}] = std::make_shared<TileNode_t>( num_devices() );
-    }
-    auto& tile_node = this->at({i, j});
-
-    // if tile instance does not exist, insert new instance
-    if (! tile_node.existsOn(device)) {
-        int64_t mb = tileMb(i);
-        int64_t nb = tileNb(j);
-        // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
-        blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
-        int64_t stride = layout == Layout::ColMajor ? mb : nb;
-        Tile<scalar_t>* tile
-            = new Tile<scalar_t>(mb, nb, data, stride, device, kind, layout);
-        tile_node.insertOn(device, tile, kind == TileKind::Workspace ?
-                                         MOSI::Invalid :
-                                         MOSI::Shared);
-    }
-    return tile_node[device];
+    assert(kind == TileKind::Workspace || kind == TileKind::SlateOwned);
+    return tileInsert( ijdev, nullptr, 0, kind, layout );
 }
 
 //------------------------------------------------------------------------------
@@ -1087,6 +1063,17 @@ template <typename scalar_t>
 Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout)
 {
+    slate_assert( data != nullptr );
+    return tileInsert( ijdev, data, lda, TileKind::UserOwned, layout );
+}
+
+
+//------------------------------------------------------------------------------
+/// shared logic of tileInsert
+template <typename scalar_t>
+Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
+    ijdev_tuple ijdev, scalar_t* data, int64_t lda, TileKind kind, Layout layout )
+{
     int64_t i  = std::get<0>(ijdev);
     int64_t j  = std::get<1>(ijdev);
     int device = std::get<2>(ijdev);
@@ -1094,9 +1081,10 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
 
     LockGuard guard(getTilesMapLock());
 
-    assert(find({i, j}) == end());
-    // insert new-entry in map
-    tiles_[{i, j}] = std::make_shared<TileNode_t>( num_devices() );
+    if (find({i, j}) == end()) {
+        // insert new-entry in map
+        tiles_[{i, j}] = std::make_shared<TileNode_t>( num_devices() );
+    }
 
     auto& tile_node = this->at({i, j});
 
@@ -1104,10 +1092,18 @@ Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     if (! tile_node.existsOn(device)) {
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
+        if (data == nullptr) {
+            // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
+            blas::Queue* queue = (device == HostNum) ? nullptr : comm_queues_[device];
+            data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
+            lda = (layout == Layout::ColMajor) ? mb : nb;
+        }
         Tile<scalar_t>* tile
             = new Tile<scalar_t>(
-                  mb, nb, data, lda, device, TileKind::UserOwned, layout);
-        tile_node.insertOn(device, tile, MOSI::Shared);
+                  mb, nb, data, lda, device, kind, layout);
+        tile_node.insertOn(device, tile, kind == TileKind::Workspace ?
+                                         MOSI::Invalid :
+                                         MOSI::Shared);
     }
     return tile_node[device];
 }

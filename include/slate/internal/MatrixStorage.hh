@@ -759,10 +759,15 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::ensureDeviceWorkspace(int device, int64_t num_tiles)
 {
-    if (memory_.available(device) < size_t(num_tiles)) {
-        // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
-        blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-        memory_.addDeviceBlocks(device, num_tiles - memory_.available(device), queue);
+    int64_t n = num_tiles - memory_.available( device );
+    if (n > 0) {
+        if (device != HostNum) {
+            blas::Queue* queue = comm_queues_[ device ];
+            memory_.addDeviceBlocks( device, n, queue );
+        }
+        else {
+            memory_.addHostBlocks( n );
+        }
     }
 }
 

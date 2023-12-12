@@ -41,10 +41,10 @@ public:
     ~Memory();
 
     // todo: change add* to reserve*?
-    void addHostBlocks(int64_t num_blocks);
+    void addHostBlocks(int64_t num_blocks) { /* No host pool currently */ }
     void addDeviceBlocks(int device, int64_t num_blocks, blas::Queue *queue);
 
-    void clearHostBlocks();
+    void clearHostBlocks() { /* No host pool currently */ }
     void clearDeviceBlocks(int device, blas::Queue *queue);
 
     void* alloc(int device, size_t size, blas::Queue *queue);

@@ -53,6 +53,7 @@ public:
     friend void swap(BaseBandMatrix<T>& A, BaseBandMatrix<T>& B);
 
     int64_t getMaxDeviceTiles(int device);
+    int64_t getMaxDeviceTiles();
     void    allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1);
     void    reserveDeviceWorkspace();
 
@@ -234,6 +235,29 @@ int64_t BaseBandMatrix<scalar_t>::getMaxDeviceTiles(int device)
 }
 
 //------------------------------------------------------------------------------
+/// Returns number of local tiles of the matrix on this rank and given device.
+///
+// todo: assumes uniform tile sizes.
+template <typename scalar_t>
+int64_t BaseBandMatrix<scalar_t>::getMaxDeviceTiles()
+{
+    std::vector<int64_t> num_tiles( this->num_devices() );
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+    int64_t klt = ceildiv( this->kl_, this->tileNb(0) );
+    int64_t kut = ceildiv( this->ku_, this->tileNb(0) );
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t istart = blas::max( 0, j-kut );
+        int64_t iend   = blas::min( j+klt+1, mt );
+        for (int64_t i = istart; i < iend; ++i) {
+            if (this->tileIsLocal(i, j))
+                num_tiles[ this->tileDevice( i, j ) ] += 1;
+        }
+    }
+    return *std::max_element( num_tiles.begin(), num_tiles.end() );
+}
+
+//------------------------------------------------------------------------------
 /// Allocates batch arrays and BLAS++ queues for all devices.
 /// This overrides BaseMatrix::allocateBatchArrays
 /// to use the number of local tiles inside the band.
@@ -252,8 +276,7 @@ void BaseBandMatrix<scalar_t>::allocateBatchArrays(
     int64_t batch_size, int64_t num_arrays)
 {
     if (batch_size == 0) {
-        for (int device = 0; device < this->num_devices(); ++device)
-            batch_size = std::max(batch_size, getMaxDeviceTiles(device));
+        batch_size = getMaxDeviceTiles();
     }
     this->storage_->allocateBatchArrays(batch_size, num_arrays);
 }
@@ -263,10 +286,7 @@ void BaseBandMatrix<scalar_t>::allocateBatchArrays(
 template <typename scalar_t>
 void BaseBandMatrix<scalar_t>::reserveDeviceWorkspace()
 {
-    int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices(); ++device)
-        num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    this->storage_->reserveDeviceWorkspace(num_tiles);
+    this->storage_->reserveDeviceWorkspace( getMaxDeviceTiles() );
 }
 
 //------------------------------------------------------------------------------

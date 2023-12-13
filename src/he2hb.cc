@@ -444,11 +444,11 @@ void he2hb(
                                     W.tileGetForWriting( i, k, HostNum, layoutc );
                                     MPI_Request req;
                                     if (neighbor < mpi_rank) {
-                                        W   .tileIsend( i, k, neighbor, tag_i, &req );
+                                        W  .tileIsend( i, k, neighbor, tag_i, &req );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i1 );
                                     }
                                     else {
-                                        W   .tileIsend( i, k, neighbor, tag_i1, &req );
+                                        W  .tileIsend( i, k, neighbor, tag_i1, &req );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i );
                                     }
                                     MPI_Wait( &req, MPI_STATUS_IGNORE );

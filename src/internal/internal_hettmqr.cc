@@ -64,6 +64,9 @@ void hettmqr(
 /// Host implementation.
 /// @ingroup heev_internal
 ///
+/// @param tag_base[in]
+///     This process uses MPI tags from the range [tag_base, tag_base+mt*nt)
+///
 template <typename scalar_t>
 void hettmqr(
     internal::TargetType<Target::HostTask>,
@@ -165,7 +168,9 @@ void hettmqr(
                 }
             }
             if (C.tileIsLocal(i2, i1)) {
-                #pragma omp task
+                #pragma omp task slate_omp_default_none \
+                    shared( C, T, V ) \
+                    firstprivate( i1, i2, op, opR, tag_base, layout, call_tile_tick )
                 {
                     // Receive tiles from sources, apply Q on both sides,
                     // then send updated tiles back.
@@ -186,17 +191,17 @@ void hettmqr(
                     tile::deepConjTranspose( C(i2, i1), C(i1, i2) );
 
                     int64_t nb = std::min(V.tileMb(i2), V.tileNb(0));
-                    #pragma omp task
+                    #pragma omp task shared( C, T, V ) firstprivate( i1, i2, op, nb )
                     tpmqrt(Side::Left, op, nb,
                            V(i2, 0), T(i2, 0), C(i1, i1), C(i2, i1));  // 1st col
-                    #pragma omp task
+                    #pragma omp task shared( C, T, V ) firstprivate( i1, i2, op, nb )
                     tpmqrt(Side::Left, op, nb,
                            V(i2, 0), T(i2, 0), C(i1, i2), C(i2, i2));  // 2nd col
                     #pragma omp taskwait
-                    #pragma omp task
+                    #pragma omp task shared( C, T, V ) firstprivate( i1, i2, opR, nb )
                     tpmqrt(Side::Right, opR, nb,
                            V(i2, 0), T(i2, 0), C(i1, i1), C(i1, i2));  // 1st row
-                    #pragma omp task
+                    #pragma omp task shared( C, T, V ) firstprivate( i1, i2, opR, nb )
                     tpmqrt(Side::Right, opR, nb,
                            V(i2, 0), T(i2, 0), C(i2, i1), C(i2, i2));  // 2nd row
 

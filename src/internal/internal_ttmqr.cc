@@ -160,7 +160,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         }
                         int dst = C.tileRank(i_dst, j_dst);
                         // Don't need to wait since the tile isn't modified
-                        // until recieving it back
+                        // until receiving it back
                         MPI_Request req;
                         C.tileIsend( i, j, dst, tag+k, &req );
                         MPI_Request_free( &req );

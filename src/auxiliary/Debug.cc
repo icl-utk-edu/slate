@@ -194,7 +194,7 @@ void Debug::printTiles_(
         for (int64_t j = 0; j < A.nt(); ++j) {
             msg += pad;
             int life = 0;
-            for (int device = HostNum; device < A.num_devices_; ++device) {
+            for (int device = HostNum; device < A.num_devices(); ++device) {
                 // Space between tiles if multiple fields.
                 if (multi && device > HostNum)
                     msg += ' ';
@@ -204,9 +204,7 @@ void Debug::printTiles_(
                 if (iter != A.storage_->end()) {
                     auto tile = iter->second->at( device );
                     if (do_kind) {
-                        msg += tile->origin()
-                                ? (tile->allocated() ? 'o' : 'u')
-                                : 'w';
+                        msg += char(tile->kind());
                     }
                     if (do_mosi) {
                         char ch = to_char( iter->second->at( device )->state() );
@@ -306,9 +304,9 @@ void Debug::printNumFreeMemBlocks(Memory const& m)
 {
     if (! debug_) return;
     printf("\n");
-    for (auto iter = m.free_blocks_.begin(); iter != m.free_blocks_.end(); ++iter) {
-        printf("\tdevice: %d\tfree blocks: %lu\n", iter->first,
-               (unsigned long) iter->second.size());
+    for (int dev = 0; dev < m.num_devices_; ++dev) {
+        printf("\tdevice: %d\tfree blocks: %lu\n",
+               dev, m.free_blocks_[dev].size());
     }
 }
 

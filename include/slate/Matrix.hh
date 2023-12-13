@@ -726,7 +726,7 @@ void Matrix<scalar_t>::allocateBatchArrays(
     int64_t batch_size, int64_t num_arrays)
 {
     if (batch_size == 0) {
-        for (int device = 0; device < this->num_devices_; ++device)
+        for (int device = 0; device < this->num_devices(); ++device)
             batch_size = std::max(batch_size, getMaxDeviceTiles(device));
     }
     this->storage_->allocateBatchArrays(batch_size, num_arrays);
@@ -746,7 +746,7 @@ template <typename scalar_t>
 void Matrix<scalar_t>::reserveDeviceWorkspace()
 {
     int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices_; ++device)
+    for (int device = 0; device < this->num_devices(); ++device)
         num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
     this->storage_->reserveDeviceWorkspace(num_tiles);
 }

@@ -973,7 +973,7 @@ double slate_lu_rcondest_using_factor_c64(
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
 
-    auto* A_     = reinterpret_cast<matrix_A_t*>(A);
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
     slate::Options opts_;
     slate::options2cpp(num_opts, opts, opts_);
@@ -1156,7 +1156,7 @@ double slate_chol_rcondest_using_factor_c64(
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
 
-    auto* A_     = reinterpret_cast<matrix_A_t*>(A);
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
     slate::Options opts_;
     slate::options2cpp(num_opts, opts, opts_);
@@ -1390,7 +1390,7 @@ double slate_triangular_rcondest_c64(
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::TriangularMatrix<scalar_t>;
 
-    auto* A_     = reinterpret_cast<matrix_A_t*>(A);
+    auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
     slate::Options opts_;
     slate::options2cpp(num_opts, opts, opts_);

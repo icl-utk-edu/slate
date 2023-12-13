@@ -351,7 +351,7 @@ def fortran_interface_enum(enum):
 
 #-------------------------------------------------------------------------------
 def fortran_interface_constant(constant):
-    """Generate an interface for an constant."""
+    """Generate an interface for a constant."""
 
     name  = constant[0]
     value = constant[1]
@@ -900,7 +900,7 @@ def parse_enums(preprocessed_list):
 
 #-------------------------------------------------------------------------------
 def parse_constants(preprocessed_list):
-    """Each constant will be parsed into a list of its name and values."""
+    """Each constant will be parsed into a list of its name and value."""
 
     constant_list = []
     for proto in preprocessed_list:

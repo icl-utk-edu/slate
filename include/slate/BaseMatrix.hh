@@ -144,10 +144,6 @@ public:
     template<typename MatrixType>
     friend MatrixType conj_transpose( MatrixType& A );
 
-    /// @deprecated
-    template<typename MatrixType>
-    friend MatrixType conjTranspose( MatrixType& A );
-
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
 

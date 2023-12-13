@@ -165,10 +165,6 @@ public:
     template <typename TileType>
     friend TileType conj_transpose( TileType& A );
 
-    /// @deprecated
-    template <typename TileType>
-    friend TileType conjTranspose( TileType& A );
-
     /// Returns number of rows of op(A), where A is this tile
     int64_t mb() const { return (op_ == Op::NoTrans ? mb_ : nb_); }
 

@@ -45,7 +45,6 @@ void he2hb(
     const int batch_size_default = 0;
     const int num_queues = 10;
     const int queue_0 = 0;
-    const int tag_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
@@ -373,16 +372,13 @@ void he2hb(
                         }
                     }
                     int64_t i0 = panel_rank_rows[ 0 ];
-                    int dev_i0k = -1;
-                    if (target == Target::Devices)
-                        dev_i0k = A.tileDevice(i0, k);
 
                     #pragma omp task slate_omp_default_none \
                         depend( inout:block[ k ] ) \
                         shared( A, Asave ) \
-                        firstprivate( zero, one, i0, k, dev_i0k, layoutc )
+                        firstprivate( zero, one, i0, k, layoutc )
                     {
-                        if (A.tileExists( i0, k, dev_i0k)) {
+                        if (A.tileExists( i0, k, AnyDevice )) {
                             A.tileGetForWriting( i0, k, HostNum, layoutc );
                             // Save V0 and set upper(V0) to identity, to avoid trmm's.
                             Asave.tileInsert( i0, k );
@@ -444,18 +440,17 @@ void he2hb(
                                     Wtmp.tileInsert( i, k );
                                     int tag_i = i;
                                     int tag_i1 = i+1;
+                                    W.tileGetForWriting( i, k, HostNum, layoutc );
+                                    MPI_Request req;
                                     if (neighbor < mpi_rank) {
-                                        W.tileGetForWriting( i, k, HostNum,
-                                                             layoutc );
-                                        W   .tileSend( i, k, neighbor, tag_i );
+                                        W  .tileIsend( i, k, neighbor, tag_i, &req );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i1 );
                                     }
                                     else {
-                                        W.tileGetForWriting( i, k, HostNum,
-                                                             layoutc );
+                                        W  .tileIsend( i, k, neighbor, tag_i1, &req );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i );
-                                        W   .tileSend( i, k, neighbor, tag_i1 );
                                     }
+                                    MPI_Wait( &req, MPI_STATUS_IGNORE );
                                     auto Wtmp_ik = Wtmp( i, k );
                                     auto W_ik = W( i, k );
                                     blas::axpy( W_ik.nb()*W_ik.nb(),
@@ -487,10 +482,6 @@ void he2hb(
 
                             // 1d. TVAVT = V^H (A V T) = V^H W.
                             // todo: potentially do gemm+reduce here (block inner-product)
-                            // todo: shouldn't need to set TVAVT = 0 since beta = 0.
-                            // todo: on GPU
-                            TVAVT.tileGetForWriting( 0, 0, HostNum, layoutc );
-                            TVAVT( 0, 0 ).set( zero );
                             internal::he2hb_gemm<target>(
                                 one,  conj_transpose( A.sub( k+1, nt-1, k, k ) ),
                                       W.sub( k+1, nt-1, k, k ),
@@ -563,9 +554,9 @@ void he2hb(
                     #pragma omp task slate_omp_default_none \
                         depend( inout:block[ k ] ) \
                         shared( A, Asave ) \
-                        firstprivate( i0, k, dev_i0k, layoutc )
+                        firstprivate( i0, k, layoutc )
                     {
-                        if (A.tileExists( i0, k, dev_i0k )) {
+                        if (A.tileExists( i0, k, AnyDevice )) {
                             A.tileGetForWriting( i0, k, layoutc );
                             tile::gecopy( Asave( i0, k ), A( i0, k ) );
                             Asave.tileErase( i0, k );
@@ -581,8 +572,9 @@ void he2hb(
                     depend( inout:block[ nt-1 ] ) \
                     depend( inout:fetch_trailing[ 0 ] ) \
                     shared( A ) \
-                    firstprivate( A_panel, Treduce_panel, k, nt, tag_0, opts2 )
+                    firstprivate( A_panel, Treduce_panel, k, nt, opts2 )
                 {
+                    int tag_base = A.mt()*A.mt();
                     // Do 2-sided Hermitian update:
                     // 3. A = Q^H A Q
                     internal::hettmqr<Target::HostTask>(
@@ -590,14 +582,14 @@ void he2hb(
                         std::move( A_panel ),
                         std::move( Treduce_panel ),
                         A.sub( k+1, nt-1 ),
-                        tag_0, opts2 );
+                        tag_base, opts2 );
                 }
             }
 
             // Release workspace tiles
             #pragma omp task slate_omp_default_none \
                 depend( inout:block[ k ] ) \
-                shared( A_panel, Tlocal, Treduce ) \
+                firstprivate( A_panel, Tlocal, Treduce ) \
                 firstprivate( k, nt, first_indices )
             {
                 // Ensure the origin is up to date, then remove the panel's workspace

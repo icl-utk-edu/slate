@@ -143,7 +143,7 @@ void unmlq(
                     bcast_list_V.push_back(
                         {k, j, {C.sub(i0, i1, j0, j1)}});
                 }
-                A.template listBcast(bcast_list_V, layout, 0, 1);
+                A.template listBcast<target>(bcast_list_V, layout, 0, 1);
 
                 // Send Tlocal(j) across row C(j, 0:nt-1) or col C(0:mt-1, j).
                 if (first_indices.size() > 0) {

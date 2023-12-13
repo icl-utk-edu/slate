@@ -707,10 +707,26 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 {
     slate_assert(0 <= i && i < mb());
     slate_assert(0 <= j && j < nb());
-    if (op_ == Op::NoTrans)
+
+    if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor)) {
         data_ = &data_[ i + j*stride_ ];
-    else
+    }
+    else {
         data_ = &data_[ j + i*stride_ ];
+    }
+
+    if ((op_ == Op::NoTrans) == (user_layout_ == Layout::ColMajor)) {
+        user_data_ = &user_data_[ i + j*user_stride_ ];
+        if (ext_data_ != nullptr) {
+            ext_data_ = &ext_data_[ j + i*nb_];
+        }
+    }
+    else {
+        user_data_ = &user_data_[ j + i*user_stride_ ];
+        if (ext_data_ != nullptr) {
+            ext_data_ = &ext_data_[ i + j*mb_];
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

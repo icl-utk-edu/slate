@@ -118,9 +118,9 @@ MatrixType conjTranspose( MatrixType&& A )
 /// @ingroup enum
 ///
 enum class TileKind : char {
-    Workspace  = 'w',   ///< SLATE allocated workspace tile
+    Workspace  = 'w',  ///< SLATE allocated workspace tile
     SlateOwned = 'o',  ///< SLATE allocated origin tile
-    UserOwned  = 'u',   ///< User owned origin tile
+    UserOwned  = 'u',  ///< User owned origin tile
 };
 
 //------------------------------------------------------------------------------

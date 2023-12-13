@@ -15,11 +15,11 @@ extern "C" {
 //------------------------------------------------------------------------------
 // slate/include/slate/Tile.hh
 
-typedef enum slate_TileKind {
-    slate_TileKind_Workspace,         ///< slate::TileKind::Workspace
-    slate_TileKind_SlateOwned,        ///< slate::TileKind::SlateOwned
-    slate_TileKind_UserOwned,         ///< slate::TileKind::UserOwned
-} slate_TileKind;                     ///< slate::TileKind
+typedef char slate_TileKind; /* enum */               ///< slate::TileKind
+const slate_TileKind slate_TileKind_Workspace  = 'w'; ///< slate::TileKind::Workspace
+const slate_TileKind slate_TileKind_SlateOwned = 'o'; ///< slate::TileKind::SlateOwned
+const slate_TileKind slate_TileKind_UserOwned  = 'u'; ///< slate::TileKind::UserOwned
+// end slate_TileKind
 
 //------------------------------------------------------------------------------
 // slate/include/slate/enums.hh

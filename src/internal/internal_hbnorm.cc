@@ -371,11 +371,7 @@ void norm(
 
     assert(A.num_devices() > 0);
 
-    std::vector<std::vector<scalar_t*> > a_host_arrays(A.num_devices());
     std::vector<std::vector<real_t> > vals_host_arrays(A.num_devices());
-
-    std::vector<scalar_t**> a_dev_arrays(A.num_devices());
-    std::vector<real_t*> vals_dev_arrays(A.num_devices());
 
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values;
@@ -394,17 +390,6 @@ void norm(
     else if (in_norm == Norm::Fro) {
         ldv = 2;
         devices_values.resize(A.num_devices() * 2);
-    }
-
-    for (int device = 0; device < A.num_devices(); ++device) {
-        int64_t num_tiles = A.getMaxDeviceTiles(device);
-
-        a_host_arrays[device].resize(num_tiles);
-        vals_host_arrays[device].resize(num_tiles*ldv);
-
-        blas::Queue* queue = A.comm_queue(device);
-        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles, *queue);
-        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv, *queue);
     }
 
     // Define index ranges for regions of matrix.
@@ -436,7 +421,6 @@ void norm(
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, devices_values, vals_host_arrays ) \
-            shared(a_host_arrays, a_dev_arrays, vals_dev_arrays) \
             firstprivate(device, irange, jrange, layout, in_norm, lower) \
             firstprivate(i_begin, i_end, kdt, queue_index, ldv) priority(priority)
         {
@@ -463,10 +447,17 @@ void norm(
             }
             A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
 
-            // Setup batched arguments.
-            scalar_t** a_host_array = a_host_arrays[device].data();
-            scalar_t** a_dev_array = a_dev_arrays[device];
+            int64_t num_tiles = A.getMaxDeviceTiles(device);
 
+            // Setup batched arguments.
+            std::vector<scalar_t*> a_host_array_vect(num_tiles);
+            vals_host_arrays[device].resize(num_tiles*ldv);
+
+            blas::Queue* queue = A.compute_queue(device, queue_index);
+            scalar_t** a_dev_array = blas::device_malloc<scalar_t*>(num_tiles, *queue);
+            real_t* vals_dev_array = blas::device_malloc<real_t>(num_tiles*ldv, *queue);
+
+            scalar_t** a_host_array = a_host_array_vect.data();
 
 
             int64_t batch_count = 0;
@@ -521,18 +512,18 @@ void norm(
             }
 
             real_t* vals_host_array = vals_host_arrays[device].data();
-            real_t* vals_dev_array = vals_dev_arrays[device];
 
             // Batched call to compute partial results for each tile.
             {
                 trace::Block trace_block("slate::device::henorm");
 
-                blas::Queue* queue = A.compute_queue(device, queue_index);
-
                 blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
                                     batch_count,
                                     blas::MemcpyKind::HostToDevice,
                                     *queue);
+
+                scalar_t** a_dev_array_g = a_dev_array;
+                real_t* vals_dev_array_g = vals_dev_array;
 
                 // off-diagonal blocks (same as synorm)
                 for (int q = 0; q < 4; ++q) {
@@ -540,19 +531,19 @@ void norm(
                         if (in_norm == Norm::One || in_norm == Norm::Inf) {
                             device::synormOffdiag(in_norm,
                                                   mb[q], nb[q],
-                                                  a_dev_array, lda[q],
-                                                  vals_dev_array, ldv,
+                                                  a_dev_array_g, lda[q],
+                                                  vals_dev_array_g, ldv,
                                                   group_count[q], *queue);
                         }
                         else {
                             device::genorm(in_norm, NormScope::Matrix,
                                            mb[q], nb[q],
-                                           a_dev_array, lda[q],
-                                           vals_dev_array, ldv,
+                                           a_dev_array_g, lda[q],
+                                           vals_dev_array_g, ldv,
                                            group_count[q], *queue);
                         }
-                        a_dev_array += group_count[q];
-                        vals_dev_array += group_count[q] * ldv;
+                        a_dev_array_g += group_count[q];
+                        vals_dev_array_g += group_count[q] * ldv;
                     }
                 }
                 // diagonal blocks
@@ -560,15 +551,13 @@ void norm(
                     if (group_count[q] > 0) {
                         device::henorm(in_norm, A.uploPhysical(),
                                        nb[q],
-                                       a_dev_array, lda[q],
-                                       vals_dev_array, ldv,
+                                       a_dev_array_g, lda[q],
+                                       vals_dev_array_g, ldv,
                                        group_count[q], *queue);
-                        a_dev_array += group_count[q];
-                        vals_dev_array += group_count[q] * ldv;
+                        a_dev_array_g += group_count[q];
+                        vals_dev_array_g += group_count[q] * ldv;
                     }
                 }
-
-                vals_dev_array = vals_dev_arrays[device];
 
                 blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
                                     batch_count*ldv,
@@ -597,15 +586,13 @@ void norm(
                     }
                 }
             }
+
+            // Release temporary device workspace
+            blas::device_free(a_dev_array, *queue);
+            blas::device_free(vals_dev_array, *queue);
         }
     }
     // end omp taskgroup
-
-    for (int device = 0; device < A.num_devices(); ++device) {
-        blas::Queue* queue = A.compute_queue(device, queue_index);
-        blas::device_free(a_dev_arrays[device], *queue);
-        blas::device_free(vals_dev_arrays[device], *queue);
-    }
 
     // Reduction over devices to local result.
     if (in_norm == Norm::Max) {

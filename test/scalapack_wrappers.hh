@@ -4634,7 +4634,7 @@ void scalapack_pgecon(
 extern "C" {
 
 void scalapack_pspocon(
-    const char* uplo, const char* norm, blas_int* n,
+    const char* uplo, blas_int* n,
     float* A, blas_int* ia, blas_int* ja, blas_int* descA,
     float* Anorm, float* rcond,
     float* work, blas_int* lwork,
@@ -4642,7 +4642,7 @@ void scalapack_pspocon(
     blas_int* info );
 
 void scalapack_pdpocon(
-    const char* uplo, const char* norm, blas_int* n,
+    const char* uplo, blas_int* n,
     double* A, blas_int* ia, blas_int* ja, blas_int* descA,
     double* Anorm, double* rcond,
     double* work, blas_int* lwork,
@@ -4650,7 +4650,7 @@ void scalapack_pdpocon(
     blas_int* info );
 
 void scalapack_pcpocon(
-    const char* uplo, const char* norm, blas_int* n,
+    const char* uplo, blas_int* n,
     std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
     float* Anorm, float* rcond,
     std::complex<float>* work, blas_int* lwork,
@@ -4658,7 +4658,7 @@ void scalapack_pcpocon(
     blas_int* info );
 
 void scalapack_pzpocon(
-    const char* uplo, const char* norm, blas_int* n,
+    const char* uplo, blas_int* n,
     std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
     double* Anorm, double* rcond,
     std::complex<double>* work, blas_int* lwork,
@@ -4670,7 +4670,7 @@ void scalapack_pzpocon(
 //------------------------------------------------------------------------------
 // Low-level overloaded wrappers
 inline void scalapack_ppocon(
-    const char* uplo, const char* norm, blas_int* n,
+    const char* uplo, blas_int* n,
     float* A, blas_int* ia, blas_int* ja, blas_int* descA,
     float* Anorm, float* rcond,
     float* work, blas_int* lwork,
@@ -4678,12 +4678,12 @@ inline void scalapack_ppocon(
     blas_int* info )
 {
     scalapack_pspocon(
-        uplo, norm, n, A, ia, ja, descA,
+        uplo, n, A, ia, ja, descA,
         Anorm, rcond, work, lwork, iwrok, liwork, info );
 }
 
 inline void scalapack_ppocon(
-    const char* uplo, const char* norm, blas_int* n,
+    const char* uplo, blas_int* n,
     double* A, blas_int* ia, blas_int* ja, blas_int* descA,
     double* Anorm, double* rcond,
     double* work, blas_int* lwork,
@@ -4691,12 +4691,12 @@ inline void scalapack_ppocon(
     blas_int* info )
 {
     scalapack_pdpocon(
-        uplo, norm, n, A, ia, ja, descA,
+        uplo, n, A, ia, ja, descA,
         Anorm, rcond, work, lwork, iwrok, liwork, info );
 }
 
 inline void scalapack_ppocon(
-    const char* uplo, const char* norm, blas_int* n,
+    const char* uplo, blas_int* n,
     std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
     float* Anorm, float* rcond,
     std::complex<float>* work, blas_int* lwork,
@@ -4704,12 +4704,12 @@ inline void scalapack_ppocon(
     blas_int* info )
 {
     scalapack_pcpocon(
-        uplo, norm, n, A, ia, ja, descA,
+        uplo, n, A, ia, ja, descA,
         Anorm, rcond, work, lwork, iwrok, liwork, info );
 }
 
 inline void scalapack_ppocon(
-    const char* uplo, const char* norm, blas_int* n,
+    const char* uplo, blas_int* n,
     std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
     double* Anorm, double* rcond,
     std::complex<double>* work, blas_int* lwork,
@@ -4717,7 +4717,7 @@ inline void scalapack_ppocon(
     blas_int* info )
 {
     scalapack_pzpocon(
-        uplo, norm, n, A, ia, ja, descA,
+        uplo, n, A, ia, ja, descA,
         Anorm, rcond, work, lwork, iwrok, liwork, info );
 }
 
@@ -4725,7 +4725,7 @@ inline void scalapack_ppocon(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_ppocon(
-    const char* uplo, const char* norm, int64_t n,
+    const char* uplo, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* Anorm, blas::real_type<scalar_t>* rcond,
     scalar_t* work, int64_t lwork,
@@ -4739,7 +4739,7 @@ void scalapack_ppocon(
     blas_int liwork_ = to_blas_int( liwork );
     blas_int info_   = 0;
     scalapack_ppocon(
-        uplo, norm, &n_, A, &ia_, &ja_, descA,
+        uplo, &n_, A, &ia_, &ja_, descA,
         Anorm, rcond, work, &lwork_, iwork, &liwork_, &info_ );
 }
 

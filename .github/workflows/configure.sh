@@ -47,7 +47,8 @@ elif [ "${maker}" = "cmake" ]; then
     cmake -Dcolor=no \
           -DCMAKE_CXX_FLAGS="-Werror -Wno-unused-command-line-argument" \
           -DCMAKE_INSTALL_PREFIX=${top}/install \
-          -Dgpu_backend=${gpu_backend} .. \
+          -Dgpu_backend=${gpu_backend} \
+          -Dc_api=1 -Dfortran_api=1 .. \
           || exit 12
 fi
 

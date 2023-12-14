@@ -87,7 +87,7 @@ tile_routines = [
 ]
 
 keywords = [
-    'Op', 'Uplo', 'TileKind', 'Layout'
+    'Op', 'Uplo', 'TileKind', 'Layout', 'MOSI_State'
 ]
 
 index_data_type_cpp = 2
@@ -106,13 +106,22 @@ for template in templates:
         for keyword in keywords:
             instance = re.sub(r'%s' % keyword, 'slate_' + keyword, instance)
         instance = re.sub(r'@SUFFIX', type[index_suffix], instance)
+        type_cpp = 'slate::' + name + '<' + type[index_data_type_cpp] + '>'
+        type_c = 'slate_' + name + type[index_suffix]
+
         file_hh.write('//' + ('-'*78) + '\n')
         file_hh.write('// instantiate ' + template[index_name] + ' for '
               + template[index_typename] + ' = <' + type[index_data_type] + '>\n')
         file_hh.write(instance + '\n')
+
+        file_cc.write('/// assert layout of ' + type_c + ' matches that of ' + type_cpp + '\n')
+        file_cc.write('static_assert(sizeof(' + type_c + ') == sizeof(' + type_cpp + '), "C API types are out of sync with the C++ API types.");\n')
+        file_cc.write('static_assert(std::is_standard_layout_v<' + type_cpp + '>, "C API types are out of sync with the C++ API types.");')
+        #file_cc.write('static_assert(offsetof(' + type_c +', data_) == offsetof(' + type_cpp + ', data_)); \n')
+        file_cc.write('\n')
+
         for routine in tile_routines:
-            t = 'slate::' + name + '<' + type[index_data_type_cpp] + '>'
-            s  = '/// ' + t
+            s  = '/// ' + type_cpp
             s += '::' + routine[index_routine_name] + '()\n'
             if (routine[index_routine_ret] == typename):
                 ret = routine[index_routine_ret].replace(
@@ -121,14 +130,12 @@ for template in templates:
             else:
                 ret = routine[index_routine_ret]
             s += ret + ' slate_' + name + '_' + routine[index_routine_name]
-            s += type[index_suffix] + '(slate_' + name + type[index_suffix]
-            s += ' T)'
+            s += type[index_suffix] + '(' + type_c + ' T)'
             file_hh.write(s + ';\n\n')
             file_cc.write(s + '\n{\n')
-            file_cc.write('    assert(sizeof(slate_Tile_c64) == sizeof(' + t +'));\n')
-            file_cc.write('    ' + t + ' T_;\n')
-            file_cc.write('    std::memcpy(&T_, &T, sizeof(' + t + '));\n')
-            # file_cc.write('    auto T_ = *reinterpret_cast<' + t +'*>(&T);\n')
+            file_cc.write('    ' + type_cpp + ' T_;\n')
+            file_cc.write('    std::memcpy((void*)&T_, (void*)&T, sizeof(' + type_cpp + '));\n')
+            # file_cc.write('    auto T_ = *reinterpret_cast<' + type_cpp +'*>(&T);\n')
             file_cc.write('    return(')
             if (routine[index_routine_ret] == typename):
                 file_cc.write('('+ type[index_data_type] +'*)')

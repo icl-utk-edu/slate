@@ -359,7 +359,7 @@ void lu_inverse_using_factor_out_of_place(
 }
 
 //-----------------------------------------
-// lu_condest_using_factor()
+// lu_rcondest_using_factor()
 
 // gecondest
 template <typename scalar_t>
@@ -490,7 +490,7 @@ void chol_inverse_using_factor(
 }
 
 //-----------------------------------------
-// chol_condest_using_factor()
+// chol_rcondest_using_factor()
 
 // pocondest
 template <typename scalar_t>
@@ -678,7 +678,7 @@ void lq_multiply_by_q(
 }
 
 //-----------------------------------------
-// triangular_condest()
+// triangular_rcondest()
 
 // trcondest
 template <typename scalar_t>

@@ -8,6 +8,7 @@ enums      = []
 enum_list  = []
 enum_name  = ''
 enum_start = False
+pseudo_enum = False
 
 file = open(sys.argv[1], 'r')
 for line in file:
@@ -15,20 +16,36 @@ for line in file:
     if s and (not enum_start):
         enum_name  = s.group(1)
         enum_start = True
+        pseudo_enum = False
+        enum.append(enum_name)
+        continue
+    s = re.search(r'^typedef\s*\w+\s*(\w+)\s*;\s*/\* enum \*/', line)
+    if s and (not enum_start):
+        enum_name = s.group(1)
+        enum_start = True
+        pseudo_enum = True
         enum.append(enum_name)
         continue
     if enum_start:
-        if re.search(r'^\}\s*%s\s*;' % enum_name, line):
+        if pseudo_enum:
+            end_regex = r'^//\s*end\s*%s'
+        else:
+            end_regex = r'^\}\s*%s\s*;'
+        if re.search(end_regex % enum_name, line):
             enum_start = False
             enum.append(enum_list)
             enums.append(enum)
             enum      = []
             enum_list = []
             continue
-        line = line.split(',')[0]
-        line = line.split('=')[0]
-        line = line.strip()
+        if pseudo_enum:
+            line = re.search('^const\s*\w+\s*(\w+)\s*=', line).group(1)
+        else:
+            line = line.split(',')[0]
+            line = line.split('=')[0]
+            line = line.strip()
         enum_list.append(line)
+
 file.close()
 
 file_hh = open(sys.argv[2], 'w')
@@ -62,6 +79,14 @@ file_cc.write('namespace slate {\n\n')
 for e in enums:
     prefix = e[0].replace('slate_', '')
     var = e[0].replace('slate_', '').lower()
+
+    # Write assertions
+    file_cc.write('static_assert(sizeof(' + e[0] + ') == sizeof(' + prefix + '), "C API types are out of sync with C++ API types");\n')
+    for i in e[1]:
+        i_cpp = prefix + '::' + i.replace('slate_' + prefix + '_', '')
+        file_cc.write('static_assert(' + i + ' == ' + e[0] + '(' + i_cpp + '), "C API constants are out of sync with C++ API constants");\n')
+
+    # Write conversion functions
     instance  = prefix + ' '
     instance += var
     instance += '2cpp(' + e[0] + ' ' + var + ')'

@@ -52,13 +52,15 @@ export color=no
 
 # For simplicity, create make.inc regardless of ${maker}
 cat > make.inc << END
-CXXFLAGS = -Werror -Dslate_omp_default_none='default(none)'
-CXX      = mpicxx
-CC       = mpicc
-FC       = mpif90
-blas     = mkl
-prefix   = ${top}/install
-md5sum   = md5sum
+CXXFLAGS    = -Werror -Dslate_omp_default_none='default(none)'
+CXX         = mpicxx
+CC          = mpicc
+FC          = mpif90
+blas        = mkl
+prefix      = ${top}/install
+md5sum      = md5sum
+c_api       = 1
+fortran_api = 1
 END
 
 #----------------------------------------------------------------- Compiler

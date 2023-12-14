@@ -1109,6 +1109,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_gemm.cc \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_gesv_mixed.cc \
+        scalapack_api/scalapack_gesvd.cc \
         scalapack_api/scalapack_getrf.cc \
         scalapack_api/scalapack_getrs.cc \
         scalapack_api/scalapack_heev.cc \
@@ -1125,7 +1126,6 @@ scalapack_api_src += \
         scalapack_api/scalapack_potrf.cc \
         scalapack_api/scalapack_potri.cc \
         scalapack_api/scalapack_potrs.cc \
-        scalapack_api/scalapack_gesvd.cc \
         scalapack_api/scalapack_symm.cc \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \

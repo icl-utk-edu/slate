@@ -127,7 +127,6 @@ void slate_ptrcon(const char* normstr, const char* uplostr, const char* diagstr,
     // create SLATE matrices from the ScaLAPACK layouts
     auto AT = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, diag, desc_N(desca), a, desc_LLD(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
     AT = slate_scalapack_submatrix(Am, An, AT, ia, ja, desca);
-    AT = slate_scalapack_submatrix(Am, An, AT, ia, ja, desca);
 
     blas::real_type<scalar_t> anorm = slate::norm( norm, AT, {
         {slate::Option::Lookahead, lookahead},

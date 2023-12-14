@@ -112,20 +112,20 @@ void slate_heev(const char* jobzstr, const char* uplostr, const int n, scalar_t*
 
         slate::Matrix<scalar_t> Z;
         switch (jobzstr[0]) {
-        case 'V':
-            if (lwork >= n * n) {
-                Z = slate::Matrix<scalar_t>::fromLAPACK( n, n, work, n, nb, p, q, MPI_COMM_WORLD );
-            }
-            else {
-                Z = slate::Matrix<scalar_t>( n, n, nb, p, q, MPI_COMM_WORLD );
-                Z.insertLocalTiles(target);
-            }
-            break;
-        case 'N':
-            // Leave Z empty
-            break;
-        default:
-            *info = 1;
+            case 'V':
+                if (lwork >= n * n) {
+                    Z = slate::Matrix<scalar_t>::fromLAPACK( n, n, work, n, nb, p, q, MPI_COMM_WORLD );
+                }
+                else {
+                    Z = slate::Matrix<scalar_t>( n, n, nb, p, q, MPI_COMM_WORLD );
+                    Z.insertLocalTiles(target);
+                }
+                break;
+            case 'N':
+                // Leave Z empty
+                break;
+            default:
+                *info = 1;
         }
 
         if (*info == 0) {

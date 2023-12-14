@@ -119,50 +119,50 @@ void slate_gesvd(const char* jobustr, const char* jobvtstr, const int m, const i
 
         slate::Matrix<scalar_t> U;
         switch (jobustr[0]) {
-        case 'A':
-            U = slate::Matrix<scalar_t>::fromLAPACK(m, m, u, ldu, nb, p, q, MPI_COMM_WORLD);
-            break;
-        case 'S':
-            U = slate::Matrix<scalar_t>::fromLAPACK(m, min_mn, u, ldu, nb, p, q, MPI_COMM_WORLD);
-            break;
-        case 'O':
-            if (lwork >= m * min_mn) {
-                U = slate::Matrix<scalar_t>::fromLAPACK(m, min_mn, work, m, nb, p, q, MPI_COMM_WORLD);
-            }
-            else {
-                U = slate::Matrix<scalar_t>(m, min_mn, nb, p, q, MPI_COMM_WORLD);
-                U.insertLocalTiles(target);
-            }
-            break;
-        case 'N':
-            // Leave U empty
-            break;
-        default:
-            *info = 1;
+            case 'A':
+                U = slate::Matrix<scalar_t>::fromLAPACK(m, m, u, ldu, nb, p, q, MPI_COMM_WORLD);
+                break;
+            case 'S':
+                U = slate::Matrix<scalar_t>::fromLAPACK(m, min_mn, u, ldu, nb, p, q, MPI_COMM_WORLD);
+                break;
+            case 'O':
+                if (lwork >= m * min_mn) {
+                    U = slate::Matrix<scalar_t>::fromLAPACK(m, min_mn, work, m, nb, p, q, MPI_COMM_WORLD);
+                }
+                else {
+                    U = slate::Matrix<scalar_t>(m, min_mn, nb, p, q, MPI_COMM_WORLD);
+                    U.insertLocalTiles(target);
+                }
+                break;
+            case 'N':
+                // Leave U empty
+                break;
+            default:
+                *info = 1;
         }
 
         slate::Matrix<scalar_t> VT;
         switch (jobvtstr[0]) {
-        case 'A':
-            VT = slate::Matrix<scalar_t>::fromLAPACK(n, n, vt, ldvt, nb, p, q, MPI_COMM_WORLD);
-            break;
-        case 'S':
-            VT = slate::Matrix<scalar_t>::fromLAPACK(min_mn, n, vt, ldvt, nb, p, q, MPI_COMM_WORLD);
-            break;
-        case 'O':
-            if (lwork >= min_mn * n) {
-                VT = slate::Matrix<scalar_t>::fromLAPACK(min_mn, n, work, m, nb, p, q, MPI_COMM_WORLD);
-            }
-            else {
-                VT = slate::Matrix<scalar_t>(min_mn, n, nb, p, q, MPI_COMM_WORLD);
-                VT.insertLocalTiles(target);
-            }
-            break;
-        case 'N':
-            // Leave VT empty
-            break;
-        default:
-            *info = 2;
+            case 'A':
+                VT = slate::Matrix<scalar_t>::fromLAPACK(n, n, vt, ldvt, nb, p, q, MPI_COMM_WORLD);
+                break;
+            case 'S':
+                VT = slate::Matrix<scalar_t>::fromLAPACK(min_mn, n, vt, ldvt, nb, p, q, MPI_COMM_WORLD);
+                break;
+            case 'O':
+                if (lwork >= min_mn * n) {
+                    VT = slate::Matrix<scalar_t>::fromLAPACK(min_mn, n, work, m, nb, p, q, MPI_COMM_WORLD);
+                }
+                else {
+                    VT = slate::Matrix<scalar_t>(min_mn, n, nb, p, q, MPI_COMM_WORLD);
+                    VT.insertLocalTiles(target);
+                }
+                break;
+            case 'N':
+                // Leave VT empty
+                break;
+            default:
+                *info = 2;
         }
 
         if (*info == 0) {

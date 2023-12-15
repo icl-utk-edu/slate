@@ -46,8 +46,6 @@ void test_gemm_work(Params& params, bool run)
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
     int64_t k = params.dim.k();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';
     slate::Norm norm = params.norm();
@@ -58,7 +56,6 @@ void test_gemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
-    slate::GridOrder grid_order = params.grid_order();
     slate::Method method_gemm = params.method_gemm();
     params.matrix.mark();
     params.matrixB.mark();
@@ -238,7 +235,7 @@ void test_gemm_work(Params& params, bool run)
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
-            create_ScaLAPACK_context( grid_order, p, q, &ictxt );
+            A_alloc.create_ScaLAPACK_context( &ictxt );
 
             A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
             B_alloc.ScaLAPACK_descriptor( ictxt, B_desc );

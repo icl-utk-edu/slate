@@ -58,6 +58,7 @@ void test_scale_row_col_work( Params& params, bool run )
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     slate::Target target = params.target();
+    slate::GridOrder grid_order = params.grid_order();
     params.matrix.mark();
 
     mark_params_for_test_Matrix( params );
@@ -144,7 +145,7 @@ void test_scale_row_col_work( Params& params, bool run )
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, A_desc[9];
-            create_ScaLAPACK_context( slate::GridOrder::Col, p, q, &ictxt );
+            A_alloc.create_ScaLAPACK_context( &ictxt );
             A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
 
             real_t A_max = slate::norm( slate::Norm::Max, A );
@@ -152,7 +153,7 @@ void test_scale_row_col_work( Params& params, bool run )
             std::vector<real_t> Rlocal( A_alloc.mloc ), Clocal( A_alloc.nloc );
 
             int myrow, mycol;
-            gridinfo( A.mpiRank(), slate::GridOrder::Col, p, q, &myrow, &mycol );
+            gridinfo( A.mpiRank(), grid_order, p, q, &myrow, &mycol );
 
             // Copy local part of R.
             int64_t ii = 0, iilocal = 0;

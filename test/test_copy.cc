@@ -48,8 +48,6 @@ void test_copy_work(Params& params, bool run)
     else {
         n = params.dim.n();
     }
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
     bool ref_only = params.ref() == 'o';
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
@@ -141,7 +139,7 @@ void test_copy_work(Params& params, bool run)
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, A_desc[9], B_desc[9];
-            create_ScaLAPACK_context( slate::GridOrder::Col, p, q, &ictxt );
+            A_alloc.create_ScaLAPACK_context( &ictxt );
             A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
             B_alloc.ScaLAPACK_descriptor( ictxt, B_desc );
 

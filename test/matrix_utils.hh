@@ -9,6 +9,7 @@
 #include "slate/slate.hh"
 
 #include "scalapack_wrappers.hh"
+#include "grid_utils.hh"
 
 //------------------------------------------------------------------------------
 // Zero out B, then copy band matrix B from A.
@@ -216,15 +217,15 @@ class TestMatrix {
 public:
     TestMatrix() {}
 
-    TestMatrix(int64_t m_in, int64_t n_in, int64_t nb_in,
-               int64_t p, int64_t q, slate::GridOrder grid_order)
-        : m(m_in), n(n_in), nb(nb_in)
+    TestMatrix(int64_t m_, int64_t n_, int64_t nb_,
+               int p_, int q_, slate::GridOrder grid_order_)
+        : m(m_), n(n_), nb(nb_), p(p_), q(q_), grid_order(grid_order_)
     {
         int mpi_rank, myrow, mycol;
         MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
         gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
-        this->mloc = num_local_rows_cols( m_in, nb, myrow, p );
-        this->nloc = num_local_rows_cols( n_in, nb, mycol, q );
+        this->mloc = num_local_rows_cols( m, nb, myrow, p );
+        this->nloc = num_local_rows_cols( n, nb, mycol, q );
         this->lld  = blas::max( 1, mloc ); // local leading dimension of A
     }
 
@@ -238,12 +239,21 @@ public:
 
     // ScaLAPACK configuration
     int64_t m, n, mloc, nloc, lld, nb;
+    int p, q;
+    slate::GridOrder grid_order;
 
     #ifdef SLATE_HAVE_SCALAPACK
-    void ScaLAPACK_descriptor( blas_int ictxt, blas_int A_desc[9] ) {
+    void ScaLAPACK_descriptor( blas_int ictxt, blas_int A_desc[9] )
+    {
         int64_t info;
         scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mloc, &info);
         slate_assert(info == 0);
+    }
+
+    void create_ScaLAPACK_context( blas_int* ictxt )
+    {
+        // Call free function version
+        ::create_ScaLAPACK_context( grid_order, p, q, ictxt );
     }
     #endif
 };
@@ -289,8 +299,8 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
         Params& params)
 {
     // Load params variables
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
+    int p = params.grid.m();
+    int q = params.grid.n();
     slate::Dist dev_dist = params.dev_dist();
     int64_t nb = params.nb();
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
@@ -408,8 +418,8 @@ TestMatrix<slate::HermitianMatrix<scalar_t>> allocate_test_HermitianMatrix(
 {
     // Load params variables
     slate::Uplo uplo = params.uplo();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
+    int p = params.grid.m();
+    int q = params.grid.n();
     slate::Dist dev_dist = params.dev_dist();
     int64_t nb = params.nb();
     bool nonuniform_nb = params.nonuniform_nb() == 'y';

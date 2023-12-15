@@ -61,8 +61,6 @@ void test_gesv_work(Params& params, bool run)
 
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
     int64_t ib = params.ib();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
@@ -75,7 +73,6 @@ void test_gesv_work(Params& params, bool run)
     int timer_level = params.timer_level();
     SLATE_UNUSED(verbose);
     slate::Target target = params.target();
-    slate::GridOrder grid_order = params.grid_order();
     params.matrix.mark();
     params.matrixB.mark();
 
@@ -393,7 +390,7 @@ void test_gesv_work(Params& params, bool run)
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, Aref_desc[9], Bref_desc[9];
-            create_ScaLAPACK_context( grid_order, p, q, &ictxt );
+            A_alloc.create_ScaLAPACK_context( &ictxt );
             A_alloc.ScaLAPACK_descriptor( ictxt, Aref_desc );
             B_alloc.ScaLAPACK_descriptor( ictxt, Bref_desc );
 

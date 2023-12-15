@@ -20,7 +20,7 @@ inline bool is_invalid_parameters(Params& params)
     slate::Dist dev_dist = params.dev_dist();
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
 
-    if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
+    if (target != slate::Target::Devices && dev_dist == slate::Dist::Col) {
         params.msg() = "skipping: dev_dist = Col applies only to target devices";
         return true;
     }

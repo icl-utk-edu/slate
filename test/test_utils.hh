@@ -69,9 +69,10 @@ void matrix_iterator(
                 #pragma omp task shared(A, B) \
                                  firstprivate( B_i, B_j, A_i, A_j, A_ii, A_jj )
                 {
+                    int tag = A_i + A_j * A.mt();
                     if (B.tileIsLocal( B_i, B_j )) {
                         A.tileRecv( A_i, A_j, A.tileRank( A_i, A_j ),
-                                    slate::Layout::ColMajor );
+                                    slate::Layout::ColMajor, tag );
 
                         A.tileGetForReading( A_i, A_j, ColMajor );
                         B.tileGetForWriting( B_i, B_j, ColMajor );
@@ -93,7 +94,7 @@ void matrix_iterator(
                         }
                     }
                     else if (A.tileIsLocal( A_i, A_j )) {
-                        A.tileSend( A_i, A_j, B.tileRank( B_i, B_j ) );
+                        A.tileSend( A_i, A_j, B.tileRank( B_i, B_j ), tag );
                     }
                 }
 

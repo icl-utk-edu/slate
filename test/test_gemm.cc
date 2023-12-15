@@ -7,8 +7,10 @@
 #include "test.hh"
 #include "blas/flops.hh"
 #include "print_matrix.hh"
+
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -85,6 +87,11 @@ void test_gemm_work(Params& params, bool run)
             ref = false;
         }
     #endif
+
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},

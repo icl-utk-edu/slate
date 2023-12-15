@@ -8,12 +8,12 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
-#include "scalapack_copy.hh"
 #include "auxiliary/Debug.hh"
 
 #include <cmath>
@@ -49,11 +49,12 @@ void test_posv_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::GridOrder grid_order = params.grid_order();
-    slate::Dist dev_dist = params.dev_dist();
     params.matrix.mark();
     params.matrixB.mark();
     slate::Method methodTrsm = params.method_trsm();
     slate::Method methodHemm = params.method_hemm();
+
+    mark_params_for_test_HermitianMatrix( params );
 
     // Currently only posv* supports timer_level >= 2.
     std::vector<std::string> timer_lvl_support{ "posv", "posv_mixed",
@@ -127,6 +128,11 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
@@ -136,21 +142,6 @@ void test_posv_work(Params& params, bool run)
         {slate::Option::MaxIterations, itermax},
         {slate::Option::UseFallbackSolver, fallback},
     };
-
-    if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
-        params.msg() = "skipping: dev_dist = Col applies only to target devices";
-        return;
-    }
-
-    if (dev_dist == slate::Dist::Col && origin == slate::Origin::ScaLAPACK) {
-        params.msg() = "skipping: dev_dist = Col tile not supported with ScaLAPACK";
-        return;
-    }
-
-    if (nonuniform_nb && origin == slate::Origin::ScaLAPACK) {
-        params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
-        return;
-    }
 
     if ((params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
         && ! std::is_same<real_t, double>::value) {
@@ -357,7 +348,10 @@ void test_posv_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
-            // BLACS/MPI variables
+            if (nonuniform_nb) {
+                params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
+                return;
+            }
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, Aref_desc[9], Bref_desc[9];

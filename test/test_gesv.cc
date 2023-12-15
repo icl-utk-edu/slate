@@ -8,8 +8,10 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -72,10 +74,8 @@ void test_gesv_work(Params& params, bool run)
     int verbose = params.verbose();
     int timer_level = params.timer_level();
     SLATE_UNUSED(verbose);
-    slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::GridOrder grid_order = params.grid_order();
-    slate::Dist dev_dist = params.dev_dist();
     params.matrix.mark();
     params.matrixB.mark();
 
@@ -154,18 +154,13 @@ void test_gesv_work(Params& params, bool run)
         depth = params.depth();
     }
 
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
+
     if (! run)
         return;
-
-    if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
-        params.msg() = "skipping: dev_dist = Row applies only to target devices";
-        return;
-    }
-
-    if (nonuniform_nb && origin == slate::Origin::ScaLAPACK) {
-        params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
-        return;
-    }
 
     if ((params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres")
         && ! std::is_same<real_t, double>::value) {

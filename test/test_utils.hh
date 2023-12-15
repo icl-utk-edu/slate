@@ -9,6 +9,36 @@
 #include "slate/slate.hh"
 
 ///-----------------------------------------------------------------------------
+/// Checks for common invalid parameter combinations
+///
+/// @return true if the configuration should be skipped
+///
+inline bool is_invalid_parameters(Params& params)
+{
+    slate::Origin origin = params.origin();
+    slate::Target target = params.target();
+    slate::Dist dev_dist = params.dev_dist();
+    bool nonuniform_nb = params.nonuniform_nb() == 'y';
+
+    if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
+        params.msg() = "skipping: dev_dist = Col applies only to target devices";
+        return true;
+    }
+
+    if (dev_dist == slate::Dist::Col && origin == slate::Origin::ScaLAPACK) {
+        params.msg() = "skipping: dev_dist = Col tile not supported with ScaLAPACK";
+        return true;
+    }
+
+    if (nonuniform_nb && origin == slate::Origin::ScaLAPACK) {
+        params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
+        return true;
+    }
+
+    return false;
+}
+
+///-----------------------------------------------------------------------------
 /// Applies the operator thunk to each element of A and B to update B.
 /// The matrices must have the same size, but can have different tile sizes and
 /// distributions. However, the elements of a tile of B must all belong to the

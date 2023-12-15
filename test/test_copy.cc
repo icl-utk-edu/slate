@@ -10,6 +10,7 @@
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "print_matrix.hh"
+
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
 #include "test_utils.hh"
@@ -64,6 +65,11 @@ void test_copy_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
 
     slate::Options const opts =  {
         {slate::Option::Target, target}

@@ -75,6 +75,7 @@ void test_gesv_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::GridOrder grid_order = params.grid_order();
+    slate::Dist dev_dist = params.dev_dist();
     params.matrix.mark();
     params.matrixB.mark();
 
@@ -155,6 +156,11 @@ void test_gesv_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
+        params.msg() = "skipping: dev_dist = Row applies only to target devices";
+        return;
+    }
 
     if (nonuniform_nb && origin == slate::Origin::ScaLAPACK) {
         params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";

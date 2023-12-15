@@ -42,6 +42,7 @@ void test_posv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
+    bool nonuniform_nb = params.nonuniform_nb() == 'y';
     bool hold_local_workspace = params.hold_local_workspace() == 'y';
     int verbose = params.verbose();
     int timer_level = params.timer_level();
@@ -136,13 +137,18 @@ void test_posv_work(Params& params, bool run)
         {slate::Option::UseFallbackSolver, fallback},
     };
 
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
-
     if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
-        params.msg() = "skipping: dev_dist = Row applies only to target devices";
+        params.msg() = "skipping: dev_dist = Col applies only to target devices";
+        return;
+    }
+
+    if (dev_dist == slate::Dist::Col && origin == slate::Origin::ScaLAPACK) {
+        params.msg() = "skipping: dev_dist = Col tile not supported with ScaLAPACK";
+        return;
+    }
+
+    if (nonuniform_nb && origin == slate::Origin::ScaLAPACK) {
+        params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
         return;
     }
 
@@ -403,6 +409,8 @@ void test_posv_work(Params& params, bool run)
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
             SLATE_UNUSED( verbose );
+            int mpi_rank;
+            MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

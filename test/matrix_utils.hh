@@ -254,6 +254,7 @@ inline void mark_params_for_test_Matrix(Params& params)
 {
     params.grid.m();
     params.grid.n();
+    params.dev_dist();
     params.nb();
     params.nonuniform_nb();
     params.origin();
@@ -290,6 +291,7 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
     // Load params variables
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
+    slate::Dist dev_dist = params.dev_dist();
     int64_t nb = params.nb();
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
     slate::Origin origin = params.origin();
@@ -300,13 +302,21 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
 
     // Functions for nonuniform tile sizes.
     // Odd-numbered tiles are 2*nb, even-numbered tiles are nb.
-    std::function< int64_t (int64_t j) >
-    tileNb = [nb](int64_t j) {
-        return (j % 2 != 0 ? nb*2 : nb);
-    };
+    std::function< int64_t (int64_t j) > tileMb, tileNb;
+    if (nonuniform_nb) {
+        tileNb = [nb](int64_t j) {
+            // for non-uniform tile size
+            return (j % 2 != 0 ? nb*2 : nb);
+        };
+        tileMb = tileNb;
+    }
+    else {
+        tileMb = slate::func::uniform_blocksize( m, nb );
+        tileNb = slate::func::uniform_blocksize( n, nb );
+    }
     auto tileRank = slate::func::process_2d_grid( grid_order, p, q );
     int num_devices_ = blas::get_device_count();
-    auto tileDevice = slate::func::device_1d_grid( slate::GridOrder::Col,
+    auto tileDevice = slate::func::device_1d_grid( slate::GridOrder( dev_dist ),
                                                    p, num_devices_ );
 
     // Setup matrix to test SLATE with
@@ -316,7 +326,9 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
         if (nonuniform_nb) {
             params.msg() = "nonuniform nb " + std::to_string( tileNb( 0 ) )
                          + ", "             + std::to_string( tileNb( 1 ) );
-            matrix.A = slate::Matrix<scalar_t>( m, n, tileNb, tileNb, tileRank,
+        }
+        if (nonuniform_nb || dev_dist == slate::Dist::Col) {
+            matrix.A = slate::Matrix<scalar_t>( m, n, tileMb, tileNb, tileRank,
                                                 tileDevice, MPI_COMM_WORLD);
         }
         else {
@@ -327,6 +339,7 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
     }
     else {
         assert( !nonuniform_nb );
+        assert( dev_dist == slate::Dist::Row );
         // Create SLATE matrix from the ScaLAPACK layouts
         matrix.A_data.resize( matrix.lld * matrix.nloc );
         matrix.A = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -337,6 +350,7 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
     // Setup reference matrix
     if (ref_matrix) {
         if (nonuniform_nb && nonuniform_ref) {
+            std::cout << "Using nonuniform Bref" << std::endl;
             matrix.Aref = slate::Matrix<scalar_t>( m, n, tileNb, tileNb, tileRank,
                                                    tileDevice, MPI_COMM_WORLD );
             matrix.Aref.insertLocalTiles( slate::Target::Host );
@@ -423,7 +437,7 @@ TestMatrix<slate::HermitianMatrix<scalar_t>> allocate_test_HermitianMatrix(
 
     // Setup matrix to test SLATE with
     if (origin != slate::Origin::ScaLAPACK) {
-        if (nonuniform_nb || dev_dist == slate::Dist::Row) {
+        if (nonuniform_nb || dev_dist == slate::Dist::Col) {
             matrix.A = slate::HermitianMatrix<scalar_t>(
                     uplo, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
         }
@@ -438,6 +452,7 @@ TestMatrix<slate::HermitianMatrix<scalar_t>> allocate_test_HermitianMatrix(
     }
     else {
         assert( !nonuniform_nb );
+        assert( dev_dist == slate::Dist::Row );
         // Create SLATE matrix from the ScaLAPACK layouts
         matrix.A_data.resize( matrix.lld * matrix.nloc );
         matrix.A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(

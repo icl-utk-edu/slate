@@ -214,6 +214,20 @@ class TestMatrix {
     using scalar_t = typename MatrixType::value_type;
 
 public:
+    TestMatrix() {}
+
+    TestMatrix(int64_t m_in, int64_t n_in, int64_t nb_in,
+               int64_t p, int64_t q, slate::GridOrder grid_order)
+        : m(m_in), n(n_in), nb(nb_in)
+    {
+        int mpi_rank, myrow, mycol;
+        MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
+        gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
+        this->mloc = num_local_rows_cols( m_in, nb, myrow, p );
+        this->nloc = num_local_rows_cols( n_in, nb, mycol, q );
+        this->lld  = blas::max( 1, mloc ); // local leading dimension of A
+    }
+
     // SLATE matrices
     MatrixType A;
     MatrixType Aref;
@@ -282,18 +296,7 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
     slate::GridOrder grid_order = params.grid_order();
 
     // The object to be returned
-    TestMatrix<slate::Matrix<scalar_t>> matrix;
-    matrix.m = m;
-    matrix.n = n;
-
-    // ScaLAPACK variables for reference matrix
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
-    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
-    matrix.nb = nb;
-    matrix.mloc = num_local_rows_cols( m, nb, myrow, p );
-    matrix.nloc = num_local_rows_cols( n, nb, mycol, q );
-    matrix.lld  = blas::max( 1, matrix.mloc ); // local leading dimension of A
+    TestMatrix<slate::Matrix<scalar_t>> matrix( m, n, nb, p, q, grid_order );
 
     // Functions for nonuniform tile sizes.
     // Odd-numbered tiles are 2*nb, even-numbered tiles are nb.
@@ -400,18 +403,7 @@ TestMatrix<slate::HermitianMatrix<scalar_t>> allocate_test_HermitianMatrix(
     slate::GridOrder grid_order = params.grid_order();
 
     // The object to be returned
-    TestMatrix<slate::HermitianMatrix<scalar_t>> matrix;
-    matrix.m = n;
-    matrix.n = n;
-
-    // ScaLAPACK variables for reference matrix
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
-    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
-    matrix.nb = nb;
-    matrix.mloc = num_local_rows_cols( n, nb, myrow, p );
-    matrix.nloc = num_local_rows_cols( n, nb, mycol, q );
-    matrix.lld  = blas::max( 1, matrix.mloc ); // local leading dimension of A
+    TestMatrix<slate::HermitianMatrix<scalar_t>> matrix ( n, n, nb, p, q, grid_order );
 
     // Functions for nonuniform tile sizes or row device distribution
     std::function< int64_t (int64_t j) > tileNb;

@@ -27,9 +27,9 @@ enum class Origin {
     Devices,
 };
 
-enum class Dist {
-    Row,
-    Col,
+enum class Dist : char {
+    Row = 'R',
+    Col = 'C',
 };
 
 } // namespace slate

@@ -8,12 +8,13 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
+#include "matrix_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "auxiliary/Debug.hh"
-#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -46,6 +47,7 @@ void test_posv_work(Params& params, bool run)
     int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::GridOrder grid_order = params.grid_order();
     slate::Dist dev_dist = params.dev_dist();
     params.matrix.mark();
     params.matrixB.mark();
@@ -158,76 +160,22 @@ void test_posv_work(Params& params, bool run)
 
     int64_t info = 0;
 
-    // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
-    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-
-    // Matrix B: figure out local size.
-    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
-    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
-    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-
-    // ScaLAPACK data if needed.
-    std::vector<scalar_t> A_data, B_data;
-
-    // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
-
-    slate::HermitianMatrix<scalar_t> A;
-    slate::Matrix<scalar_t> B, X;
-    std::vector<scalar_t> X_data;
-    if (origin != slate::Origin::ScaLAPACK) {
-        if (dev_dist == slate::Dist::Row && target == slate::Target::Devices) {
-            // slate_assert(target == slate::Target::Devices);
-            // todo: doesn't work when lookahead is greater than 2
-            // slate_assert(lookahead < 3);
-
-            auto tileNb = slate::func::uniform_blocksize( n, nb );
-            auto tileRank = slate::func::process_2d_grid( slate::GridOrder::Col,
-                                                          p, q );
-            int num_devices = blas::get_device_count();
-            auto tileDevice = slate::func::device_1d_grid( slate::GridOrder::Col,
-                                                           p, num_devices );
-
-            A = slate::HermitianMatrix<scalar_t>(
-                    uplo, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
-            B = slate::Matrix<scalar_t>(
-                    n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
-        }
-        else {
-            A = slate::HermitianMatrix<scalar_t>(
-                    uplo, n, nb, p, q, MPI_COMM_WORLD);
-            B = slate::Matrix<scalar_t>(
-                    n, nrhs, nb, p, q, MPI_COMM_WORLD);
-        }
-
-        // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
-        A.insertLocalTiles(origin_target);
-
-        B.insertLocalTiles(origin_target);
-
-        if (is_iterative) {
-            X_data.resize(lldB*nlocB);
-            X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
-            X.insertLocalTiles(origin_target);
-        }
+    auto A_alloc = allocate_test_HermitianMatrix<scalar_t>( check || ref, true, n, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, true, n, nrhs, params );
+    TestMatrix<slate::Matrix<scalar_t>> X_alloc;
+    if (is_iterative) {
+        X_alloc = allocate_test_Matrix<scalar_t>( false, true, n, nrhs, params );
     }
-    else {
-        // Create SLATE matrix from the ScaLAPACK layouts
-        A_data.resize( lldA * nlocA );
-        B_data.resize( lldB * nlocB );
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        if (is_iterative) {
-            X_data.resize(lldB*nlocB);
-            X = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        }
-    }
+
+    auto& A         = A_alloc.A;
+    auto& A_data    = A_alloc.A_data;
+    auto& Aref      = A_alloc.Aref;
+    auto& Aref_data = A_alloc.Aref_data;
+    auto& B         = B_alloc.A;
+    auto& B_data    = B_alloc.A_data;
+    auto& Bref      = B_alloc.Aref;
+    auto& Bref_data = B_alloc.Aref_data;
+    auto& X         = X_alloc.A;
 
     slate::generate_matrix(params.matrix, A);
     slate::generate_matrix(params.matrixB, B);
@@ -235,18 +183,8 @@ void test_posv_work(Params& params, bool run)
     print_matrix("B", B, params);
 
     // if check is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> Aref_data(lldA*nlocA);
-    std::vector<scalar_t> Bref_data(lldB*nlocB);
     std::vector<scalar_t> B_orig;
-    slate::HermitianMatrix<scalar_t> Aref;
-    slate::Matrix<scalar_t> Bref;
     if (check || ref) {
-        // SLATE matrix wrappers for the reference data
-        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                   uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-
         slate::copy( A, Aref );
         slate::copy( B, Bref );
 
@@ -414,34 +352,12 @@ void test_posv_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
             // BLACS/MPI variables
-            blas_int ictxt, p_, q_, myrow_, mycol_;
-            blas_int A_desc[9], Aref_desc[9];
-            blas_int B_desc[9], Bref_desc[9];
-            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank == mpi_rank_ );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
-
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(B_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+            blas_int ictxt, Aref_desc[9], Bref_desc[9];
+            create_ScaLAPACK_context( grid_order, p, q, &ictxt );
+            A_alloc.ScaLAPACK_descriptor( ictxt, Aref_desc );
+            B_alloc.ScaLAPACK_descriptor( ictxt, Bref_desc );
 
             if (check) {
                 // restore Bref_data
@@ -477,9 +393,9 @@ void test_posv_work(Params& params, bool run)
 
             if (verbose > 2) {
                 if (origin == slate::Origin::ScaLAPACK) {
-                    slate::Debug::diffLapackMatrices<scalar_t>(n, n, &A_data[0], lldA, &Aref_data[0], lldA, nb, nb);
+                    slate::Debug::diffLapackMatrices<scalar_t>(n, n, &A_data[0], A_alloc.lld, &Aref_data[0], A_alloc.lld, nb, nb);
                     if (params.routine != "potrf") {
-                        slate::Debug::diffLapackMatrices<scalar_t>(n, nrhs, &B_data[0], lldB, &Bref_data[0], lldB, nb, nb);
+                        slate::Debug::diffLapackMatrices<scalar_t>(n, nrhs, &B_data[0], A_alloc.lld, &Bref_data[0], A_alloc.lld, nb, nb);
                     }
                 }
             }

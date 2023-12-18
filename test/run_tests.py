@@ -127,6 +127,7 @@ group_opt.add_argument( '--nonuniform-nb', action='store', help='default=%(defau
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
+group_opt.add_argument( '--grid-order', action='store', help='default=%(default)s', default='r' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5' )
 group_opt.add_argument( '--matrix',  action='store', help='default=%(default)s', default='' )
@@ -302,6 +303,7 @@ nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nonuniform_nb = ' --nonuniform-nb ' + opts.nonuniform_nb if (opts.nonuniform_nb) else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
+grid_order = ' --grid-order  ' + opts.grid_order  if (opts.grid_order)  else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 thresh = ' --thresh ' + opts.thresh if (opts.thresh) else ''
 matrix  = ' --matrix  ' + opts.matrix  if (opts.matrix)  else ''
@@ -348,9 +350,9 @@ if (opts.blas3):
     cmds += [
     [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku + matrixBC ],
 
-    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ddist ],
-    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ddist ],
-    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ddist ],
+    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ddist + grid_order ],
+    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ddist + grid_order ],
+    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ddist + grid_order ],
 
     [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab + matrixBC ],
     # todo: hemmA GPU support
@@ -386,29 +388,29 @@ if (opts.blas3):
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',         gen + dtype + la + n + thresh + nonuniform_nb + ddist ],
-    [ 'gesv_tntpiv',  gen + dtype + la + n + ddist ],
-    [ 'gesv_nopiv',   gen + dtype + la + n + nonuniform_nb + ddist
+    [ 'gesv',         gen + dtype + la + n + ddist + grid_order + nonuniform_nb + thresh ],
+    [ 'gesv_tntpiv',  gen + dtype + la + n + ddist + grid_order ],
+    [ 'gesv_nopiv',   gen + dtype + la + n + ddist + grid_order + nonuniform_nb
                       + ' --matrix rand_dominant' ],
 
     # todo: mn
-    [ 'getrf',        gen + dtype + la + n + thresh + nonuniform_nb + ddist ],
-    [ 'getrf_tntpiv', gen + dtype + la + n + ddist ],
-    [ 'getrf_nopiv',  gen + dtype + la + n + nonuniform_nb + ddist
+    [ 'getrf',        gen + dtype + la + n + ddist + grid_order + nonuniform_nb + thresh ],
+    [ 'getrf_tntpiv', gen + dtype + la + n + ddist + grid_order ],
+    [ 'getrf_nopiv',  gen + dtype + la + n + ddist + grid_order + nonuniform_nb
                       + ' --matrix rand_dominant' ],
 
-    [ 'getrs',        gen + dtype + la + n + trans + thresh + nonuniform_nb + ddist ],
-    [ 'getrs_tntpiv', gen + dtype + la + n + trans + ddist ],
-    [ 'getrs_nopiv',  gen + dtype + la + n + trans + nonuniform_nb + ddist
+    [ 'getrs',        gen + dtype + la + n + trans + ddist + grid_order + nonuniform_nb + thresh ],
+    [ 'getrs_tntpiv', gen + dtype + la + n + ddist + grid_order ],
+    [ 'getrs_nopiv',  gen + dtype + la + n + ddist + grid_order + nonuniform_nb
                       + ' --matrix rand_dominant' ],
 
-    [ 'getri',    gen + dtype + la + n + ddist ],
-    [ 'getriOOP', gen + dtype + la + n + ddist ],
+    [ 'getri',    gen + dtype + la + n + ddist + grid_order ],
+    [ 'getriOOP', gen + dtype + la + n + ddist + grid_order ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
-    [ 'gesv_mixed',   gen + dtype_double + la + n + nonuniform_nb + ddist ],
-    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' + nonuniform_nb + ddist ],
-    [ 'gesv_rbt', gen + dtype + la + n + ddist ],
+    [ 'gesv_mixed',   gen + dtype_double + la + n + ddist + grid_order + nonuniform_nb ],
+    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' + ddist + grid_order + nonuniform_nb ],
+    [ 'gesv_rbt', gen + dtype + la + n + ddist + grid_order ],
     ]
 
 # LU banded
@@ -424,14 +426,14 @@ if (opts.lu_band):
 # Cholesky
 if (opts.chol):
     cmds += [
-    [ 'posv',  gen + dtype + la + n + uplo ],
-    [ 'potrf', gen + dtype + la + n + uplo + ddist ],
-    [ 'potrs', gen + dtype + la + n + uplo ],
-    [ 'potri', gen + dtype + la + n + uplo ],
+    [ 'posv',  gen + dtype + la + n + uplo + ddist + grid_order ],
+    [ 'potrf', gen + dtype + la + n + uplo + ddist + grid_order ],
+    [ 'potrs', gen + dtype + la + n + uplo + ddist + grid_order ],
+    [ 'potri', gen + dtype + la + n + uplo + ddist + grid_order ],
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
-    [ 'posv_mixed', gen + dtype_double + la + n + uplo ],
-    [ 'posv_mixed_gmres',  gen + dtype_double + la + n + uplo + ' --nrhs 1' ],
+    [ 'posv_mixed', gen + dtype_double + la + n + uplo + ddist + grid_order ],
+    [ 'posv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' + uplo + ddist + grid_order ],
     [ 'trtri', gen + dtype + la + n + uplo + diag ],
     ]
 
@@ -628,31 +630,31 @@ if (opts.cond):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'add',    gen + dtype + mn + ab + nonuniform_nb + ddist        ],
-    [ 'tzadd',  gen + dtype + mn + ab + nonuniform_nb + ddist + uplo ],
-    [ 'tradd',  gen + dtype + n  + ab + nonuniform_nb + ddist + uplo ],
-    [ 'syadd',  gen + dtype + n  + ab + nonuniform_nb + ddist + ddist + uplo ],
-    [ 'headd',  gen + dtype + n  + ab + nonuniform_nb + ddist + uplo ],
+    [ 'add',    gen + dtype + mn + ab + nonuniform_nb + ddist + grid_order        ],
+    [ 'tzadd',  gen + dtype + mn + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'tradd',  gen + dtype + n  + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'syadd',  gen + dtype + n  + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'headd',  gen + dtype + n  + ab + nonuniform_nb + ddist + grid_order + uplo ],
 
-    [ 'copy',   gen + dtype + mn      + nonuniform_nb + ddist        ],
-    [ 'tzcopy', gen + dtype + mn      + nonuniform_nb + ddist + uplo ],
-    [ 'trcopy', gen + dtype + n       + nonuniform_nb + ddist + uplo ],
-    [ 'sycopy', gen + dtype + n       + nonuniform_nb + ddist + uplo ],
-    [ 'hecopy', gen + dtype + n       + nonuniform_nb + ddist + uplo ],
+    [ 'copy',   gen + dtype + mn      + nonuniform_nb + ddist + grid_order        ],
+    [ 'tzcopy', gen + dtype + mn      + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'trcopy', gen + dtype + n       + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'sycopy', gen + dtype + n       + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'hecopy', gen + dtype + n       + nonuniform_nb + ddist + grid_order + uplo ],
 
-    [ 'scale',   gen + dtype + mn + ab + nonuniform_nb + ddist        ],
-    [ 'tzscale', gen + dtype + mn + ab + nonuniform_nb + ddist + uplo ],
-    [ 'trscale', gen + dtype + n  + ab + nonuniform_nb + ddist + uplo ],
-    [ 'syscale', gen + dtype + n  + ab + nonuniform_nb + ddist + uplo ],
-    [ 'hescale', gen + dtype + n  + ab + nonuniform_nb + ddist + uplo ],
+    [ 'scale',   gen + dtype + mn + ab + nonuniform_nb + ddist + grid_order        ],
+    [ 'tzscale', gen + dtype + mn + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'trscale', gen + dtype + n  + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'syscale', gen + dtype + n  + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'hescale', gen + dtype + n  + ab + nonuniform_nb + ddist + grid_order + uplo ],
 
-    [ 'scale_row_col', gen + dtype + mn + equed + nonuniform_nb + ddist ],
+    [ 'scale_row_col', gen + dtype + mn + equed + nonuniform_nb + ddist + grid_order ],
 
-    [ 'set',    gen + dtype + mn + ab + nonuniform_nb + ddist        ],
-    [ 'tzset',  gen + dtype + mn + ab + nonuniform_nb + ddist + uplo ],
-    [ 'trset',  gen + dtype +  n + ab + nonuniform_nb + ddist + uplo ],
-    [ 'syset',  gen + dtype +  n + ab + nonuniform_nb + ddist + uplo ],
-    [ 'heset',  gen + dtype +  n + ab + nonuniform_nb + ddist + uplo ],
+    [ 'set',    gen + dtype + mn + ab + nonuniform_nb + ddist + grid_order        ],
+    [ 'tzset',  gen + dtype + mn + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'trset',  gen + dtype +  n + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'syset',  gen + dtype +  n + ab + nonuniform_nb + ddist + grid_order + uplo ],
+    [ 'heset',  gen + dtype +  n + ab + nonuniform_nb + ddist + grid_order + uplo ],
     ]
 
 # ------------------------------------------------------------------------------

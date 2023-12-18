@@ -35,6 +35,20 @@ inline bool is_invalid_parameters(Params& params)
         return true;
     }
 
+    #ifdef SLATE_HAVE_SCALAPACK
+        if (nonuniform_nb && params.ref()) {
+            params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
+            params.ref() = false;
+        }
+    #else
+        // Can only run ref when we have ScaLAPACK
+        if (params.ref()) {
+            params.msg() = "skipping reference: ScaLAPACK not available";
+            params.ref() = false;
+        }
+    #endif
+
+
     return false;
 }
 

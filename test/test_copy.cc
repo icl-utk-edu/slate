@@ -187,7 +187,7 @@ void test_copy_work(Params& params, bool run)
         #else  // not SLATE_HAVE_SCALAPACK
             SLATE_UNUSED( A_norm );
             SLATE_UNUSED( B_norm );
-            if (mpi_rank == 0)
+            if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }

@@ -238,7 +238,7 @@ void test_scale_row_col_work( Params& params, bool run )
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
             SLATE_UNUSED( verbose );
-            if (mpi_rank == 0)
+            if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }

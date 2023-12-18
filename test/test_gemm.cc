@@ -52,7 +52,6 @@ void test_gemm_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    bool nonuniform_nb = params.nonuniform_nb() == 'y';
     int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
@@ -80,15 +79,6 @@ void test_gemm_work(Params& params, bool run)
     if (is_invalid_parameters( params )) {
         return;
     }
-
-    #ifndef SLATE_HAVE_SCALAPACK
-        // Can run ref only when we have ScaLAPACK.
-        if (ref) {
-            if (mpi_rank == 0)
-                printf( "ScaLAPACK not available\n" );
-            ref = false;
-        }
-    #endif
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
@@ -228,10 +218,6 @@ void test_gemm_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
-            if (nonuniform_nb) {
-                params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
-                return;
-            }
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];

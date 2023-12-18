@@ -38,15 +38,12 @@ void test_symm_work(Params& params, bool run)
     int64_t n = params.dim.n();
     scalar_t alpha = params.alpha.get<scalar_t>();
     scalar_t beta = params.beta.get<scalar_t>();
-    int p = params.grid.m();
-    int q = params.grid.n();
     int64_t nrhs = params.nrhs();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    bool nonuniform_nb = params.nonuniform_nb() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -74,15 +71,6 @@ void test_symm_work(Params& params, bool run)
         return;
     }
 
-    #ifndef SLATE_HAVE_SCALAPACK
-        // Can only run ref when we have ScaLAPACK
-        if (ref) {
-            if (mpi_rank == 0)
-                printf( "ScaLAPACK not available\n" );
-            ref = false;
-        }
-    #endif
-
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
@@ -97,11 +85,6 @@ void test_symm_work(Params& params, bool run)
     int64_t Bn = n;
     int64_t Cm = m;
     int64_t Cn = n;
-
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     auto A_alloc = allocate_test_SymmetricMatrix<scalar_t>( false, true, An, params );
     auto B_alloc = allocate_test_Matrix<scalar_t>( false, true, Bm, Bn, params );
@@ -221,10 +204,6 @@ void test_symm_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
-            if (nonuniform_nb) {
-                params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
-                return;
-            }
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
@@ -283,7 +262,7 @@ void test_symm_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
-            if (mpi_rank == 0)
+            if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }

@@ -68,7 +68,6 @@ void test_gesv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    bool nonuniform_nb = params.nonuniform_nb() == 'y';
     int verbose = params.verbose();
     int timer_level = params.timer_level();
     SLATE_UNUSED(verbose);
@@ -383,10 +382,6 @@ void test_gesv_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
-            if (nonuniform_nb) {
-                params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
-                return;
-            }
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, Aref_desc[9], Bref_desc[9];
@@ -431,7 +426,7 @@ void test_gesv_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
-            if (mpi_rank == 0)
+            if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }

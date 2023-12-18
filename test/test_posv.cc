@@ -52,6 +52,7 @@ void test_posv_work(Params& params, bool run)
     slate::Method methodHemm = params.method_hemm();
 
     mark_params_for_test_HermitianMatrix( params );
+    mark_params_for_test_Matrix( params );
 
     // Currently only posv* supports timer_level >= 2.
     std::vector<std::string> timer_lvl_support{ "posv", "posv_mixed",

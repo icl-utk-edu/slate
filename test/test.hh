@@ -21,10 +21,10 @@
 // -----------------------------------------------------------------------------
 namespace slate {
 
-enum class Origin {
-    Host,
-    ScaLAPACK,
-    Devices,
+enum class Origin : char {
+    Host = 'H',
+    ScaLAPACK = 'S',
+    Devices = 'D',
 };
 
 enum class Dist : char {

@@ -354,10 +354,10 @@ if (opts.blas3):
     [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ddist + grid_order ],
     [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ddist + grid_order ],
 
-    [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab + matrixBC ],
+    [ 'hemm',  gen + dtype         + la + side + uplo + ddist + grid_order     + mn + ab + matrixBC ],
     # todo: hemmA GPU support
-    [ 'hemmA', gen_no_target + dtype + la + side + uplo   + mn + ab + matrixBC ],
-    [ 'hemmC', gen + dtype         + la + side + uplo     + mn + ab + matrixBC],
+    [ 'hemmA', gen_no_target + dtype + la + side + uplo + ddist + grid_order   + mn + ab + matrixBC ],
+    [ 'hemmC', gen + dtype         + la + side + uplo + ddist + grid_order     + mn + ab + matrixBC],
 
     [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd + matrixBC ],
 
@@ -367,7 +367,7 @@ if (opts.blas3):
     [ 'her2k', gen + dtype_real    + la + uplo + trans    + mn + ab + matrixBC ],
     [ 'her2k', gen + dtype_complex + la + uplo + trans_nc + mn + ab + matrixBC ],
 
-    [ 'symm',  gen + dtype         + la + side + uplo     + mn + ab + matrixBC ],
+    [ 'symm',  gen + dtype         + la + side + uplo + ddist + grid_order     + mn + ab + matrixBC ],
 
     [ 'syr2k', gen + dtype_real    + la + uplo + trans    + mn + ab + matrixC ],
     [ 'syr2k', gen + dtype_complex + la + uplo + trans_nt + mn + ab + matrixC ],

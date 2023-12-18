@@ -8,10 +8,12 @@
 #include "blas/flops.hh"
 #include "print_matrix.hh"
 
-#include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
-#include "scalapack_copy.hh"
 #include "grid_utils.hh"
+#include "matrix_utils.hh"
+#include "test_utils.hh"
+
+#include "scalapack_wrappers.hh"
+#include "scalapack_copy.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -45,12 +47,12 @@ void test_hemm_work(Params& params, bool run)
     int p = params.grid.m();
     int q = params.grid.n();
     int64_t nrhs = params.nrhs();
-    int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
+    bool nonuniform_nb = params.nonuniform_nb() == 'y';
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -58,6 +60,9 @@ void test_hemm_work(Params& params, bool run)
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();
+
+    mark_params_for_test_HermitianMatrix( params );
+    mark_params_for_test_Matrix( params );
 
     // mark non-standard output values
     params.time();
@@ -72,6 +77,20 @@ void test_hemm_work(Params& params, bool run)
     if (! run)
         return;
 
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
+
+    #ifndef SLATE_HAVE_SCALAPACK
+        // Can only run ref when we have ScaLAPACK
+        if (ref) {
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+            ref = false;
+        }
+    #endif
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
@@ -85,7 +104,6 @@ void test_hemm_work(Params& params, bool run)
 
     // sizes of data
     int64_t An = (side == slate::Side::Left ? m : n);
-    int64_t Am = An;
     int64_t Bm = m;
     int64_t Bn = n;
     int64_t Cm = m;
@@ -96,82 +114,45 @@ void test_hemm_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
-    int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
-    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+    auto A_alloc = allocate_test_HermitianMatrix<scalar_t>( false, true, An, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( false, true, Bm, Bn, params );
+    auto C_alloc = allocate_test_Matrix<scalar_t>( ref, true, Cm, Cn, params );
 
-    // Matrix B: figure out local size.
-    int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
-    int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
-    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-
-    // Matrix C: figure out local size.
-    int64_t mlocC = num_local_rows_cols(Cm, nb, myrow, p);
-    int64_t nlocC = num_local_rows_cols(Cn, nb, mycol, q);
-    int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
-
-    // Allocate ScaLAPACK data if needed.
-    std::vector<scalar_t> A_data, B_data, C_data;
-    if (ref || origin == slate::Origin::ScaLAPACK) {
-        A_data.resize( lldA * nlocA );
-        B_data.resize( lldB * nlocB );
-        C_data.resize( lldC * nlocC );
-    }
-
-    slate::HermitianMatrix<scalar_t> A;
-    slate::Matrix<scalar_t> B, C;
-    slate::Target origin_target = origin2target(origin);
-    if (origin != slate::Origin::ScaLAPACK) {
-        // SLATE allocates CPU or GPU tiles.
-        A = slate::HermitianMatrix<scalar_t>(uplo, An, nb, p, q, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin_target);
-
-        B = slate::Matrix<scalar_t>(Bm, Bn, nb, p, q, MPI_COMM_WORLD);
-        B.insertLocalTiles(origin_target);
-
-        C = slate::Matrix<scalar_t>(Cm, Cn, nb, p, q, MPI_COMM_WORLD);
-        C.insertLocalTiles(origin_target);
-    }
-    else {
-        // Create SLATE matrices from the ScaLAPACK layouts.
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        C = slate::Matrix<scalar_t>::fromScaLAPACK(
-                Cm, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-    }
+    auto& A         = A_alloc.A;
+    auto& B         = B_alloc.A;
+    auto& C         = C_alloc.A;
+    auto& Cref      = C_alloc.Aref;
 
     slate::generate_matrix( params.matrix, A);
     slate::generate_matrix( params.matrixB, B);
     slate::generate_matrix( params.matrixC, C);
 
-    #ifdef SLATE_HAVE_SCALAPACK
-        // If reference run is required, copy test data.
-        std::vector<scalar_t> Cref_data;
-        slate::Matrix<scalar_t> Cref;
-        if (check || ref) {
-            // For simplicity, always use ScaLAPACK format for ref matrices.
-            Cref_data.resize( lldC * nlocC );
-            Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-            slate::copy(C, Cref);
-        }
-    #endif
+    if (ref) {
+        slate::copy( C, Cref );
+    }
+
+    // If reference run is required, record norms to be used in the check/ref.
+    real_t A_norm=0, B_norm=0, C_orig_norm=0;
+    if (ref) {
+        A_norm = slate::norm(norm, A);
+        B_norm = slate::norm(norm, B);
+        C_orig_norm = slate::norm(norm, Cref);
+    }
 
     // If check run, perform first half of SLATE residual check.
-    slate::Matrix<scalar_t> X, Y, Z;
+    TestMatrix<slate::Matrix<scalar_t>> X_alloc, Y_alloc, Z_alloc;
     if (check && ! ref) {
-        X = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
-        X.insertLocalTiles(origin_target);
-        Y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
-        Y.insertLocalTiles(origin_target);
-        Z = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
-        Z.insertLocalTiles(origin_target);
+        X_alloc = allocate_test_Matrix<scalar_t>( false, true, n, nrhs, params );
+        Y_alloc = allocate_test_Matrix<scalar_t>( false, true, m, nrhs, params );
+        Z_alloc = allocate_test_Matrix<scalar_t>( false, true, An, nrhs, params );
+
+        auto& X = X_alloc.A;
+        auto& Y = Y_alloc.A;
+        auto& Z = Z_alloc.A;
+
         MatrixParams mp;
         mp.kind.set_default( "rand" );
-        generate_matrix( mp, X );
+        slate::generate_matrix( mp, X );
 
         if (side == slate::Side::Left ) {
             // Compute Y = alpha A * (B * X) + (beta C * X).
@@ -237,6 +218,9 @@ void test_hemm_work(Params& params, bool run)
     params.gflops() = gflop / time;
 
     if (check && ! ref) {
+        auto& X = X_alloc.A;
+        auto& Y = Y_alloc.A;
+
         // SLATE residual check.
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
@@ -254,56 +238,35 @@ void test_hemm_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
-
-            // BLACS/MPI variables
-            blas_int ictxt, p_, q_, myrow_, mycol_;
-            blas_int A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
-            blas_int mpi_rank_ = 0, nprocs = 1;
+            if (nonuniform_nb) {
+                params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
+                return;
+            }
 
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank == mpi_rank_ );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert(p == p_ && q == q_);
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
+            blas_int ictxt, A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
+            A_alloc.create_ScaLAPACK_context( &ictxt );
 
-            int64_t info;
-            scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
+            B_alloc.ScaLAPACK_descriptor( ictxt, B_desc );
+            C_alloc.ScaLAPACK_descriptor( ictxt, C_desc );
+            C_alloc.ScaLAPACK_descriptor( ictxt, Cref_desc );
 
-            scalapack_descinit(B_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(C_desc, Cm, Cn, nb, nb, 0, 0, ictxt, mlocC, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, 0, 0, ictxt, mlocC, &info);
-            slate_assert(info == 0);
+            auto& A_data = A_alloc.A_data;
+            auto& B_data = B_alloc.A_data;
+            auto& C_data = C_alloc.A_data;
+            auto& Cref_data = C_alloc.Aref_data;
 
             if (origin != slate::Origin::ScaLAPACK) {
+                A_data.resize( A_alloc.lld * A_alloc.nloc );
+                B_data.resize( B_alloc.lld * B_alloc.nloc );
+                C_data.resize( C_alloc.lld * C_alloc.nloc );
+
                 // Copy SLATE result back from GPU or CPU tiles.
                 copy(A, &A_data[0], A_desc);
                 copy(B, &B_data[0], B_desc);
                 copy(C, &C_data[0], C_desc);
             }
-
-            // allocate workspace for norms
-            int64_t ldw = nb*ceildiv( ceildiv( mlocA, nb ),
-                                      scalapack_ilcm( p, q ) / p );
-            std::vector<real_t> worklansy(2*nlocA + mlocA + ldw);
-            std::vector<real_t> worklange(std::max({mlocC, nlocC, mlocB, nlocB}));
-
-            // get norms of the original data
-            real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An,
-                                             &A_data[0], 1, 1, A_desc, &worklansy[0]);
-            real_t B_norm = scalapack_plange(
-                norm2str(norm), Bm, Bn, &B_data[0],1, 1, B_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plange(
-                norm2str(norm), Cm, Cn, &Cref_data[0], 1, 1, Cref_desc, &worklange[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -315,12 +278,13 @@ void test_hemm_work(Params& params, bool run)
                             &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            // Local operation: error = Cref_data - C_data
-            blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
+            // get differences C = C - Cref
+            slate::add(-one, Cref, one, C);
 
-            // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0],
-                                                  1, 1, Cref_desc, &worklange[0]);
+            print_matrix( "Diff", C, params );
+
+            // norm(C - Cref)
+            real_t C_diff_norm = slate::norm(norm, C);
 
             real_t error = C_diff_norm
                          / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm

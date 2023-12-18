@@ -110,9 +110,14 @@ void test_gemm_work(Params& params, bool run)
     slate::generate_matrix(params.matrixB, B);
     slate::generate_matrix(params.matrixC, C);
 
-    // if reference run is required, copy test data.
+    // If reference run is required, record norms to be used in the check/ref.
+    real_t A_norm=0, B_norm=0, C_orig_norm=0;
     if (ref) {
         slate::copy( C, Cref );
+
+        A_norm = slate::norm(norm, A);
+        B_norm = slate::norm(norm, B);
+        C_orig_norm = slate::norm(norm, Cref);
     }
 
     if (transA == slate::Op::Trans)
@@ -128,14 +133,6 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(A.mt() == C.mt());
     slate_assert(B.nt() == C.nt());
     slate_assert(A.nt() == B.mt());
-
-    // If reference run is required, record norms to be used in the check/ref.
-    real_t A_norm=0, B_norm=0, C_orig_norm=0;
-    if (ref) {
-        A_norm = slate::norm(norm, A);
-        B_norm = slate::norm(norm, B);
-        C_orig_norm = slate::norm(norm, Cref);
-    }
 
     // If check run, perform first half of SLATE residual check.
     TestMatrix<slate::Matrix<scalar_t>> X_alloc, Y_alloc, Z_alloc;

@@ -101,13 +101,11 @@ void test_syr2k_work(Params& params, bool run)
     slate::generate_matrix( params.matrixB, B );
     slate::generate_matrix( params.matrixC, C );
 
-    if (ref) {
-        slate::copy( C, Cref );
-    }
-
     // If reference run is required, record norms to be used in the check/ref.
     real_t A_norm=0, B_norm=0, C_orig_norm=0;
     if (ref) {
+        slate::copy( C, Cref );
+
         A_norm = slate::norm(norm, A);
         B_norm = slate::norm(norm, B);
         C_orig_norm = slate::norm(norm, Cref);

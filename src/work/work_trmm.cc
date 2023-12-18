@@ -67,6 +67,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
 
     // Constants
     const scalar_t one = 1.0;
+    const int priority_0 = 0;
     const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -188,12 +189,13 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha, A.sub(0, k-1, k, k),
                            B.sub(k, k, 0, nt-1),
                     one,   B.sub(0, k-1, 0, nt-1),
-                    layout );
+                    layout, priority_0 );
 
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
-                           B.sub(k, k, 0, nt-1));
+                           B.sub(k, k, 0, nt-1),
+                    priority_0 );
             }
 
             #pragma omp task depend(in:gemm[k])
@@ -301,12 +303,13 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha, A.sub(k+1, mt-1, k, k),
                            B.sub(k, k, 0, nt-1),
                     one,   B.sub(k+1, mt-1, 0, nt-1),
-                    layout );
+                    layout, priority_0 );
 
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
-                           B.sub(k, k, 0, nt-1));
+                           B.sub(k, k, 0, nt-1),
+                    priority_0 );
             }
 
             #pragma omp task depend(in:gemm[k])

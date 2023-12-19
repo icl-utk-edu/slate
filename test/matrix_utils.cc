@@ -13,14 +13,10 @@ using dist_func_t = std::function< int(std::tuple<int64_t, int64_t>) >;
 template <typename matrix_type, typename irregular_constructor_t,
           typename regular_constructor_t, typename scalapack_constructor_t>
 static TestMatrix<matrix_type> allocate_test_shared(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t m,
-        int64_t n,
-        Params& params,
-        irregular_constructor_t construct_irregular,
-        regular_constructor_t construct_regular,
-        scalapack_constructor_t construct_scalapack)
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params,
+    irregular_constructor_t construct_irregular,
+    regular_constructor_t construct_regular,
+    scalapack_constructor_t construct_scalapack)
 {
     // Load params variables
     int p = params.grid.m();
@@ -110,11 +106,7 @@ static TestMatrix<matrix_type> allocate_test_shared(
 ///
 template <typename scalar_t>
 TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t m,
-        int64_t n,
-        Params& params)
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params)
 {
     auto construct_irregular = [&] (nb_func_t tileMb, nb_func_t tileNb,
                                     dist_func_t tileRank, dist_func_t tileDevice)
@@ -141,35 +133,19 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
 // Explicit instantiations.
 template
 TestMatrix<slate::Matrix<float>> allocate_test_Matrix<float>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t m,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
 
 template
 TestMatrix<slate::Matrix<double>> allocate_test_Matrix<double>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t m,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
 
 template
 TestMatrix<slate::Matrix<std::complex<float>>> allocate_test_Matrix<std::complex<float>>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t m,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
 
 template
 TestMatrix<slate::Matrix<std::complex<double>>> allocate_test_Matrix<std::complex<double>>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t m,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
 
 //------------------------------------------------------------------------------
 /// Helper routine to avoid duplicating logic between HermitianMatrix
@@ -177,10 +153,7 @@ TestMatrix<slate::Matrix<std::complex<double>>> allocate_test_Matrix<std::comple
 ///
 template <typename matrix_type>
 TestMatrix<matrix_type> allocate_test_HeSyMatrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params)
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params)
 {
     using scalar_t = typename matrix_type::value_type;
 
@@ -230,10 +203,7 @@ TestMatrix<matrix_type> allocate_test_HeSyMatrix(
 ///
 template <typename scalar_t>
 TestMatrix<slate::HermitianMatrix<scalar_t>> allocate_test_HermitianMatrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params)
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params)
 {
     return allocate_test_HeSyMatrix<slate::HermitianMatrix<scalar_t>>(
                 ref_matrix, nonuniform_ref, n, params );
@@ -243,31 +213,19 @@ TestMatrix<slate::HermitianMatrix<scalar_t>> allocate_test_HermitianMatrix(
 // Explicit instantiations.
 template
 TestMatrix<slate::HermitianMatrix<float>> allocate_test_HermitianMatrix<float>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::HermitianMatrix<double>> allocate_test_HermitianMatrix<double>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::HermitianMatrix<std::complex<float>>> allocate_test_HermitianMatrix<std::complex<float>>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::HermitianMatrix<std::complex<double>>> allocate_test_HermitianMatrix<std::complex<double>>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 //------------------------------------------------------------------------------
 /// Allocates a SymmetricMatrix<scalar_t> and optionally a reference
@@ -291,10 +249,7 @@ TestMatrix<slate::HermitianMatrix<std::complex<double>>> allocate_test_Hermitian
 ///
 template <typename scalar_t>
 TestMatrix<slate::SymmetricMatrix<scalar_t>> allocate_test_SymmetricMatrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params)
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params)
 {
     return allocate_test_HeSyMatrix<slate::SymmetricMatrix<scalar_t>>(
                 ref_matrix, nonuniform_ref, n, params );
@@ -304,31 +259,19 @@ TestMatrix<slate::SymmetricMatrix<scalar_t>> allocate_test_SymmetricMatrix(
 // Explicit instantiations.
 template
 TestMatrix<slate::SymmetricMatrix<float>> allocate_test_SymmetricMatrix<float>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::SymmetricMatrix<double>> allocate_test_SymmetricMatrix<double>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::SymmetricMatrix<std::complex<float>>> allocate_test_SymmetricMatrix<std::complex<float>>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::SymmetricMatrix<std::complex<double>>> allocate_test_SymmetricMatrix<std::complex<double>>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 
 //------------------------------------------------------------------------------
@@ -353,10 +296,7 @@ TestMatrix<slate::SymmetricMatrix<std::complex<double>>> allocate_test_Symmetric
 ///
 template <typename scalar_t>
 TestMatrix<slate::TriangularMatrix<scalar_t>> allocate_test_TriangularMatrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params)
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params)
 {
     // Load params variables
     slate::Uplo uplo = params.uplo();
@@ -390,28 +330,16 @@ TestMatrix<slate::TriangularMatrix<scalar_t>> allocate_test_TriangularMatrix(
 // Explicit instantiations.
 template
 TestMatrix<slate::TriangularMatrix<float>> allocate_test_TriangularMatrix<float>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::TriangularMatrix<double>> allocate_test_TriangularMatrix<double>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::TriangularMatrix<std::complex<float>>> allocate_test_TriangularMatrix<std::complex<float>>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template
 TestMatrix<slate::TriangularMatrix<std::complex<double>>> allocate_test_TriangularMatrix<std::complex<double>>(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);

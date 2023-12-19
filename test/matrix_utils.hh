@@ -298,31 +298,18 @@ inline void mark_params_for_test_TriangularMatrix(Params& params)
 
 template <typename scalar_t>
 TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t m,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
 
 template <typename scalar_t>
 TestMatrix<slate::HermitianMatrix<scalar_t>> allocate_test_HermitianMatrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template <typename scalar_t>
 TestMatrix<slate::SymmetricMatrix<scalar_t>> allocate_test_SymmetricMatrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 template <typename scalar_t>
 TestMatrix<slate::TriangularMatrix<scalar_t>> allocate_test_TriangularMatrix(
-        bool ref_matrix,
-        bool nonuniform_ref,
-        int64_t n,
-        Params& params);
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
 
 #endif // SLATE_MATRIX_UTILS_HH

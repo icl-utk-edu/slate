@@ -187,18 +187,20 @@ __device__ void tb_gemm(bool transA, bool transB,
             const int ldsa = 33;
             scalar_t* sB = sA + ldsa*32;
             const int ldsb = 33;
+            scalar_t* sC = sB + ldsb*32;
+            const int ldsc = 33;
 
             for (int ii = 0; ii < mb; ii += 32) {
                 int iib = min(32, mb-ii);
 
-                if (offseti < iib) {
-                    for (int j = offsetj; j < nb; j += stridej) {
-                        dC[ii+offseti + j*lddc] = zero;
-                    }
+                for (int j = offsetj; j < nb; j += stridej) {
+                    sC[offseti + j*ldsc] = zero;
                 }
 
                 for (int kk = 0; kk < kb; kk += 32) {
                     int kkb = min(32, kb-kk);
+
+                    __syncthreads();
 
                     // Pad sA and sB w/ zeros up to 32 so we can read off the end
                     for (int i = offsetj; i < iib; i += stridej) {
@@ -220,14 +222,18 @@ __device__ void tb_gemm(bool transA, bool transB,
                     if (i < iib) {
                         for (int j = offsetj; j < nb; j += stridej) {
                             scalar_t sum = zero;
-                            #pragma unroll 16
+                            #pragma unroll 8
                             for (int k = 0; k < 32; k += 1) {
                                 sum += conj(sA[k + i*ldsa]) * sB[k + j*ldsb];
                             }
-                            dC[ii+i + j*lddc] += alpha*sum;
+                            sC[i + j*ldsc] += alpha*sum;
                         }
                     }
-                    __syncthreads();
+                }
+                if (offseti < iib) {
+                    for (int j = offsetj; j < nb; j += stridej) {
+                        dC[ii+offseti + j*lddc] = sC[offseti + j*ldsc];
+                    }
                 }
             }
         }
@@ -353,7 +359,7 @@ __global__ void __launch_bounds__(512,2) batch_diag_kernel(
 
         scalar_t* U_local = dUarray[batch] + Ui + Ui*lddu;
         tb_copy(mb, nb_local, B_local, lddb, W_local, lddw);
-        __syncthreads();
+        // tb_gemm(t, f) synchronizes before accessing A or B
         tb_gemm(true, false, mb, nb_local, mb,
                 alpha, U_local, lddu,
                        W_local, lddw,
@@ -391,7 +397,7 @@ __global__ void __launch_bounds__(512,2) batch_diag_kernel(
                     S_local,
                     B_local, lddb,
                     W_local, lddw);
-        __syncthreads();
+        // tb_gemm(t, f) synchronizes before accessing A or B
         tb_gemm(true, false, mb, nb_local, mb,
                 alpha, VT_local, lddvt,
                         W_local, lddw,
@@ -452,7 +458,7 @@ void batch_trsm_addmod_diag(
     block_dim.x = 32;
     block_dim.y = 16;
 
-    int shmem_size = (isLeft ? 2*32*33 : 0)*sizeof(scalar_t);
+    int shmem_size = (isLeft ? 3*32*33 : 0)*sizeof(scalar_t);
 
     batch_diag_kernel<isUpper, isLeft><<< grid_dim, block_dim, shmem_size, queue.stream() >>>(
                     mb, nb,

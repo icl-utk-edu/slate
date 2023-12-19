@@ -378,11 +378,11 @@ if (opts.blas3):
     # todo: tbsm fails for nb=8 or 16 with --quick.
     [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd + matrixB ],
 
-    [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a + matrixB ],
+    [ 'trmm',  gen + dtype + la + side + uplo + ddist + grid_order + nonuniform_nb + transA + diag + mn + a + matrixB ],
 
-    [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a + matrixB ],
-    [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a + matrixB ],
-    [ 'trsmB', gen + dtype + la + side + uplo + transA + diag + mn + a + matrixB ],
+    [ 'trsm',  gen + dtype + la + side + uplo + ddist + grid_order + nonuniform_nb + transA + diag + mn + a + matrixB ],
+    [ 'trsmA', gen + dtype + la + side + uplo + ddist + grid_order + nonuniform_nb + transA + diag + mn + a + matrixB ],
+    [ 'trsmB', gen + dtype + la + side + uplo + ddist + grid_order + nonuniform_nb + transA + diag + mn + a + matrixB ],
     ]
 
 # LU

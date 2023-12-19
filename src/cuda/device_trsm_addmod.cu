@@ -33,20 +33,6 @@ static cuDoubleComplex** to_cutype(std::complex<double>** z) {
     return (cuDoubleComplex**)z;
 }
 
-// Type safe conj routine
-static __device__ double nl_conj(double z) {
-    return z;
-}
-static __device__ float nl_conj(float z) {
-    return z;
-}
-static __device__ cuDoubleComplex nl_conj(cuDoubleComplex z) {
-    return cuConj(z);
-}
-static __device__ cuFloatComplex nl_conj(cuFloatComplex z) {
-    return cuConjf(z);
-}
-
 template<typename scalar_t>
 __device__ scalar_t as_scalar(double r) {
     return scalar_t(r);
@@ -191,7 +177,7 @@ __device__ void tb_gemm(bool transA, bool transB,
                 for (int j = offsetj; j < nb; j += stridej) {
                     scalar_t sum = zero;
                     for (int k = 0; k < kb; k += 1) {
-                        sum += nl_conj(dA[k + i*ldda]) * nl_conj(dB[j + k*lddb]);
+                        sum += conj(dA[k + i*ldda]) * conj(dB[j + k*lddb]);
                     }
                     dC[i + j*lddc] = alpha*sum;
                 }
@@ -214,18 +200,19 @@ __device__ void tb_gemm(bool transA, bool transB,
                 for (int kk = 0; kk < kb; kk += 32) {
                     int kkb = min(32, kb-kk);
 
-                    {
-                        for (int j = offsetj; j < nb; j += stridej) {
-                            if (offseti < kkb && j < iib) {
-                                sA[offseti + j*ldsa] = dA[kk+offseti + (ii+j)*ldda];
-                            } else {
-                                sA[offseti + j*ldsa] = zero;
-                            }
-                            if (offseti < kkb && j < nb) {
-                                sB[offseti + j*ldsb] = dB[kk+offseti + j*lddb];
-                            } else {
-                                sB[offseti + j*ldsb] = zero;
-                            }
+                    // Pad sA and sB w/ zeros up to 32 so we can read off the end
+                    for (int i = offsetj; i < iib; i += stridej) {
+                        if (offseti < kkb && i < iib) {
+                            sA[offseti + i*ldsa] = dA[kk+offseti + (ii+i)*ldda];
+                        } else {
+                            sA[offseti + i*ldsa] = zero;
+                        }
+                    }
+                    for (int j = offsetj; j < nb; j += stridej) {
+                        if (offseti < kkb && j < nb) {
+                            sB[offseti + j*ldsb] = dB[kk+offseti + j*lddb];
+                        } else {
+                            sB[offseti + j*ldsb] = zero;
                         }
                     }
                     __syncthreads();
@@ -235,7 +222,7 @@ __device__ void tb_gemm(bool transA, bool transB,
                             scalar_t sum = zero;
                             #pragma unroll 16
                             for (int k = 0; k < 32; k += 1) {
-                                sum += nl_conj(sA[k + i*ldsa]) * sB[k + j*ldsb];
+                                sum += conj(sA[k + i*ldsa]) * sB[k + j*ldsb];
                             }
                             dC[ii+i + j*lddc] += alpha*sum;
                         }
@@ -252,7 +239,7 @@ __device__ void tb_gemm(bool transA, bool transB,
                     scalar_t* dAik = dA + i;
                     scalar_t* dBjk = dB + j;
                     for (int k = 0; k < kb; k += 1) {
-                        sum += dAik[0] * nl_conj(dBjk[0]);
+                        sum += dAik[0] * conj(dBjk[0]);
                         dAik += ldda;
                         dBjk += lddb;
                     }
@@ -326,7 +313,7 @@ __device__ void tb_scale_copy(
 }
 
 template <bool isUpper, bool isLeft, typename scalar_t>
-__global__ void __launch_bounds__(256,3) batch_diag_kernel(
+__global__ void __launch_bounds__(512,2) batch_diag_kernel(
                     int mb, int nb,
                     scalar_t alpha,
                     scalar_t** dUarray,  int64_t Ui,            int64_t lddu,
@@ -359,7 +346,6 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
 
     } else if (!isUpper && isLeft) { // lower left
 
-        //[nb-96, nb-97)
         int step = (nb-1)/gridDim.y + 1;
         B_local += step * blockIdx.y * lddb;
         W_local += step * blockIdx.y * lddw;
@@ -456,7 +442,6 @@ void batch_trsm_addmod_diag(
         blas::device_copy_vector( batch, Uarray.data(), 1, dUarray, 1, queue );
     }
 
-    //int dimA = isLeft ? mb : nb;
     int nrhs = isLeft ? nb : mb;
 
     dim3 grid_dim;
@@ -464,12 +449,10 @@ void batch_trsm_addmod_diag(
     grid_dim.y = (nrhs-1)/32 + 1;
 
     dim3 block_dim;
-    block_dim.x = 16;
-    block_dim.y = 16; //isLeft ? 16 : 8;
+    block_dim.x = 32;
+    block_dim.y = 16;
 
-    int shmem_size = 0; //(isLeft ? 2*32*33 : 0)*sizeof(scalar_t);
-
-    //printf("setting up CUDA call for subproblem at %ld of size %dx%d with %db type and %d batch entries\n", Ai, int(mb), int(nb), int(sizeof(scalar_t)), int(batch));
+    int shmem_size = (isLeft ? 2*32*33 : 0)*sizeof(scalar_t);
 
     batch_diag_kernel<isUpper, isLeft><<< grid_dim, block_dim, shmem_size, queue.stream() >>>(
                     mb, nb,
@@ -650,6 +633,7 @@ void batch_trsm_addmod_rec(
     scalar_t one  = 1.0;
     scalar_t zero = 0.0;
 
+    // Threshold to switch to cuBLAS for the diagonal GEMM
     constexpr int64_t cublas_threshold = 80;
 
     bool isUpper = uplo == blas::Uplo::Upper;

@@ -23,12 +23,12 @@ namespace internal {
 template <Target target, typename scalar_t>
 void add(scalar_t alpha, Matrix<scalar_t>&& A,
          scalar_t beta, Matrix<scalar_t>&& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     add(internal::TargetType<target>(),
         alpha, A,
         beta,  B,
-        priority, queue_index, opts);
+        priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ template <typename scalar_t>
 void add(internal::TargetType<Target::HostTask>,
          scalar_t alpha, Matrix<scalar_t>& A,
          scalar_t beta, Matrix<scalar_t>& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     // trace::Block trace_block("add");
 
@@ -52,29 +52,19 @@ void add(internal::TargetType<Target::HostTask>,
     assert(A_mt == B.mt());
     assert(A_nt == B.nt());
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     #pragma omp taskgroup
     for (int64_t i = 0; i < A_mt; ++i) {
         for (int64_t j = 0; j < A_nt; ++j) {
             if (B.tileIsLocal(i, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate( i, j, alpha, beta, call_tile_tick )  priority(priority)
+                    firstprivate( i, j, alpha, beta )  priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
                     B.tileGetForWriting(i, j, LayoutConvert::None);
                     tile::add(
                         alpha, A(i, j),
                         beta,  B(i, j) );
-
-                    if (call_tile_tick) {
-                        A.tileTick(i, j);
-                    }
                 }
             }
         }
@@ -87,7 +77,7 @@ template <typename scalar_t>
 void add(internal::TargetType<Target::HostNest>,
          scalar_t alpha, Matrix<scalar_t>& A,
          scalar_t beta, Matrix<scalar_t>& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -98,7 +88,7 @@ template <typename scalar_t>
 void add(internal::TargetType<Target::HostBatch>,
          scalar_t alpha, Matrix<scalar_t>& A,
          scalar_t beta, Matrix<scalar_t>& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -115,21 +105,15 @@ template <typename scalar_t>
 void add(internal::TargetType<Target::Devices>,
          scalar_t alpha, Matrix<scalar_t>& A,
          scalar_t beta, Matrix<scalar_t>& B,
-         int priority, int queue_index, Options const& opts)
+         int priority, int queue_index )
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none priority( priority ) \
             shared( A, B ) \
-            firstprivate( device, queue_index, beta, alpha, call_tile_tick )
+            firstprivate( device, queue_index, beta, alpha )
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -193,19 +177,6 @@ void add(internal::TargetType<Target::Devices>,
             }
 
             queue->sync();
-
-            if (call_tile_tick) {
-                for (int64_t i = 0; i < B.mt(); ++i) {
-                    for (int64_t j = 0; j < B.nt(); ++j) {
-                        if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                            // erase tmp local and remote device tiles;
-                            A.tileRelease(i, j, device);
-                            // decrement life for remote tiles
-                            A.tileTick(i, j);
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -218,100 +189,100 @@ template
 void add<Target::HostTask, float>(
      float alpha, Matrix<float>&& A,
      float beta, Matrix<float>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::HostNest, float>(
      float alpha, Matrix<float>&& A,
      float beta, Matrix<float>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::HostBatch, float>(
      float alpha, Matrix<float>&& A,
      float beta, Matrix<float>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::Devices, float>(
      float alpha, Matrix<float>&& A,
      float beta, Matrix<float>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 // ----------------------------------------
 template
 void add<Target::HostTask, double>(
      double alpha, Matrix<double>&& A,
      double beta, Matrix<double>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::HostNest, double>(
      double alpha, Matrix<double>&& A,
      double beta, Matrix<double>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::HostBatch, double>(
      double alpha, Matrix<double>&& A,
      double beta, Matrix<double>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add<Target::Devices, double>(
      double alpha, Matrix<double>&& A,
      double beta, Matrix<double>&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 // ----------------------------------------
 template
 void add< Target::HostTask, std::complex<float> >(
      std::complex<float> alpha, Matrix< std::complex<float> >&& A,
      std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::HostNest, std::complex<float> >(
      std::complex<float> alpha, Matrix< std::complex<float> >&& A,
      std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::HostBatch, std::complex<float> >(
      std::complex<float> alpha, Matrix< std::complex<float> >&& A,
      std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority, int queue_index, Options const& opts);
+    int priority, int queue_index );
 
 // ----------------------------------------
 template
 void add< Target::HostTask, std::complex<double> >(
      std::complex<double> alpha, Matrix< std::complex<double> >&& A,
      std::complex<double> beta, Matrix< std::complex<double> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::HostNest, std::complex<double> >(
      std::complex<double> alpha, Matrix< std::complex<double> >&& A,
      std::complex<double> beta, Matrix< std::complex<double> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::HostBatch, std::complex<double> >(
      std::complex<double> alpha, Matrix< std::complex<double> >&& A,
      std::complex<double> beta, Matrix< std::complex<double> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 template
 void add< Target::Devices, std::complex<double> >(
      std::complex<double> alpha, Matrix< std::complex<double> >&& A,
      std::complex<double> beta, Matrix< std::complex<double> >&& B,
-     int priority, int queue_index, Options const& opts);
+     int priority, int queue_index );
 
 } // namespace internal
 } // namespace slate

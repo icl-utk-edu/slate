@@ -28,8 +28,7 @@ template <Target target, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  Matrix<scalar_t>&& C,
-           Layout layout, int priority, int64_t queue_index,
-           Options const& opts)
+           Layout layout, int priority, int64_t queue_index )
 {
     if (C.is_complex &&
         ((C.op() == Op::Trans &&
@@ -44,7 +43,7 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
           alpha, A,
                  B,
           beta,  C,
-          layout, priority, queue_index, opts );
+          layout, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -74,18 +73,11 @@ void gemmA(internal::TargetType<Target::HostTask>,
            scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           Layout layout, int priority, int queue_index,
-           Options const& opts)
+           Layout layout, int priority, int queue_index )
 {
     // check dimensions
     assert( A.nt() == B.mt() );
     assert( A.mt() == C.mt() );
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
 
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
@@ -161,7 +153,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err ) \
-            firstprivate(i, alpha, beta, zero, one, c_tile_acquired, call_tile_tick) \
+            firstprivate( i, alpha, beta, zero, one, c_tile_acquired ) \
             priority(priority)
         {
             try {
@@ -181,11 +173,6 @@ void gemmA(internal::TargetType<Target::HostTask>,
                                 beta_j, C( i, k ) );
 
                             beta_j = one;
-
-                            if (call_tile_tick) {
-                                A.tileTick( i, j );
-                                B.tileTick( j, k );
-                            }
                             Cik_modified = true;
                         }
                     }
@@ -210,11 +197,10 @@ void gemmA(internal::TargetType<Target::HostNest>,
            scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           Layout layout, int priority, int queue_index,
-           Options const& opts)
+           Layout layout, int priority, int queue_index )
 {
     gemmA( internal::TargetType<Target::HostTask>(),
-            alpha, A, B, beta, C, layout, priority, queue_index, opts );
+            alpha, A, B, beta, C, layout, priority, queue_index );
 }
 
 template <typename scalar_t>
@@ -222,11 +208,10 @@ void gemmA(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           Layout layout, int priority, int queue_index,
-           Options const& opts)
+           Layout layout, int priority, int queue_index )
 {
     gemmA( internal::TargetType<Target::HostTask>(),
-            alpha, A, B, beta, C, layout, priority, queue_index, opts );
+            alpha, A, B, beta, C, layout, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -241,15 +226,11 @@ void gemmA(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix< scalar_t >& A,
                           Matrix< scalar_t >& B,
           scalar_t beta,  Matrix< scalar_t >& C,
-          Layout layout, int priority, int64_t queue_index,
-          Options const& opts)
+          Layout layout, int priority, int64_t queue_index )
 {
     using blas::conj;
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
 
     // check dimensions
     // TODO add more?
@@ -361,7 +342,7 @@ void gemmA(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C) priority(priority) \
-            firstprivate(alpha, beta, layout, queue_index, device, tile_release_strategy)
+            firstprivate( alpha, beta, layout, queue_index, device )
         {
             blas::Queue* queue = A.compute_queue( device, queue_index );
             assert( queue != nullptr );
@@ -497,22 +478,6 @@ void gemmA(internal::TargetType<Target::Devices>,
                     trace::Block trace_block("blas::batch::gemm");
                     queue->sync();
                 }
-
-                if (tile_release_strategy == TileReleaseStrategy::Internal
-                    || tile_release_strategy == TileReleaseStrategy::All)
-                {
-                    for (int64_t i = 0; i < A.mt(); ++i) {
-                        for (int64_t j = 0; j < A.nt(); ++j) {
-                            if (A.tileIsLocal( i, j )) {
-                                if (device == A.tileDevice( i, j )) {
-                                    A.tileRelease( i, j, device );
-                                    // erase tmp local and remote device tiles;
-                                    B.tileRelease( j, 0, device ); // XXX Should it stay here?
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -526,32 +491,28 @@ void gemmA<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -559,32 +520,28 @@ void gemmA<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -592,32 +549,28 @@ void gemmA<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -625,32 +578,28 @@ void gemmA<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemmA< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts);
+    Layout layout, int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

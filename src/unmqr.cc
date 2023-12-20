@@ -30,17 +30,9 @@ void unmqr(
     // trace::Block trace_block("unmqr");
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // Use only TileReleaseStrategy::Slate for unmqr
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const int64_t tag_0 = 0;
-    const int64_t priority_0 = 0;
-    const int64_t queue_0 = 0;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -147,7 +139,7 @@ void unmqr(
                     bcast_list_V.push_back(
                         {i, k, {C.sub(i0, i1, j0, j1)}});
                 }
-                A.template listBcast<target>(bcast_list_V, layout, 0, 1);
+                A.template listBcast<target>(bcast_list_V, layout);
 
                 // Send Tlocal(i) across row C(i, 0:nt-1) or col C(0:mt-1, i).
                 if (first_indices.size() > 0) {
@@ -209,7 +201,7 @@ void unmqr(
                                     std::move(A_panel),
                                     Treduce.sub(k, A_mt-1, k, k),
                                     std::move(C_trail),
-                                    tag_0, opts2);
+                                    tag_0 );
                 }
 
                 // Apply local reflectors.
@@ -218,8 +210,7 @@ void unmqr(
                                 std::move(A_panel),
                                 Tlocal.sub(k, A_mt-1, k, k),
                                 std::move(C_trail),
-                                std::move(W_trail),
-                                priority_0, queue_0, opts2);
+                                std::move(W_trail) );
 
                 // Left,  (Conj)Trans: Qi^H C = Qi_reduce^H Qi_local^H C, or
                 // Right, NoTrans:     C Qi   = C Qi_local Qi_reduce,
@@ -231,7 +222,7 @@ void unmqr(
                                     std::move(A_panel),
                                     Treduce.sub(k, A_mt-1, k, k),
                                     std::move(C_trail),
-                                    tag_0, opts2);
+                                    tag_0 );
                 }
             }
             #pragma omp task depend(in:block[k])

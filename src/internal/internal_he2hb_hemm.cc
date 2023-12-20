@@ -28,11 +28,10 @@ void he2hb_hemm(
     Matrix<scalar_t>&& B,
     Matrix<scalar_t>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     he2hb_hemm( internal::TargetType<target>(),
-                A, B, C, panel_rank_rows, priority, queue_index, opts );
+                A, B, C, panel_rank_rows, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -47,8 +46,7 @@ void he2hb_hemm(
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     int64_t mt = A.mt();
     const scalar_t one  = 1;
@@ -57,16 +55,10 @@ void he2hb_hemm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     #pragma omp taskgroup
     for (int64_t i = 0; i < mt; ++i) {
         #pragma omp task slate_omp_default_none \
-            shared( A, B, C, panel_rank_rows, call_tile_tick ) \
+            shared( A, B, C, panel_rank_rows ) \
             firstprivate( one, i, layoutc )
         {
             for (int64_t j : panel_rank_rows) {
@@ -85,10 +77,6 @@ void he2hb_hemm(
                             tile::gemm( one, A( i, j ), B( j, 0 ),
                                         one, C( i, 0 ) );
                         }
-                        if (call_tile_tick) {
-                            A.tileTick( i, j );
-                            B.tileTick( j, 0 );
-                        }
                     }
                 }
                 else { // upper
@@ -98,10 +86,6 @@ void he2hb_hemm(
                         C.tileGetForWriting( i, 0, layoutc );
                         tile::gemm( one, conj_transpose( A( j, i ) ), B( j, 0 ),
                                     one, C( i, 0 ) );
-                        if (call_tile_tick) {
-                            A.tileTick( j, i );
-                            B.tileTick( j, 0 );
-                        }
                     }
                 }
             }
@@ -123,8 +107,7 @@ void he2hb_hemm(
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
     std::vector<int64_t> panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     int64_t mt = A.mt();
     const scalar_t one  = 1;
@@ -133,12 +116,6 @@ void he2hb_hemm(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
 
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
@@ -202,7 +179,7 @@ void he2hb_hemm(
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, panel_rank_rows ) \
-            firstprivate( one, device, mt, num_queues, layout, call_tile_tick ) \
+            firstprivate( one, device, mt, num_queues, layout ) \
             priority( priority )
         {
             trace::Block trace_block( "blas::batch::he2hb_hemm" );
@@ -275,34 +252,6 @@ void he2hb_hemm(
                 blas::Queue* queue = C.compute_queue( device, i );
                 queue->sync();
             }
-
-            if (call_tile_tick) {
-                // todo: release tiles in top-level routine.
-                // for (int64_t j : panel_rank_rows) {
-                //     for (int64_t i = 0; i < mt; ++i) {
-                //         if (i >= j) { // lower or diagonal
-                //             if (A.tileIsLocal( i, j )
-                //                 && device == C.tileDevice( i, 0 )) {
-                //                 C.tileModified( i, 0, device );
-                //                 A.tileRelease( i, j, device );
-                //                 B.tileRelease( j, 0, device );
-                //                 A.tileTick( i, j );
-                //                 B.tileTick( j, 0 );
-                //             }
-                //         }
-                //         else { // upper
-                //             if (A.tileIsLocal( j, i )
-                //                 && device == C.tileDevice( i, 0 )) {
-                //                 C.tileModified( i, 0, device );
-                //                 A.tileRelease( j, i, device );
-                //                 B.tileRelease( j, 0, device );
-                //                 A.tileTick( j, i );
-                //                 B.tileTick( j, 0 );
-                //             }
-                //         }
-                //     } //i loop
-                // } // j loop
-            }
         } // pragma
     } // devices
 }
@@ -333,13 +282,6 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
     assert( C.num_devices() > 0 );
     scalar_t alpha = 1.;
     scalar_t beta = 1.;
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
 
     // check if there is a cleanup tile
     int64_t i_interior = mt;
@@ -766,32 +708,6 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                 }
 
                 queue->sync();
-
-                if (call_tile_tick) {
-                    // todo: release tiles in top-level routine.
-                    // for (int64_t i = 0; i < mt; ++i) {
-                    //     if (i >= j) { // lower or diagonal
-                    //         if (A.tileIsLocal( i, j )) {
-                    //             if (device == C.tileDevice( i, 0 )) {
-                    //                 A.tileRelease( i, j, device );
-                    //                 B.tileRelease( j, 0, device );
-                    //                 A.tileTick( i, j );
-                    //                 B.tileTick( j, 0 );
-                    //             }
-                    //         }
-                    //     }
-                    //     else { // upper
-                    //         if (A.tileIsLocal( j, i )) {
-                    //             if (device == C.tileDevice( i, 0 )) {
-                    //                 A.tileRelease( j, i, device );
-                    //                 B.tileRelease( j, 0, device );
-                    //                 A.tileTick( j, i );
-                    //                 B.tileTick( j, 0 );
-                    //             }
-                    //         }
-                    //     }
-                    // }
-                }
             } // j = panel_rank_rows
         } // task
     } // device
@@ -811,8 +727,7 @@ void he2hb_hemm<Target::HostTask, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -821,8 +736,7 @@ void he2hb_hemm<Target::HostTask, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -831,8 +745,7 @@ void he2hb_hemm< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -841,8 +754,7 @@ void he2hb_hemm< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -851,8 +763,7 @@ void he2hb_hemm<Target::Devices, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -861,8 +772,7 @@ void he2hb_hemm<Target::Devices, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -871,8 +781,7 @@ void he2hb_hemm< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -881,8 +790,7 @@ void he2hb_hemm< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts );
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

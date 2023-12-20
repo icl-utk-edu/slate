@@ -390,7 +390,6 @@ void norm(internal::TargetType<Target::Devices>,
                           (! lower && i <= j) ))
                     {
                         A_tiles_set.insert({i, j});
-                        // todo: should tileRelease() after?
                     }
                 }
             }

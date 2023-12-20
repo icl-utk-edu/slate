@@ -42,17 +42,9 @@ void gbmm(
     const Layout layout = Layout::ColMajor;
 
     const scalar_t one = 1.0;
-    const int64_t priority_0 = 0;
-    const int64_t queue_0 = 0;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    // Use only TileReleaseStrategy::Slate for gbmm.
-    // Internal gbmm routine called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
@@ -132,7 +124,7 @@ void gbmm(
                     alpha, A.sub(i_begin, i_end-1, 0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
                     beta,  C.sub(i_begin, i_end-1, 0, C.nt()-1),
-                    layout, priority_0, queue_0, opts2 );
+                    layout );
 
             if (beta != one) {
                 // Scale block rows of C below the bandwidth of A:
@@ -197,7 +189,7 @@ void gbmm(
                         alpha, A.sub(i_begin, i_end-1, k, k),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(i_begin, i_end-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout );
                 }
 
                 #pragma omp task depend(in:gemm[k])

@@ -20,11 +20,10 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void ttqrt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T,
-           Options const& opts)
+           Matrix<scalar_t>&& T )
 {
     ttqrt(internal::TargetType<target>(),
-          A, T, opts);
+          A, T );
 }
 
 //------------------------------------------------------------------------------
@@ -35,15 +34,8 @@ void ttqrt(Matrix<scalar_t>&& A,
 template <typename scalar_t>
 void ttqrt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T,
-           Options const& opts)
+           Matrix<scalar_t>& T )
 {
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -130,9 +122,6 @@ void ttqrt(internal::TargetType<Target::HostTask>,
 
                 // Send updated tile back. This rank is done!
                 A.tileSend(i_src, 0, src);
-                if (call_tile_tick) {
-                    A.tileTick(i_src, 0);
-                }
                 break;
             }
             step *= 2;
@@ -146,29 +135,25 @@ void ttqrt(internal::TargetType<Target::HostTask>,
 template
 void ttqrt<Target::HostTask, float>(
     Matrix<float>&& A,
-    Matrix<float>&& T,
-    Options const& opts);
+    Matrix<float>&& T );
 
 // ----------------------------------------
 template
 void ttqrt<Target::HostTask, double>(
     Matrix<double>&& A,
-    Matrix<double>&& T,
-    Options const& opts);
+    Matrix<double>&& T );
 
 // ----------------------------------------
 template
 void ttqrt< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& T,
-    Options const& opts);
+    Matrix< std::complex<float> >&& T );
 
 // ----------------------------------------
 template
 void ttqrt< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& T,
-    Options const& opts);
+    Matrix< std::complex<double> >&& T );
 
 } // namespace internal
 } // namespace slate

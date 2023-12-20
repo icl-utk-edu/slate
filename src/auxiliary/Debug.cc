@@ -61,7 +61,7 @@ void Debug::diffLapackMatrices(
 }
 
 //------------------------------------------------------------------------------
-/// Prints information about tiles that have non-zero life.
+/// Prints information about tiles with local instances.
 template <typename scalar_t>
 void Debug::checkTilesLives( BaseMatrix<scalar_t> const& A )
 {
@@ -73,14 +73,11 @@ void Debug::checkTilesLives( BaseMatrix<scalar_t> const& A )
         int64_t j = std::get<1>(iter->first);
 
         if (! A.tileIsLocal(i, j)) {
-            if (iter->second->lives() != 0 ||
-                ! iter->second->empty()) {
+            if (! iter->second->empty()) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(iter->first)
-                          << " "      << std::setw(3) << std::get<1>(iter->first)
-                          << " LIFE " << std::setw(3)
-                          << iter->second->lives();
+                          << " "      << std::setw(3) << std::get<1>(iter->first);
                 for (int d = HostNum; d < A.num_devices(); ++d) {
                     if (iter->second->existsOn(d)) {
                         std::cout << " DEV "  << d
@@ -140,8 +137,7 @@ char to_char( MOSI mosi )
 ///
 ///     Debug::printTiles( A, Field_Kind | Field_MOSI )
 ///
-/// For each tile (i, j), prints instances, first Host, then device 0, 1, etc.,
-/// then prints life, which applies to all instances, if desired.
+/// For each tile (i, j), prints instances, first Host, then device 0, 1, etc.
 /// Each instance is a collection of letters as described below.
 ///
 /// For all fields:
@@ -178,22 +174,19 @@ void Debug::printTiles_(
     bool do_mosi   = (fields & Fields::Field_MOSI  ) != 0;
     bool do_layout = (fields & Fields::Field_Layout) != 0;
     bool do_buffer = (fields & Fields::Field_Buffer) != 0;
-    bool do_life   = (fields & Fields::Field_Life  ) != 0;
-    bool multi     = do_kind + do_mosi + do_layout + do_buffer + do_life > 1;
+    bool multi     = do_kind + do_mosi + do_layout + do_buffer > 1;
 
     // Padding between columns. When there are multiple fields,
     // one space is put between instances of the same tile (i, j),
     // so add more space between tiles.
     const char* pad = multi ? "    " : "  ";
 
-    char buf[ 80 ];
     std::string msg = std::string( "\n" ) + pad
                     + "% rank " + std::to_string( A.mpiRank() ) + "\n";
 
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             msg += pad;
-            int life = 0;
             for (int device = HostNum; device < A.num_devices(); ++device) {
                 // Space between tiles if multiple fields.
                 if (multi && device > HostNum)
@@ -218,7 +211,6 @@ void Debug::printTiles_(
                     if (do_buffer) {
                         msg += tile->extended() ? 'e' : 'b';
                     }
-                    life = A.tileLife( i, j );
                 }
                 else {
                     if (do_kind)   { msg += '.'; }
@@ -226,10 +218,6 @@ void Debug::printTiles_(
                     if (do_layout) { msg += '.'; }
                     if (do_buffer) { msg += '.'; }
                 }
-            }
-            if (do_life) {
-                snprintf( buf, sizeof(buf), " %-3d", life );
-                msg += buf;
             }
         }
         msg += "\n";
@@ -263,9 +251,6 @@ void Debug::printTiles_(
         if (do_buffer) {
             printf( "%s buffer( extended )", delim );
             delim = ",";
-        }
-        if (do_life) {
-            printf( "%s life", delim );
         }
 
         // Print rank 0 data.

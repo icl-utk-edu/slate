@@ -50,12 +50,6 @@ void syrk(
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
 
-    // Use only TileReleaseStrategy::Slate for syrk.
-    // Internal syrk routine called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options const opts_local =  {
-        {slate::Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
-
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
@@ -113,7 +107,7 @@ void syrk(
             internal::syrk<target>(
                 alpha, std::move( A_col0 ),
                 beta,  std::move( C ),
-                priority_0, queue_0, layout, opts_local );
+                priority_0, queue_0, layout );
 
             // Erase remote tiles on all devices including host
             A_col0.releaseRemoteWorkspace();
@@ -152,7 +146,7 @@ void syrk(
                 internal::syrk<target>(
                     alpha, std::move( A_colk ),
                     one,   std::move( C ),
-                    priority_0, queue_0, layout, opts_local );
+                    priority_0, queue_0, layout );
 
                 // Erase remote tiles on all devices including host
                 A_colk.releaseRemoteWorkspace();

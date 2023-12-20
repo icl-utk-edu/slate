@@ -60,12 +60,11 @@ void he2hb_trmm(
     HermitianMatrix<scalar_t>&& AH, Matrix<scalar_t>&& A,
     Matrix<scalar_t>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     he2hb_trmm( internal::TargetType<target>(),
                 AH, A, B,
-                panel_rank_rows, priority, queue_index, opts );
+                panel_rank_rows, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -80,8 +79,7 @@ void he2hb_trmm(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     const scalar_t one  = 1;
     int mpi_rank = AH.mpiRank();
@@ -93,13 +91,6 @@ void he2hb_trmm(
     if (panel_rank_rows.size() == 0) {
         return;
     }
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     auto A0 = A.sub( 0, 0, 0, 0 );
     int64_t mb = A0.tileMb( 0 );
     int64_t nb = A0.tileNb( 0 );
@@ -112,7 +103,7 @@ void he2hb_trmm(
     for (int64_t i = 0; i < B.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A0, AH, B, panel_rank_rows ) \
-            firstprivate( one, i, mpi_rank, layoutc, mb, trapezoid, call_tile_tick ) \
+            firstprivate( one, i, mpi_rank, layoutc, mb, trapezoid ) \
             priority( priority )
         {
             // If I contributed to Bi, multiply by A.
@@ -130,10 +121,6 @@ void he2hb_trmm(
                 auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
                 tile::trmm( Side::Right, Diag::NonUnit,
                             one, std::move( T( 0, 0 ) ), Bi( 0, 0 ) );
-
-                if (call_tile_tick) {
-                    B.tileTick( i, 0 );
-                }
             }
         }
     }
@@ -151,8 +138,7 @@ void he2hb_trmm(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts )
+    int priority, int64_t queue_index )
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -166,17 +152,11 @@ void he2hb_trmm(
         return;
     }
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, AH, B, panel_rank_rows ) \
-            firstprivate( device, queue_index, mpi_rank, layout, layoutc, call_tile_tick ) \
+            firstprivate( device, queue_index, mpi_rank, layout, layoutc ) \
             priority( priority )
         {
             std::set<ij_tuple> B_tiles_set, A0_tiles_set;
@@ -307,18 +287,6 @@ void he2hb_trmm(
 
                     queue->sync();
                 }
-
-                if (call_tile_tick) {
-                    // todo: release tiles in top-level routine.
-                    // for (int64_t i = 0; i < B.mt(); ++i) {
-                    //    if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
-                    //        && device == B.tileDevice( i, 0 )) {
-                    //
-                    //         B.tileRelease( i, 0, device );
-                    //         B.tileTick( i, 0 );
-                    //     }
-                    // }
-                }
             }
         }
     }
@@ -333,8 +301,7 @@ void he2hb_trmm<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -343,8 +310,7 @@ void he2hb_trmm<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -353,8 +319,7 @@ void he2hb_trmm< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -363,8 +328,7 @@ void he2hb_trmm< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -373,8 +337,7 @@ void he2hb_trmm<Target::Devices, float>(
     Matrix<float>&& A,
     Matrix<float>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -383,8 +346,7 @@ void he2hb_trmm<Target::Devices, double>(
     Matrix<double>&& A,
     Matrix<double>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -393,8 +355,7 @@ void he2hb_trmm< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -403,8 +364,7 @@ void he2hb_trmm< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index,
-    Options const& opts);
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

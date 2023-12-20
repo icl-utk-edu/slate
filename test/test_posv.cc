@@ -47,7 +47,6 @@ void test_posv_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Dist dev_dist = params.dev_dist();
-    slate::TileReleaseStrategy tile_release_strategy = params.tile_release_strategy();
     params.matrix.mark();
     params.matrixB.mark();
     slate::Method methodTrsm = params.method_trsm();
@@ -128,7 +127,6 @@ void test_posv_work(Params& params, bool run)
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
-        {slate::Option::TileReleaseStrategy, tile_release_strategy},
         {slate::Option::HoldLocalWorkspace, hold_local_workspace},
         {slate::Option::MethodTrsm, methodTrsm},
         {slate::Option::MethodHemm, methodHemm},

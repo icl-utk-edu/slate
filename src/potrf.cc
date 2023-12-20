@@ -39,16 +39,8 @@ int64_t potrf(
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    // Use only TileReleaseStrategy::Slate for potrf.
-    // Internal routines (trsm, herk, gemm) called in
-    // potrf won't release any tiles. Potrf will
-    // clean up tiles.
-    Options opts2 = Options( opts );
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     bool hold_local_workspace = get_option<bool>(
-            opts2, Option::HoldLocalWorkspace, 0 );
+            opts, Option::HoldLocalWorkspace, 0 );
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
@@ -125,7 +117,7 @@ int64_t potrf(
                         Side::Right,
                         one, conj_transpose( Tkk ),
                         A.sub(k+1, A_nt-1, k, k),
-                        priority_0, layout, queue_1, opts2 );
+                        priority_0, layout, queue_1 );
                 }
 
                 BcastListTag bcast_list_A;
@@ -153,7 +145,7 @@ int64_t potrf(
                     internal::herk<target>(
                         real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
                         real_t( 1.0), A.sub(k+1+lookahead, A_nt-1),
-                        priority_0, queue_0, layout, opts2 );
+                        priority_0, queue_0, layout );
                 }
             }
 
@@ -171,7 +163,7 @@ int64_t potrf(
                     internal::herk<target>(
                         real_t(-1.0), A.sub(j, j, k, k),
                         real_t( 1.0), A.sub(j, j),
-                        priority_0, queue_jk2, layout, opts2 );
+                        priority_0, queue_jk2, layout );
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
@@ -180,7 +172,7 @@ int64_t potrf(
                             -one, A.sub(j+1, A_nt-1, k, k),
                                   conj_transpose( Ajk ),
                             one,  A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_0, queue_jk2, opts2 );
+                            layout, priority_0, queue_jk2 );
                     }
                 }
             }

@@ -25,7 +25,7 @@ template <Target target, typename scalar_t>
 void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
                                             Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-           int priority, int queue_index, Layout layout, Options const& opts)
+           int priority, int queue_index, Layout layout )
 {
     if (! ((C.uplo() == Uplo::Lower)
            &&
@@ -39,7 +39,7 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
           alpha, A,
                  B,
           beta,  C,
-          priority, queue_index, layout, opts);
+          priority, queue_index, layout );
 }
 
 //------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ void her2k(internal::TargetType<Target::HostTask>,
            scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           int priority, int queue_index, Layout layout, Options const& opts)
+           int priority, int queue_index, Layout layout )
 {
     using blas::conj;
 
@@ -67,12 +67,6 @@ void her2k(internal::TargetType<Target::HostTask>,
     scalar_t beta_ = beta;
     int err = 0;
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         for (int64_t i = j; i < C.mt(); ++i) { // lower
@@ -80,7 +74,7 @@ void her2k(internal::TargetType<Target::HostTask>,
                 if (i == j) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, B, C, err ) \
-                        firstprivate(i, j, layout, alpha, beta, call_tile_tick) \
+                        firstprivate( i, j, layout, alpha, beta ) \
                         priority(priority)
                     {
                         try {
@@ -90,11 +84,6 @@ void her2k(internal::TargetType<Target::HostTask>,
                             tile::her2k(
                                 alpha, A(j, 0), B(j, 0),
                                 beta,  C(j, j) );
-                            if (call_tile_tick) {
-                                // todo: should tileRelease()?
-                                A.tileTick(j, 0);
-                                B.tileTick(j, 0);
-                            }
                         }
                         catch (std::exception& e) {
                             err = __LINE__;
@@ -104,7 +93,7 @@ void her2k(internal::TargetType<Target::HostTask>,
                 else {
                     #pragma omp task slate_omp_default_none \
                         shared( A, B, C, err ) \
-                        firstprivate(i, j, layout, alpha, beta_, call_tile_tick) \
+                        firstprivate( i, j, layout, alpha, beta_ ) \
                         priority(priority)
                     {
                         try {
@@ -123,13 +112,6 @@ void her2k(internal::TargetType<Target::HostTask>,
                             tile::gemm(
                                 conj(alpha), B(i, 0), conj_transpose( Aj0 ),
                                 one,         C(i, j) );
-                            if (call_tile_tick) {
-                                // todo: should tileRelease()?
-                                A.tileTick(i, 0);
-                                A.tileTick(j, 0);
-                                B.tileTick(i, 0);
-                                B.tileTick(j, 0);
-                            }
                         }
                         catch (std::exception& e) {
                             err = __LINE__;
@@ -155,7 +137,7 @@ void her2k(internal::TargetType<Target::HostNest>,
            scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           int priority, int queue_index, Layout layout, Options const& opts)
+           int priority, int queue_index, Layout layout )
 {
     using blas::conj;
 
@@ -170,12 +152,6 @@ void her2k(internal::TargetType<Target::HostNest>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     scalar_t beta_ = beta;
     int err = 0;
     #pragma omp taskgroup
@@ -183,7 +159,7 @@ void her2k(internal::TargetType<Target::HostNest>,
         if (C.tileIsLocal(j, j)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, B, C, err ) \
-                firstprivate(j, layout, alpha, beta, call_tile_tick)
+                firstprivate( j, layout, alpha, beta )
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
@@ -192,11 +168,6 @@ void her2k(internal::TargetType<Target::HostNest>,
                     tile::her2k(
                         alpha, A(j, 0), B(j, 0),
                         beta,  C(j, j) );
-                    if (call_tile_tick) {
-                        // todo: should tileRelease()?
-                        A.tileTick(j, 0);
-                        B.tileTick(j, 0);
-                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -210,7 +181,7 @@ void her2k(internal::TargetType<Target::HostNest>,
 
     //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...) default(none)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
-        shared(A, B, C, err) firstprivate(C_nt, C_mt, layout, alpha, beta_, call_tile_tick)
+        shared( A, B, C, err ) firstprivate( C_nt, C_mt, layout, alpha, beta_ )
     for (int64_t j = 0; j < C_nt; ++j) {
         for (int64_t i = 0; i < C_mt; ++i) {  // full
             if (i >= j+1) {                     // strictly lower
@@ -229,13 +200,6 @@ void her2k(internal::TargetType<Target::HostNest>,
                         tile::gemm(
                             conj(alpha), B(i, 0), conj_transpose( Aj0 ),
                             one,         C(i, j) );
-                        if (call_tile_tick) {
-                            // todo: should tileRelease()?
-                            A.tileTick(i, 0);
-                            A.tileTick(j, 0);
-                            B.tileTick(i, 0);
-                            B.tileTick(j, 0);
-                        }
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
@@ -261,7 +225,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
            scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           int priority, int queue_index, Layout layout, Options const& opts)
+           int priority, int queue_index, Layout layout )
 {
 #ifdef BLAS_HAVE_MKL
     using blas::conj;
@@ -273,12 +237,6 @@ void her2k(internal::TargetType<Target::HostBatch>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     // diagonal tiles by her2k on host
     int err = 0;
     #pragma omp taskgroup
@@ -286,7 +244,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
         if (C.tileIsLocal(j, j)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, B, C, err ) \
-                firstprivate(j, layout, alpha, beta, call_tile_tick)
+                firstprivate( j, layout, alpha, beta )
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
@@ -295,11 +253,6 @@ void her2k(internal::TargetType<Target::HostBatch>,
                     tile::her2k(
                         alpha, A(j, 0), B(j, 0),
                         beta,  C(j, j) );
-                    if (call_tile_tick) {
-                        // todo: should tileRelease()?
-                        A.tileTick(j, 0);
-                        B.tileTick(j, 0);
-                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -434,20 +387,6 @@ void her2k(internal::TargetType<Target::HostBatch>,
                              batch_count, group_size.data());
             // mkl_set_num_threads_local(1);
         }
-
-        if (call_tile_tick) {
-            for (int64_t j = 0; j < C.nt(); ++j) {
-                for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                    if (C.tileIsLocal(i, j)) {
-                        // todo: should tileRelease()?
-                        A.tileTick(i, 0);
-                        A.tileTick(j, 0);
-                        B.tileTick(i, 0);
-                        B.tileTick(j, 0);
-                    }
-                }
-            }
-        }
     }
 
     #pragma omp taskwait
@@ -471,19 +410,13 @@ void her2k(internal::TargetType<Target::Devices>,
            scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           int priority, int queue_index, Layout layout, Options const& opts)
+           int priority, int queue_index, Layout layout )
 {
     trace::Block trace_block_her2k("internal::her2k");
     using std::swap;
     using blas::conj;
     using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
 
     assert(C.num_devices() > 0);
 
@@ -495,7 +428,7 @@ void her2k(internal::TargetType<Target::Devices>,
         if (C.tileIsLocal(0, 0)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, B, C, err ) \
-                firstprivate(layout, alpha, beta, queue_index, call_tile_tick) \
+                firstprivate( layout, alpha, beta, queue_index ) \
                 priority(priority)
             {
                 int device = C.tileDevice(0, 0);
@@ -517,15 +450,6 @@ void her2k(internal::TargetType<Target::Devices>,
                     beta,  C00.data(), C00.stride(), *queue);
 
                 queue->sync();
-
-                if (call_tile_tick) {
-                    A.tileRelease(0, 0, device);
-                    B.tileRelease(0, 0, device);
-                    A.tileTick(0, 0);
-                    A.tileTick(0, 0);
-                    B.tileTick(0, 0);
-                    B.tileTick(0, 0);
-                }
             }
         }
     }
@@ -535,8 +459,7 @@ void her2k(internal::TargetType<Target::Devices>,
         for (int device = 0; device < C.num_devices(); ++device) {
             #pragma omp task slate_omp_default_none \
                 shared( A, B, C, err ) priority( priority ) \
-                firstprivate(device, layout, alpha, beta, queue_index,\
-                        call_tile_tick)
+                firstprivate( device, layout, alpha, beta, queue_index )
             {
                 try {
                     const scalar_t one = 1.0;
@@ -704,27 +627,6 @@ void her2k(internal::TargetType<Target::Devices>,
 
                         queue->sync();
                     }
-
-                    if (call_tile_tick) {
-                        for (int64_t j = 0; j < C.nt(); ++j) {
-                            for (int64_t i = j; i < C.mt(); ++i) {  // lower
-                                if (C.tileIsLocal(i, j)
-                                    && device == C.tileDevice(i, j))
-                                {
-                                    // erase tmp local and remote device tiles;
-                                    A.tileRelease(i, 0, device);
-                                    A.tileRelease(j, 0, device);
-                                    B.tileRelease(i, 0, device);
-                                    B.tileRelease(j, 0, device);
-                                    // decrement life for remote tiles
-                                    A.tileTick(i, 0);
-                                    A.tileTick(j, 0);
-                                    B.tileTick(i, 0);
-                                    B.tileTick(j, 0);
-                                }
-                            }
-                        }
-                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -745,28 +647,28 @@ void her2k<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 // ----------------------------------------
 template
@@ -774,28 +676,28 @@ void her2k<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 // ----------------------------------------
 template
@@ -803,28 +705,28 @@ void her2k< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 // ----------------------------------------
 template
@@ -832,28 +734,28 @@ void her2k< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 template
 void her2k< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout, Options const& opts);
+    int priority, int queue_index, Layout layout );
 
 } // namespace internal
 } // namespace slate

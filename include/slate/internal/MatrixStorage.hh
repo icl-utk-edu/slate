@@ -37,7 +37,6 @@ private:
     /// vector of tile instances indexed by device id.
     std::vector< Tile<scalar_t>* > tiles_;
     int num_instances_;
-    int64_t life_;
     /// number of times a tile is received.
     /// This variable is used for only MPI communications.
     int64_t receive_count_;
@@ -49,7 +48,6 @@ public:
     /// Constructor for TileNode class
     TileNode(int num_devices)
         : num_instances_(0),
-          life_(0),
           receive_count_(0)
     {
         slate_assert(num_devices >= 0);
@@ -131,11 +129,6 @@ public:
     {
         slate_assert(dev >= -1 && dev+1 < int(tiles_.size()));
         return tiles_[dev+1];
-    }
-
-    int64_t& lives()
-    {
-        return life_;
     }
 
     int64_t& receiveCount()
@@ -351,24 +344,6 @@ public:
     void tileMakeTransposable(Tile<scalar_t>* tile);
     void tileLayoutReset(Tile<scalar_t>* tile);
 
-    void tileTick(ij_tuple ij);
-
-    //--------------------------------------------------------------------------
-    /// @return tile's life counter.
-    int64_t tileLife(ij_tuple ij)
-    {
-        LockGuard guard( getTilesMapLock() );
-        return tiles_.at( ij )->lives();
-    }
-
-    //--------------------------------------------------------------------------
-    /// Set tile's life counter.
-    void tileLife(ij_tuple ij, int64_t life)
-    {
-        LockGuard guard( getTilesMapLock() );
-        tiles_.at( ij )->lives() = life;
-    }
-
     //--------------------------------------------------------------------------
     /// @return tile's receive counter.
     int64_t tileReceiveCount(ij_tuple ij)
@@ -393,14 +368,11 @@ public:
         tiles_.at( ij )->receiveCount() -= release_count;
     }
 
-    /// Ensures the tile node exists and increments both the tile life and
-    /// recieve count
-    void tilePrepareToReceive(ij_tuple ij, int life, Layout layout)
+    /// Ensures the tile node exists and increments the recieve count
+    void tilePrepareToReceive(ij_tuple ij, Layout layout)
     {
         if (! tileIsLocal(ij)) {
-            // Create tile to receive data, with life span.
-            // If tile already exists, add to its life span.
-            //
+            // Create tile to receive data.
             LockGuard guard( getTilesMapLock() );
             int64_t i  = std::get<0>( ij );
             int64_t j  = std::get<1>( ij );
@@ -409,9 +381,6 @@ public:
 
             if (iter == end())
                 tileInsert( {i, j, HostNum}, TileKind::Workspace, layout );
-            else
-                life += tileLife( ij );
-            tileLife( ij, life );
             tileIncrementReceiveCount( ij );
         }
     }
@@ -1038,7 +1007,7 @@ void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
 //------------------------------------------------------------------------------
 /// Inserts tile {i, j} on given device, which can be host,
 /// allocating new memory for it.
-/// Creates TileNode(i, j) if not already exists (Tile's life is set 0).
+/// Creates TileNode(i, j) if not already exists.
 /// Tile kind should be either TileKind::Workspace or TileKind::SlateOwned.
 ///
 /// @return Pointer to newly inserted Tile.
@@ -1153,23 +1122,6 @@ void MatrixStorage<scalar_t>::tileLayoutReset(Tile<scalar_t>* tile)
     if (tile->extended()) {
         memory_.free(tile->extData(), tile->device());
         tile->layoutReset();
-    }
-}
-
-//------------------------------------------------------------------------------
-/// If tile {i, j} is a workspace tile (i.e., not local),
-/// decrement its life counter by 1;
-/// if life reaches 0, erase tile on the host and all devices.
-///
-template <typename scalar_t>
-void MatrixStorage<scalar_t>::tileTick(ij_tuple ij)
-{
-    if (! tileIsLocal(ij)) {
-        LockGuard guard(getTilesMapLock());
-        int64_t life = --(tiles_.at(ij)->lives());
-        if (life == 0) {
-            erase(ij);
-        }
     }
 }
 

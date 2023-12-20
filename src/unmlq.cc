@@ -30,17 +30,9 @@ void unmlq(
     // trace::Block trace_block("unmlq");
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
-    // Use only TileReleaseStrategy::Slate for unmlq
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const int64_t tag_0 = 0;
-    const int64_t priority_0 = 0;
-    const int64_t queue_0 = 0;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -143,7 +135,7 @@ void unmlq(
                     bcast_list_V.push_back(
                         {k, j, {C.sub(i0, i1, j0, j1)}});
                 }
-                A.template listBcast<target>(bcast_list_V, layout, 0, 1);
+                A.template listBcast<target>(bcast_list_V, layout);
 
                 // Send Tlocal(j) across row C(j, 0:nt-1) or col C(0:mt-1, j).
                 if (first_indices.size() > 0) {
@@ -205,7 +197,7 @@ void unmlq(
                                     std::move(A_panel),
                                     Treduce.sub(k, k, k, A_nt-1),
                                     std::move(C_trail),
-                                    tag_0, opts2);
+                                    tag_0 );
                 }
 
                 // Apply local reflectors.
@@ -214,8 +206,7 @@ void unmlq(
                                 std::move(A_panel),
                                 Tlocal.sub(k, k, k, A_nt-1),
                                 std::move(C_trail),
-                                std::move(W_trail),
-                                priority_0, queue_0, opts2);
+                                std::move(W_trail) );
 
                 // Left,  NoTrans:     Qi C   = Qi_reduce Qi_local C, or
                 // Right, (Conj)Trans: C Qi^H = C Qi_local^H Qi_reduce^H,
@@ -227,7 +218,7 @@ void unmlq(
                                     std::move(A_panel),
                                     Treduce.sub(k, k, k, A_nt-1),
                                     std::move(C_trail),
-                                    tag_0, opts2);
+                                    tag_0 );
                 }
             }
 

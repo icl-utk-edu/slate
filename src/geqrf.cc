@@ -32,13 +32,6 @@ void geqrf(
     using lapack::device_info_int;
     using blas::real;
 
-    // Use only TileReleaseStrategy::Slate for geqrf
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
-
     // Constants
     const int priority_0 = 0;
     const int priority_1 = 1;
@@ -167,8 +160,7 @@ void geqrf(
                 // ttqrt handles tile transfers internally
                 internal::ttqrt<Target::HostTask>(
                                 std::move(A_panel),
-                                std::move(Tr_panel),
-                                opts2);
+                                std::move(Tr_panel) );
 
                 // if a trailing matrix exists
                 if (k < A_nt-1) {
@@ -220,7 +212,7 @@ void geqrf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, j),
-                                    priority_1, queue_jk1, opts2);
+                                    priority_1, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
@@ -230,7 +222,7 @@ void geqrf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    tag_j, opts2);
+                                    tag_j );
                 }
             }
 
@@ -251,7 +243,7 @@ void geqrf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1),
-                                    priority_0, queue_jk1, opts2 );
+                                    priority_0, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors.
                     // ttmqr handles the tile broadcasting internally.
@@ -261,7 +253,7 @@ void geqrf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    tag_j, opts2 );
+                                    tag_j );
                 }
             }
 

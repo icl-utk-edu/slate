@@ -26,9 +26,6 @@ void trsmA(
     // Options
     int64_t lookahead = get_option<int64_t>(opts, Option::Lookahead, 1);
 
-    Options opts_local = opts;
-    opts_local[ Option::Lookahead ] = lookahead;
-
     if (target == Target::Devices) {
         if (A.num_devices() > 1)
             slate_not_implemented( "trsmA doesn't support multiple GPUs" );
@@ -62,7 +59,7 @@ void trsmA(
     {
         #pragma omp task
         {
-            work::trsmA<target, scalar_t>( side, alpha, A, B, row, opts_local );
+            work::trsmA<target, scalar_t>( side, alpha, A, B, row, opts );
             B.tileUpdateAllOrigin();
         }
     }

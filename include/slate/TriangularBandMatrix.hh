@@ -59,7 +59,12 @@ public:
     template <typename T>
     friend void swap(TriangularBandMatrix<T>& A, TriangularBandMatrix<T>& B);
 
-    void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
+    void    gatherAll(std::set<int>& rank_set, int tag = 0);
+    [[deprecated( "Tile life has been removed. The 3 argument gatherAll will be removed 2024-12." )]]
+    void    gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor) {
+        gatherAll( rank_set, tag );
+    }
+
     void    ge2tbGather(Matrix<scalar_t>& A);
 
     Diag diag() { return diag_; }
@@ -281,7 +286,7 @@ void swap(TriangularBandMatrix<scalar_t>& A, TriangularBandMatrix<scalar_t>& B)
 // avoid if possible.
 //
 template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor)
+void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag)
 {
     trace::Block trace_block("slate::gatherAll");
 
@@ -302,7 +307,7 @@ void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag,
 
             // If receiving the tile.
             this->storage_->tilePrepareToReceive( this->globalIndex( i, j ),
-                                                 life_factor, this->layout_ );
+                                                  this->layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, rank_set);

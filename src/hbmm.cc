@@ -45,20 +45,12 @@ void hbmm(
     using blas::min;
     using BcastList = typename Matrix<scalar_t>::BcastList;
     const scalar_t one = 1.0;
-    const int64_t priority_0 = 0;
-    const int64_t queue_0 = 0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    // Use only TileReleaseStrategy::Slate for hbmm.
-    // Internal hbmm routine called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // if on right, change to left by transposing A, B, C to get
     // op(C) = op(A)*op(B)
@@ -161,8 +153,7 @@ void hbmm(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, 0, 0, C.nt()-1),
-                    priority_0, opts2 );
+                    beta,  C.sub(0, 0, 0, C.nt()-1) );
 
                 int64_t i_end = min(0 + kdt + 1, A.mt());
 
@@ -171,7 +162,7 @@ void hbmm(
                         alpha, A.sub(1, i_end-1, 0, 0),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, i_end-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout );
                 }
 
                 if (beta != one) {
@@ -262,14 +253,13 @@ void hbmm(
                         alpha, conj_transpose( Arow_k ),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(i_begin, k-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout );
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, B.nt()-1),
-                        one,   C.sub(k, k, 0, C.nt()-1),
-                        priority_0, opts2 );
+                        one,   C.sub(k, k, 0, C.nt()-1) );
 
                     if (i_end-1 > k) {
                         auto Acol_k = A.sub( k+1, i_end-1, k, k );
@@ -277,7 +267,7 @@ void hbmm(
                             alpha, std::move( Acol_k ),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, i_end-1, 0, C.nt()-1),
-                            layout, priority_0, queue_0, opts2 );
+                            layout );
                     }
                 }
 
@@ -358,8 +348,7 @@ void hbmm(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, 0, 0, C.nt()-1),
-                    priority_0, opts2 );
+                    beta,  C.sub(0, 0, 0, C.nt()-1) );
 
                 int64_t i_end = min(0 + kdt + 1, A.mt());
 
@@ -369,7 +358,7 @@ void hbmm(
                         alpha, conj_transpose( Arow_k ),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, i_end-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout );
                 }
 
                 if (beta != one) {
@@ -456,14 +445,13 @@ void hbmm(
                         alpha, std::move( Acol_k ),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(i_begin, k-1, 0, C.nt()-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout );
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, B.nt()-1),
-                        one,   C.sub(k, k, 0, C.nt()-1),
-                        priority_0, opts2 );
+                        one,   C.sub(k, k, 0, C.nt()-1) );
 
                     if (i_end-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, i_end-1);
@@ -471,7 +459,7 @@ void hbmm(
                             alpha, conj_transpose( Arow_k ),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, i_end-1, 0, C.nt()-1),
-                            layout, priority_0, queue_0, opts2 );
+                            layout );
                     }
                 }
 

@@ -31,8 +31,7 @@ template <Target target, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          Layout layout, int priority, int64_t queue_index,
-          Options const& opts )
+          Layout layout, int priority, int64_t queue_index )
 {
     if (C.is_complex &&
         ((C.op() == Op::Trans &&
@@ -47,7 +46,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
          alpha, A,
                 B,
          beta,  C,
-         layout, priority, queue_index, opts);
+         layout, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -61,8 +60,7 @@ void gemm(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index,
-          Options const& opts )
+          Layout layout, int priority, int64_t queue_index )
 {
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
@@ -73,12 +71,6 @@ void gemm(internal::TargetType<Target::HostTask>,
     assert(B.mt() == 1);
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
 
     int err = 0;
     std::string err_msg;
@@ -100,7 +92,7 @@ void gemm(internal::TargetType<Target::HostTask>,
             if (C.tileIsLocal(i, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B, C, err, err_msg ) \
-                    firstprivate(i, j, layout, alpha, beta, call_tile_tick) \
+                    firstprivate(i, j, layout, alpha, beta ) \
                     priority(priority)
                 {
                     try {
@@ -108,11 +100,6 @@ void gemm(internal::TargetType<Target::HostTask>,
                         tile::gemm(
                             alpha, A(i, 0), B(0, j),
                             beta,  C(i, j) );
-                        if (call_tile_tick) {
-                            // todo: shouldn't tileRelease()?
-                            A.tileTick(i, 0);
-                            B.tileTick(0, j);
-                        }
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
@@ -138,8 +125,7 @@ void gemm(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index,
-          Options const& opts )
+          Layout layout, int priority, int64_t queue_index )
 {
 #if defined(SLATE_HAVE_OMPTARGET) || defined(SLATE_SKIP_HOSTNEST)
     // SYCL/OMP-target-offload can't process this section
@@ -151,20 +137,13 @@ void gemm(internal::TargetType<Target::HostNest>,
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-
     int err = 0;
     std::string err_msg;
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
 
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
-        shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta) \
-        firstprivate(call_tile_tick)
+        shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
@@ -175,11 +154,6 @@ void gemm(internal::TargetType<Target::HostNest>,
                     tile::gemm(
                         alpha, A(i, 0), B(0, j),
                         beta,  C(i, j) );
-                    if (call_tile_tick) {
-                        // todo: shouldn't tileRelease()?
-                        A.tileTick(i, 0);
-                        B.tileTick(0, j);
-                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -207,8 +181,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index,
-          Options const& opts )
+          Layout layout, int priority, int64_t queue_index )
 {
 #ifdef BLAS_HAVE_MKL
     using blas::conj;
@@ -220,12 +193,6 @@ void gemm(internal::TargetType<Target::HostBatch>,
     assert(B.mt() == 1);
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
 
     // load off-diagonal tiles to host, if not there
     // also count tiles
@@ -371,18 +338,6 @@ void gemm(internal::TargetType<Target::HostBatch>,
             }
             // mkl_set_num_threads_local(1);
         }
-
-        if (call_tile_tick) {
-            for (int64_t i = 0; i < C.mt(); ++i) {
-                for (int64_t j = 0; j < C.nt(); ++j) {
-                    if (C.tileIsLocal(i, j)) {
-                        // todo: shouldn't tileRelease()?
-                        A.tileTick(i, 0);
-                        B.tileTick(0, j);
-                    }
-                }
-            }
-        }
     }
 #else
     slate_not_implemented( "HostBatch requires Intel MKL" );
@@ -401,16 +356,12 @@ void gemm(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix< scalar_t >& A,
                           Matrix< scalar_t >& B,
           scalar_t beta,  Matrix< scalar_t >& C,
-          Layout layout, int priority, int64_t queue_index,
-          Options const& opts
-          )
+          Layout layout, int priority, int64_t queue_index )
 {
     using blas::conj;
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
     // check dimensions
     assert(C.mt() > 0);
     assert(C.nt() > 0);
@@ -426,7 +377,7 @@ void gemm(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C, err) priority(priority) \
-            firstprivate(alpha, beta, layout, queue_index, device, tile_release_strategy)
+            firstprivate( alpha, beta, layout, queue_index, device )
         {
             // if op(C) is NoTrans, invert opA, opB if possible
             Op opA = A.op();
@@ -559,24 +510,6 @@ void gemm(internal::TargetType<Target::Devices>,
 
                 queue->sync();
             }
-
-            if (tile_release_strategy == TileReleaseStrategy::Internal
-                || tile_release_strategy == TileReleaseStrategy::All) {
-                for (int64_t i = 0; i < C.mt(); ++i) {
-                    for (int64_t j = 0; j < C.nt(); ++j) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                // erase tmp local and remote device tiles;
-                                A.tileRelease(i, 0, device);
-                                B.tileRelease(0, j, device);
-                                // decrement life for remote tiles
-                                A.tileTick(i, 0);
-                                B.tileTick(0, j);
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -592,32 +525,28 @@ void gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -625,32 +554,28 @@ void gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -658,32 +583,28 @@ void gemm< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -691,32 +612,28 @@ void gemm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 template
 void gemm< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index,
-    Options const& opts );
+    Layout layout, int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

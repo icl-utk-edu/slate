@@ -36,12 +36,6 @@ void trtrm(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    // Use only TileReleaseStrategy::Slate for trtrm
-    // Internal routines called here won't release any
-    // tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
         A = conj_transpose( A );
@@ -98,7 +92,7 @@ void trtrm(
                 internal::herk<target>(
                     real_t(1.0), std::move(Ak),
                     real_t(1.0), std::move(H0),
-                    priority_0, queue_0, layout, opts2 );
+                    priority_0, queue_0, layout );
             }
 
             // multiply the leading row by the diagonal block
@@ -113,7 +107,7 @@ void trtrm(
                 internal::trmm<Target::HostTask>(
                     Side::Left,
                     one, std::move( Akk ), A.sub(k, k, 0, k-1),
-                    priority_0, queue_0, opts2 );
+                    priority_0 );
             }
 
             // diagonal block, L = L^H L

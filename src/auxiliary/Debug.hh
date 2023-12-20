@@ -20,7 +20,6 @@ enum Fields {
     Field_MOSI   = 0x02,
     Field_Layout = 0x04,
     Field_Buffer = 0x08,
-    Field_Life   = 0x10,
 };
 
 // -----------------------------------------------------------------------------

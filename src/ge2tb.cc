@@ -36,19 +36,12 @@ void ge2tb(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const int queue_0 = 0;
-    const int priority_0 = 0;
 
     // Options
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
     int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
-
-    // Use only TileReleaseStrategy::Slate for gemm.
-    // Internal gemm routine called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -214,7 +207,7 @@ void ge2tb(
             // ttqrt handles tile transfers internally
             internal::ttqrt<Target::HostTask>(
                             std::move(U_panel),
-                            std::move(TUr_panel), opts2 );
+                            std::move(TUr_panel) );
 
             //--------------------
             // QR update trailing submatrix.
@@ -264,8 +257,7 @@ void ge2tb(
                                 std::move(U_panel),
                                 std::move(TUl_panel),
                                 std::move(A_trail_j),
-                                W.sub(k, A_mt-1, j, A_nt-1),
-                                priority_0, queue_0, opts2 );
+                                W.sub(k, A_mt-1, j, A_nt-1) );
 
                 // Apply triangle-triangle reduction reflectors
                 // ttmqr handles the tile broadcasting internally
@@ -274,7 +266,7 @@ void ge2tb(
                                 std::move(U_panel),
                                 std::move(TUr_panel),
                                 std::move(A_trail_j),
-                                j, opts2 );
+                                j );
             }
 
             // Can release tiles parallel to the main execution
@@ -365,8 +357,7 @@ void ge2tb(
                 // ttlqt handles tile transfers internally
                 internal::ttlqt<Target::HostTask>(
                                 std::move(V_panel),
-                                std::move(TVr_panel),
-                                opts2 );
+                                std::move(TVr_panel) );
 
                 //--------------------
                 // LQ update trailing submatrix
@@ -415,8 +406,7 @@ void ge2tb(
                                     std::move(V_panel),
                                     std::move(TVl_panel),
                                     std::move(A_trail_i),
-                                    W.sub(i, A_mt-1, k+1, A_nt-1),
-                                    priority_0, queue_0, opts2 );
+                                    W.sub(i, A_mt-1, k+1, A_nt-1) );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
@@ -425,7 +415,7 @@ void ge2tb(
                                     std::move(V_panel),
                                     std::move(TVr_panel),
                                     std::move(A_trail_i),
-                                    i, opts2 );
+                                    i );
                 }
 
                 // Can release tiles parallel to the main execution

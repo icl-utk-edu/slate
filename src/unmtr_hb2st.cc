@@ -42,7 +42,7 @@ void unmtr_hb2st(
     {
         #pragma omp task
         {
-            internal::unmtr_hb2st<target>(side, op, V, C, opts);
+            internal::unmtr_hb2st<target>( side, op, V, C );
         }
         #pragma omp taskwait
         C.tileUpdateAllOrigin();

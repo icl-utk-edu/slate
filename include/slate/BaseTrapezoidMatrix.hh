@@ -553,7 +553,7 @@ void swap(BaseTrapezoidMatrix<scalar_t>& A, BaseTrapezoidMatrix<scalar_t>& B)
 
 //------------------------------------------------------------------------------
 /// Returns number of local tiles of the matrix on this rank.
-// todo: numLocalTiles? use for life as well?
+// todo: numLocalTiles?
 template <typename scalar_t>
 int64_t BaseTrapezoidMatrix<scalar_t>::getMaxHostTiles()
 {

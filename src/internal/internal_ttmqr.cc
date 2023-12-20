@@ -27,11 +27,10 @@ void ttmqr(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           int tag,
-           Options const& opts )
+           int tag )
 {
     ttmqr(internal::TargetType<target>(),
-          side, op, A, T, C, tag, opts);
+          side, op, A, T, C, tag );
 }
 
 //------------------------------------------------------------------------------
@@ -45,8 +44,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
-           int tag,
-           Options const& opts )
+           int tag )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -57,14 +55,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
         assert(A_mt == C.mt());
     else
         assert(A_mt == C.nt());
-
-    TileReleaseStrategy tile_release_strategy = get_option(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
-
-    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
-                          || tile_release_strategy == TileReleaseStrategy::All;
-    // This routine assumes that tiles are never ticked for optimization's sake
-    assert( ! call_tile_tick );
 
     // Find ranks in this column of A.
     std::set<int> ranks_set;
@@ -291,7 +281,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                 #pragma omp taskwait
                 slate_mpi_call(
                     MPI_Waitall( requests.size(), requests.data(), MPI_STATUSES_IGNORE ) );
-
             }
             break;
         }
@@ -311,8 +300,7 @@ void ttmqr<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& T,
     Matrix<float>&& C,
-    int tag,
-    Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -321,8 +309,7 @@ void ttmqr<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& T,
     Matrix<double>&& C,
-    int tag,
-    Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -331,8 +318,7 @@ void ttmqr< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
-    int tag,
-    Options const& opts);
+    int tag );
 
 // ----------------------------------------
 template
@@ -341,8 +327,7 @@ void ttmqr< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
-    int tag,
-    Options const& opts);
+    int tag );
 
 } // namespace internal
 } // namespace slate

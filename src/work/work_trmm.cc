@@ -69,14 +69,8 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     const scalar_t one = 1.0;
     const int priority_0 = 0;
     const int priority_1 = 1;
-    const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-
-    // Use only TileReleaseStrategy::Slate for trmm.
-    // Internal routines (trmm and gemm) called here won't release
-    // any tiles. Trsm will clean up tiles.
-    Options opts2 = {{Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
 
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)*op(B)
@@ -147,7 +141,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 Side::Left,
                 alpha, A.sub(0, 0),
                        B.sub(0, 0, 0, nt-1),
-                priority_1, queue_0, opts2 );
+                priority_1 );
         }
 
         #pragma omp task depend(in:gemm[0])
@@ -195,13 +189,13 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha, A.sub(0, k-1, k, k),
                            B.sub(k, k, 0, nt-1),
                     one,   B.sub(0, k-1, 0, nt-1),
-                    layout, priority_0, queue_0, opts2 );
+                    layout, priority_0 );
 
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1),
-                    priority_0, queue_0, opts2 );
+                    priority_0 );
             }
 
             #pragma omp task depend(in:gemm[k])
@@ -261,7 +255,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 Side::Left,
                 alpha, A.sub(mt-1, mt-1),
                        B.sub(mt-1, mt-1, 0, nt-1),
-                priority_1, queue_0, opts2 );
+                priority_1 );
         }
 
         #pragma omp task depend(in:gemm[mt-1])
@@ -309,13 +303,13 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha, A.sub(k+1, mt-1, k, k),
                            B.sub(k, k, 0, nt-1),
                     one,   B.sub(k+1, mt-1, 0, nt-1),
-                    layout, priority_0, queue_0, opts2 );
+                    layout, priority_0 );
 
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1),
-                    priority_0, queue_0, opts2 );
+                    priority_0 );
             }
 
             #pragma omp task depend(in:gemm[k])

@@ -150,6 +150,54 @@ void batch_trsm(
         batch, info, queue);
 }
 
+template <typename scalar_t>
+__device__ void tb_upper_right(int mb, int nb,
+                               scalar_t alpha, scalar_t* __restrict__ dB, int64_t lddb,
+                                               scalar_t* __restrict__ dVT, int64_t lddvt,
+                                               blas::real_type<scalar_t>* __restrict__ dS)
+{
+    // Due to linking, dynamic shared memory can't be declared as scalar_t
+    extern __shared__ char shared_ptr[];
+
+    scalar_t* sW = (scalar_t*) shared_ptr;
+    int ldsw = 32;
+
+    const scalar_t zero = as_scalar<scalar_t>(0.0);
+
+    const int offseti = threadIdx.x;
+    const int stridei = 32; //blockDim.x;
+    const int offsetj = threadIdx.y;
+    const int stridej = blockDim.y;
+
+    for (int ii = 0; ii < mb; ii += stridei) {
+        int iib = min(32, mb-ii);
+
+        int i = offseti;
+        if (i < iib) {
+            for (int j = offsetj; j < nb; j += stridej) {
+
+                scalar_t sum = zero;
+                scalar_t* dBik = dB + ii+i;
+                scalar_t* dVTjk = dVT + j;
+                for (int k = 0; k < nb; k += 1) {
+                    sum += dBik[0] * conj(dVTjk[0]);
+                    dBik += lddb;
+                    dVTjk += lddvt;
+                }
+
+                blas::real_type<scalar_t> S_j = dS[j];
+                sW[i + j*ldsw] = alpha*sum / S_j;
+            }
+        }
+        __syncthreads();
+        if (i < iib) {
+            for (int j = offsetj; j < nb; j += stridej) {
+                dB[ii+i + j*lddb] = sW[i + j*ldsw];
+            }
+        }
+    }
+}
+
 // Compute a gemm within the threadblock
 // beta=0
 template <typename scalar_t>
@@ -162,7 +210,6 @@ __device__ void tb_gemm(bool transA, bool transB,
 
     // Due to linking, dynamic shared memory can't be declared as scalar_t
     extern __shared__ char shared_ptr[];
-    //__shared__ scalar_t shared_ptr [32*33];
 
     const scalar_t zero = as_scalar<scalar_t>(0.0);
 
@@ -239,8 +286,8 @@ __device__ void tb_gemm(bool transA, bool transB,
         }
     } else {
         if (transB) {
-            for (int j = offsetj; j < nb; j += stridej) {
-                for (int i = offseti; i < mb; i += stridei) {
+            for (int i = offseti; i < mb; i += stridei) {
+                for (int j = offsetj; j < nb; j += stridej) {
                     scalar_t sum = zero;
                     scalar_t* dAik = dA + i;
                     scalar_t* dBjk = dB + j;
@@ -369,20 +416,14 @@ __global__ void __launch_bounds__(512,2) batch_diag_kernel(
 
         int step = (mb-1)/gridDim.y + 1;
         B_local += step * blockIdx.y;
-        W_local += step * blockIdx.y;
         int mb_local = min(step, mb - step*blockIdx.y);
 
         scalar_t* VT_local = dVTarray[batch] + VTi + VTi*lddvt;
         real_t* S_local = dSarray[batch] + VTi;
-        tb_gemm(false, true, mb_local, nb, nb,
-                alpha,  B_local, lddb,
-                       VT_local, lddvt,
-                        W_local, lddw);
-        __syncthreads();
-        tb_scale_copy(false, mb_local, nb,
-                    S_local,
-                    W_local, lddw,
-                    B_local, lddb);
+        tb_upper_right(mb_local, nb,
+                       alpha,  B_local, lddb,
+                              VT_local, lddvt,
+                               S_local);
 
     } else if (isUpper && isLeft) { // upper left
 
@@ -440,7 +481,10 @@ void batch_trsm_addmod_diag(
     real_t**   dSarray = (real_t**)(dUarray + batch);
 
     blas::device_copy_vector( batch, Barray.data(), 1, dBarray, 1, queue );
-    blas::device_copy_vector( batch, Warray.data(), 1, dWarray, 1, queue );
+    if (!isUpper || isLeft) {
+        // upper right doesn't need workspace array
+        blas::device_copy_vector( batch, Warray.data(), 1, dWarray, 1, queue );
+    }
     if (isUpper) {
         blas::device_copy_vector( batch, VTarray.data(), 1, dVTarray, 1, queue );
         blas::device_copy_vector( batch, Sarray.data(), 1, dSarray, 1, queue );
@@ -458,7 +502,7 @@ void batch_trsm_addmod_diag(
     block_dim.x = 32;
     block_dim.y = 16;
 
-    int shmem_size = (isLeft ? 3*32*33 : 0)*sizeof(scalar_t);
+    int shmem_size = (isLeft ? 3*32*33 : (isUpper ? 32*nb : 0))*sizeof(scalar_t);
 
     batch_diag_kernel<isUpper, isLeft><<< grid_dim, block_dim, shmem_size, queue.stream() >>>(
                     mb, nb,

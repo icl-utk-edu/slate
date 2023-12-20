@@ -288,8 +288,17 @@ inline void mark_params_for_test_SymmetricMatrix(Params& params)
 }
 
 //------------------------------------------------------------------------------
-/// Marks the paramters used by allocate_test_HermitianMatrix
+/// Marks the paramters used by allocate_test_TriangularMatrix
 inline void mark_params_for_test_TriangularMatrix(Params& params)
+{
+    params.uplo();
+    params.diag();
+    mark_params_for_test_Matrix( params );
+}
+
+// -----------------------------------------------------------------------------
+/// Marks the paramters used by allocate_test_TrapezoidMatrix
+inline void mark_params_for_test_TrapezoidMatrix(Params& params)
 {
     params.uplo();
     params.diag();
@@ -311,5 +320,9 @@ TestMatrix<slate::SymmetricMatrix<scalar_t>> allocate_test_SymmetricMatrix(
 template <typename scalar_t>
 TestMatrix<slate::TriangularMatrix<scalar_t>> allocate_test_TriangularMatrix(
     bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
+
+template <typename scalar_t>
+TestMatrix<slate::TrapezoidMatrix<scalar_t>> allocate_test_TrapezoidMatrix(
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
 
 #endif // SLATE_MATRIX_UTILS_HH

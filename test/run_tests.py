@@ -298,12 +298,12 @@ itype  = ' --itype '  + opts.itype  if (opts.itype)  else ''
 origin = ' --origin ' + opts.origin if (opts.origin) else ''
 target = ' --target ' + opts.target if (opts.target) else ''
 la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
-ddist  = ' --dev-dist  ' + opts.dev_dist  if (opts.dev_dist)  else ''
+ddist  = ' --dev-dist ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nonuniform_nb = ' --nonuniform-nb ' + opts.nonuniform_nb if (opts.nonuniform_nb) else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
-grid_order = ' --grid-order  ' + opts.grid_order  if (opts.grid_order)  else ''
+grid_order = ' --grid-order ' + opts.grid_order  if (opts.grid_order)  else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 thresh = ' --thresh ' + opts.thresh if (opts.thresh) else ''
 matrix  = ' --matrix  ' + opts.matrix  if (opts.matrix)  else ''
@@ -607,10 +607,10 @@ if (opts.svd):
 # norms
 if (opts.norms):
     cmds += [
-    [ 'genorm', gen + dtype + mn + norm ],
-    [ 'henorm', gen + dtype + n  + norm + uplo ],
-    [ 'synorm', gen + dtype + n  + norm + uplo ],
-    [ 'trnorm', gen + dtype + mn + norm + uplo + diag ],
+    [ 'genorm', gen + dtype + mn + norm + nonuniform_nb + ge_matrix ],
+    [ 'henorm', gen + dtype + n  + norm + nonuniform_nb + he_matrix ],
+    [ 'synorm', gen + dtype + n  + norm + nonuniform_nb + sy_matrix ],
+    [ 'trnorm', gen + dtype + mn + norm + nonuniform_nb + tr_matrix ],
 
     # Banded
     [ 'gbnorm', gen + dtype + mn  + kl + ku + norm ],

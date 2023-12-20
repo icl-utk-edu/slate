@@ -31,18 +31,21 @@ static TestMatrix<matrix_type> allocate_test_shared(
     TestMatrix<matrix_type> matrix( m, n, nb, p, q, grid_order );
 
     // Functions for nonuniform tile sizes or row device distribution
-    nb_func_t tileMb, tileNb;
+    nb_func_t tileNb;
     if (nonuniform_nb) {
         tileNb = [nb](int64_t j) {
             // for non-uniform tile size
             return (j % 2 != 0 ? nb*2 : nb);
         };
-        tileMb = tileNb;
     }
     else {
-        tileNb = slate::func::uniform_blocksize( n, nb );
-        tileMb = (m == n) ? tileNb : slate::func::uniform_blocksize( m, nb );
+        // NB. we let BaseMatrix truncate the final tile length
+        // TrapezoidMatrix only takes 1 function for both dimensions (of different sizes)
+        tileNb = [nb](int64_t j) {
+            return nb;
+        };
     }
+
     auto tileRank = slate::func::process_2d_grid( grid_order, p, q );
     int num_devices_ = blas::get_device_count();
     auto tileDevice = slate::func::device_1d_grid( slate::GridOrder( dev_dist ),
@@ -53,7 +56,7 @@ static TestMatrix<matrix_type> allocate_test_shared(
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target( origin );
         if (nonuniform_nb || dev_dist == slate::Dist::Col) {
-            matrix.A = construct_irregular( tileMb, tileNb, tileRank, tileDevice );
+            matrix.A = construct_irregular( tileNb, tileRank, tileDevice );
         }
         else {
             matrix.A = construct_regular( nb, grid_order, p, q );
@@ -72,7 +75,7 @@ static TestMatrix<matrix_type> allocate_test_shared(
     // Setup reference matrix
     if (ref_matrix) {
         if (nonuniform_nb && nonuniform_ref) {
-            matrix.Aref = construct_irregular( tileMb, tileNb, tileRank, tileDevice );
+            matrix.Aref = construct_irregular( tileNb, tileRank, tileDevice );
             matrix.Aref.insertLocalTiles( slate::Target::Host );
         }
         else {
@@ -108,10 +111,10 @@ template <typename scalar_t>
 TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
     bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params)
 {
-    auto construct_irregular = [&] (nb_func_t tileMb, nb_func_t tileNb,
+    auto construct_irregular = [&] (nb_func_t tileNb,
                                     dist_func_t tileRank, dist_func_t tileDevice)
     {
-        return slate::Matrix<scalar_t>( m, n, tileMb, tileNb,
+        return slate::Matrix<scalar_t>( m, n, tileNb, tileNb,
                                         tileRank, tileDevice, MPI_COMM_WORLD );
     };
     auto construct_regular = [&] (int64_t nb, slate::GridOrder grid_order, int p, int q )
@@ -159,7 +162,7 @@ TestMatrix<matrix_type> allocate_test_HeSyMatrix(
 
     slate::Uplo uplo = params.uplo();
 
-    auto construct_irregular = [&] (nb_func_t tileMb, nb_func_t tileNb,
+    auto construct_irregular = [&] (nb_func_t tileNb,
                                     dist_func_t tileRank, dist_func_t tileDevice)
     {
         return matrix_type( uplo, n, tileNb,
@@ -191,9 +194,6 @@ TestMatrix<matrix_type> allocate_test_HeSyMatrix(
 /// @param[in] nonuniform_ref
 ///     If params.nonuniform_nb(), whether to also allocate the reference matrix
 ///     with non-uniform tiles.
-///
-/// @param[in] m
-///     The number of rows
 ///
 /// @param[in] n
 ///     The number of columns
@@ -238,9 +238,6 @@ TestMatrix<slate::HermitianMatrix<std::complex<double>>> allocate_test_Hermitian
 ///     If params.nonuniform_nb(), whether to also allocate the reference matrix
 ///     with non-uniform tiles.
 ///
-/// @param[in] m
-///     The number of rows
-///
 /// @param[in] n
 ///     The number of columns
 ///
@@ -275,7 +272,7 @@ TestMatrix<slate::SymmetricMatrix<std::complex<double>>> allocate_test_Symmetric
 
 
 //------------------------------------------------------------------------------
-/// Allocates a SymmetricMatrix<scalar_t> and optionally a reference
+/// Allocates a TriangularMatrix<scalar_t> and optionally a reference
 /// version for testing.
 ///
 /// @param[in] ref_matrix
@@ -284,9 +281,6 @@ TestMatrix<slate::SymmetricMatrix<std::complex<double>>> allocate_test_Symmetric
 /// @param[in] nonuniform_ref
 ///     If params.nonuniform_nb(), whether to also allocate the reference matrix
 ///     with non-uniform tiles.
-///
-/// @param[in] m
-///     The number of rows
 ///
 /// @param[in] n
 ///     The number of columns
@@ -302,7 +296,7 @@ TestMatrix<slate::TriangularMatrix<scalar_t>> allocate_test_TriangularMatrix(
     slate::Uplo uplo = params.uplo();
     slate::Diag diag = params.diag();
 
-    auto construct_irregular = [&] (nb_func_t tileMb, nb_func_t tileNb,
+    auto construct_irregular = [&] (nb_func_t tileNb,
                                     dist_func_t tileRank, dist_func_t tileDevice)
     {
         return slate::TriangularMatrix<scalar_t>( uplo, diag, n, tileNb,
@@ -343,3 +337,72 @@ TestMatrix<slate::TriangularMatrix<std::complex<float>>> allocate_test_Triangula
 template
 TestMatrix<slate::TriangularMatrix<std::complex<double>>> allocate_test_TriangularMatrix<std::complex<double>>(
     bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
+
+//------------------------------------------------------------------------------
+/// Allocates a TrapezoidMatrix<scalar_t> and a reference version for testing.
+///
+/// @param ref_matrix[in]
+///     Whether to allocate a reference matrix
+///
+/// @param nonuniform_ref[in]
+///     If params.nonuniform_nb(), whether to also allocate the reference matrix
+///     with non-uniform tiles.
+///
+/// @param m[in]
+///     The number of rows
+///
+/// @param n[in]
+///     The number of columns
+///
+/// @param params[in]
+///     The test params object which contains many of the key parameters
+///
+template <typename scalar_t>
+TestMatrix<slate::TrapezoidMatrix<scalar_t>> allocate_test_TrapezoidMatrix(
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params)
+{
+    // Load params variables
+    slate::Uplo uplo = params.uplo();
+    slate::Diag diag = params.diag();
+
+    auto construct_irregular = [&] (nb_func_t tileNb,
+                                    dist_func_t tileRank, dist_func_t tileDevice)
+    {
+        return slate::TrapezoidMatrix<scalar_t>( uplo, diag, m, n, tileNb,
+                                                  tileRank, tileDevice, MPI_COMM_WORLD );
+    };
+    auto construct_regular = [&] (int64_t nb, slate::GridOrder grid_order, int p, int q )
+    {
+        return slate::TrapezoidMatrix<scalar_t>( uplo, diag, m, n, nb,
+                                                  grid_order, p, q, MPI_COMM_WORLD );
+    };
+    auto construct_scalapack = [&] (scalar_t* data, int64_t lld, int64_t nb,
+                                    slate::GridOrder grid_order, int p, int q )
+    {
+        return slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
+                                            uplo, diag, m, n, data, lld, nb,
+                                            grid_order, p, q, MPI_COMM_WORLD );
+    };
+
+    return allocate_test_shared<slate::TrapezoidMatrix<scalar_t>>(
+                    ref_matrix, nonuniform_ref, m, n, params,
+                     construct_irregular, construct_regular, construct_scalapack );
+}
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
+template
+TestMatrix<slate::TrapezoidMatrix<float>> allocate_test_TrapezoidMatrix<float>(
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
+
+template
+TestMatrix<slate::TrapezoidMatrix<double>> allocate_test_TrapezoidMatrix<double>(
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
+
+template
+TestMatrix<slate::TrapezoidMatrix<std::complex<float>>> allocate_test_TrapezoidMatrix<std::complex<float>>(
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
+
+template
+TestMatrix<slate::TrapezoidMatrix<std::complex<double>>> allocate_test_TrapezoidMatrix<std::complex<double>>(
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);

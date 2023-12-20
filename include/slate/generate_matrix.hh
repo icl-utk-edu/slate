@@ -11,7 +11,7 @@
 #include "lapack.hh"
 #include "slate/slate.hh"
 
-#include "../test/matrix_params.hh"
+#include "../matgen/matgen_params.hh"
 
 namespace slate {
 
@@ -19,44 +19,43 @@ namespace slate {
 // Overload with sigma.
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::Matrix< scalar_t >& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    slate::Options const& opts = slate::Options());
+    slate::Options const& opts = slate::Options() );
 
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::BaseTrapezoidMatrix< scalar_t >& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    slate::Options const& opts = slate::Options());
+    slate::Options const& opts = slate::Options() );
 
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::HermitianMatrix< scalar_t >& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    slate::Options const& opts = slate::Options());
-
+    slate::Options const& opts = slate::Options() );
 //------------------------------------------------------------------------------
 // Overload without sigma.
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::Matrix< scalar_t >& A,
-    slate::Options const& opts = slate::Options());
+    slate::Options const& opts = slate::Options() );
 
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::BaseTrapezoidMatrix< scalar_t >& A,
-    slate::Options const& opts = slate::Options());
+    slate::Options const& opts = slate::Options() );
 
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::HermitianMatrix< scalar_t >& A,
-    slate::Options const& opts = slate::Options());
+    slate::Options const& opts = slate::Options() );
 
 void generate_matrix_usage();
 

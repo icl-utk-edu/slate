@@ -37,7 +37,7 @@ namespace slate {
 ///
 template <typename matrix_type>
 void generate_sigma(
-    MatrixParams& params,
+    MatgenParams& params,
     TestMatrixDist dist, bool rand_sign,
     blas::real_type<typename matrix_type::value_type> cond,
     blas::real_type<typename matrix_type::value_type> sigma_max,

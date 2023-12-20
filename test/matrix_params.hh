@@ -6,7 +6,7 @@
 #ifndef SLATE_MATRIX_PARAMS_HH
 #define SLATE_MATRIX_PARAMS_HH
 
-#include "testsweeper.hh"
+#include "../testsweeper/testsweeper.hh"
 
 #include <map>
 #include <string>

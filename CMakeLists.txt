@@ -204,7 +204,6 @@ add_library(
     matgen/generate_matrix_ge.cc
     matgen/generate_matrix_he_and_tz.cc
     matgen/generate_matrix_utils.cc
-    src/set_lambdas.cc
 )
 target_link_libraries( slate_matgen PUBLIC slate )
 

@@ -103,6 +103,7 @@ target_link_libraries(
     ${tester}
     testsweeper
     slate
+    slate_matgen
 )
 
 if (NOT SCALAPACK_LIBRARIES STREQUAL "none")

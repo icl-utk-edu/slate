@@ -36,7 +36,7 @@ namespace slate {
 /// @ingroup generate_matrix
 template <typename scalar_t>
 void generate_svd(
-    MatrixParams& params,
+    MatgenParams& params,
     TestMatrixDist dist,
     blas::real_type<scalar_t> cond,
     blas::real_type<scalar_t> condD,

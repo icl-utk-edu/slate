@@ -34,7 +34,7 @@ namespace slate {
 ///
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::BaseTrapezoidMatrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
     slate::Options const& opts)
@@ -65,7 +65,7 @@ void generate_matrix(
     decode_matrix<scalar_t>(
         params, A, type, dist, cond, condD, sigma_max, dominant, zero_col );
 
-    int64_t seed = configure_seed(A.mpiComm(), params.seed());
+    int64_t seed = configure_seed(A.mpiComm(), params.seed);
 
     int64_t n = A.n();
     int64_t nt = A.nt();
@@ -207,7 +207,7 @@ void generate_matrix(
         case TestMatrixType::heev:
         default:
             snprintf( msg, sizeof( msg ), "'%s' not yet implemented",
-                      params.kind().c_str() );
+                      params.kind.c_str() );
             throw std::runtime_error( msg );
     }
 
@@ -217,7 +217,7 @@ void generate_matrix(
            type == TestMatrixType::randb) && dominant) {
         // make diagonally dominant; strict unless diagonal has zeros
         snprintf( msg, sizeof( msg ), "in '%s', dominant not yet implemented",
-                  params.kind().c_str() );
+                  params.kind.c_str() );
         throw std::runtime_error( msg );
     }
 
@@ -303,7 +303,7 @@ void generate_matrix(
 ///
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::HermitianMatrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
     slate::Options const& opts)
@@ -333,7 +333,7 @@ void generate_matrix(
 ///
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::HermitianMatrix<scalar_t>& A,
     slate::Options const& opts)
 {
@@ -344,7 +344,7 @@ void generate_matrix(
 
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::BaseTrapezoidMatrix<scalar_t>& A,
     slate::Options const& opts)
 {
@@ -357,25 +357,25 @@ void generate_matrix(
 // Explicit instantiations - hermitian matrix.
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::HermitianMatrix<float>& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::HermitianMatrix<double>& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::HermitianMatrix< std::complex<float> >& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::HermitianMatrix< std::complex<double> >& A,
     slate::Options const& opts);
 
@@ -383,25 +383,25 @@ void generate_matrix(
 // Explicit insantiations - trapezoid matrix.
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::BaseTrapezoidMatrix<float>& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::BaseTrapezoidMatrix<double>& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::BaseTrapezoidMatrix< std::complex<float> >& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::BaseTrapezoidMatrix< std::complex<double> >& A,
     slate::Options const& opts);
 

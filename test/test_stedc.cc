@@ -10,7 +10,7 @@
 
 #include "band_utils.hh"
 #include "grid_utils.hh"
-#include "matrix_generator.hh"
+#include "slate/generate_matrix.hh"
 
 #include <cmath>
 #include <cstdio>

@@ -18,7 +18,7 @@
 #include <cstdlib>
 #include <utility>
 
-#include "../test/matrix_params.hh"
+//#include "../test/matrix_params.hh"
 #include "slate/generate_matrix.hh"
 #include "../test/random.hh"
 #include "generate_matrix_utils.hh"
@@ -27,12 +27,14 @@
 #include "generate_type_rand.hh"
 #include "generate_sigma.hh"
 #include "generate_type_svd.hh"
+#include "matgen_params.hh"
 
 namespace slate {
 
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    //MatrixParams& params,
+    MatgenParams& params,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
     slate::Options const& opts)
@@ -64,7 +66,7 @@ void generate_matrix(
     decode_matrix<scalar_t>(
         params, A, type, dist, cond, condD, sigma_max, dominant, zero_col );
 
-    int64_t seed = configure_seed(A.mpiComm(), params.seed());
+    int64_t seed = configure_seed(A.mpiComm(), params.seed);
 
     int64_t n = A.n();
     int64_t m = A.m();
@@ -285,7 +287,7 @@ void generate_matrix(
            type == TestMatrixType::randb) && dominant) {
         // make diagonally dominant; strict unless diagonal has zeros
         snprintf( msg, sizeof( msg ), "in '%s': dominant not yet implemented",
-                  params.kind().c_str() );
+                  params.kind.c_str() );
         throw std::runtime_error( msg );
     }
 
@@ -327,7 +329,7 @@ void generate_matrix(
 ///
 template <typename scalar_t>
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::Matrix<scalar_t>& A,
     slate::Options const& opts)
 {
@@ -341,25 +343,25 @@ void generate_matrix(
 // Explicit instantiations.
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::Matrix<float>& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::Matrix<double>& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::Matrix< std::complex<float> >& A,
     slate::Options const& opts);
 
 template
 void generate_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     slate::Matrix< std::complex<double> >& A,
     slate::Options const& opts);
 

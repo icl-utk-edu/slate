@@ -18,9 +18,10 @@
 #include <cstdlib>
 #include <utility>
 
-#include "../test/matrix_params.hh"
+// #include "../test/matrix_params.hh"
 #include "../test/random.hh"
 #include "generate_matrix_utils.hh"
+#include "matgen_params.hh"
 
 namespace slate {
 
@@ -144,7 +145,7 @@ void generate_matrix_usage()
 ///
 template <typename scalar_t>
 void decode_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     BaseMatrix<scalar_t>& A,
     TestMatrixType& type,
     TestMatrixDist& dist,
@@ -162,16 +163,16 @@ void decode_matrix(
 
     // locals
     char msg[ 256 ];
-    std::string kind = params.kind();
+    std::string kind = params.kind;
 
     //---------------
-    cond = params.cond_request();
+    cond = params.cond_request;
     bool cond_default = std::isnan( cond );
     if (cond_default) {
         cond = 1 / sqrt( eps );
     }
 
-    condD = params.condD();
+    condD = params.condD;
     bool condD_default = std::isnan( condD );
     if (condD_default) {
         condD = 1;
@@ -378,7 +379,7 @@ void decode_matrix(
         // cond unused
         cond = testsweeper::no_data_flag;
     }
-    params.cond_actual() = cond;
+    params.cond_actual = cond;
 
     // Warn if user set condD and matrix type doesn't use it.
     if (! condD_default
@@ -387,7 +388,7 @@ void decode_matrix(
         && type != TestMatrixType::poev)
     {
         fprintf( stderr, "%sWarning: matrix '%s' ignores condD %.2e.%s\n",
-                 ansi_red, kind.c_str(), params.condD(), ansi_normal );
+                 ansi_red, kind.c_str(), params.condD, ansi_normal );
     }
 
     // Warn if SPD requested, but distribution is not > 0.
@@ -399,8 +400,8 @@ void decode_matrix(
                  ansi_red, kind.c_str(), ansi_normal );
     }
 
-    if (params.marked())
-        params.generate_label();
+    //if (params.marked)
+        //params.generate_label();
 }
 
 //------------------------------------------------------------------------------
@@ -427,7 +428,7 @@ int64_t configure_seed(MPI_Comm comm, int64_t user_seed)
 // Explicit instantiations. 
 template
 void decode_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     BaseMatrix<float>& A,
     TestMatrixType& type,
     TestMatrixDist& dist,
@@ -439,7 +440,7 @@ void decode_matrix(
 
 template
 void decode_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     BaseMatrix<double>& A,
     TestMatrixType& type,
     TestMatrixDist& dist,
@@ -451,7 +452,7 @@ void decode_matrix(
 
 template
 void decode_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     BaseMatrix<std::complex<float>>& A,
     TestMatrixType& type,
     TestMatrixDist& dist,
@@ -463,7 +464,7 @@ void decode_matrix(
 
 template
 void decode_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     BaseMatrix<std::complex<double>>& A,
     TestMatrixType& type,
     TestMatrixDist& dist,

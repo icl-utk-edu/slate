@@ -78,7 +78,7 @@ enum class TestMatrixDist {
 // Function forward declarations. 
 template <typename scalar_t>
 void decode_matrix(
-    MatrixParams& params,
+    MatgenParams& params,
     BaseMatrix<scalar_t>& A,
     TestMatrixType& type,
     TestMatrixDist& dist,

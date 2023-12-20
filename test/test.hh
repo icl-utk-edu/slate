@@ -10,13 +10,14 @@
 #include <complex>
 #include <ctype.h>
 
-#include "testsweeper.hh"
+#include "../testsweeper/testsweeper.hh"
 #include "blas.hh"
 #include "lapack.hh"
 #include "slate/slate.hh"
 
 #include "matrix_params.hh"
-#include "matrix_generator.hh"
+#include "slate/generate_matrix.hh"
+#include "matgen.hh"
 
 // -----------------------------------------------------------------------------
 namespace slate {

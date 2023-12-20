@@ -37,7 +37,7 @@ namespace slate {
 /// @ingroup generate_matrix
 template <typename scalar_t>
 void generate_geev(
-    MatrixParams& params,
+    MatgenParams& params,
     TestMatrixDist dist,
     blas::real_type<scalar_t> cond,
     blas::real_type<scalar_t> sigma_max,
@@ -59,7 +59,7 @@ void generate_geev(
 /// @ingroup generate_matrix
 template <typename scalar_t>
 void generate_geevx(
-    MatrixParams& params,
+    MatgenParams& params,
     TestMatrixDist dist,
     blas::real_type<scalar_t> cond,
     blas::real_type<scalar_t> sigma_max,

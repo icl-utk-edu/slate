@@ -195,10 +195,11 @@ void norm(
         // Sum tile results into local results.
         // Summing up local contributions only.
         std::fill_n(values, A.n(), 0.0);
-        int64_t nb0 = A.tileNb(0);
-        int64_t mb0 = A.tileMb(0);
-        // off-diagonal blocks
+
+        jj = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
+            // off-diagonal blocks
+            int64_t ii = 0;
             for (int64_t i = 0; i < A.mt(); ++i) {
                 int64_t nb = A.tileNb(j);
                 int64_t mb = A.tileMb(i);
@@ -209,27 +210,27 @@ void norm(
                     // col sums
                     blas::axpy(
                         nb, 1.0,
-                        &tiles_sums[A.n()*i + j*nb0 ], 1,
-                        &values[j*nb0], 1);
+                        &tiles_sums[A.n()*i + jj ], 1,
+                        &values[jj], 1);
                     // row sums
                     blas::axpy(
                         mb, 1.0,
-                        &tiles_sums[A.m()*j + i*nb0 ], 1,
-                        &values[i*mb0], 1);
+                        &tiles_sums[A.m()*j + ii ], 1,
+                        &values[ii], 1);
                 }
+                ii += A.tileMb(i);
             }
-        }
 
-        // diagonal blocks
-        for (int64_t j = 0; j < A.nt(); ++j) {
+            // diagonal blocks
             int64_t nb = A.tileNb(j);
             if (A.tileIsLocal(j, j) ) {
                 // col sums
                 blas::axpy(
                     nb, 1.0,
-                    &tiles_sums[A.n()*j + j*nb0 ], 1,
-                    &values[j*nb0], 1);
+                    &tiles_sums[A.n()*j + jj ], 1,
+                    &values[jj], 1);
             }
+            jj += nb;
         }
     }
     //---------

@@ -6,12 +6,10 @@
 #ifndef SLATE_GENERATE_MATRIX_HH
 #define SLATE_GENERATE_MATRIX_HH
 
-#include "../testsweeper/testsweeper.hh"
 #include "blas.hh"
 #include "lapack.hh"
 #include "slate/slate.hh"
-
-#include "../matgen/matgen_params.hh"
+#include "matgen_params.hh"
 
 namespace slate {
 

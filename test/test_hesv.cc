@@ -12,6 +12,7 @@
 #include "scalapack_copy.hh"
 #include "grid_utils.hh"
 #include "print_matrix.hh"
+#include "matgen.hh"
 
 #include <cmath>
 #include <cstdio>

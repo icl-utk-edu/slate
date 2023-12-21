@@ -9,7 +9,6 @@
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
-#include "matgen.hh"
 
 #include <cmath>
 #include <cstdio>

@@ -4,7 +4,10 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "../test/test.hh"
+#include "slate/generate_matrix.hh"
+#include "random.hh"
+#include "generate_matrix_utils.hh"
+#include "generate_sigma.hh"
 
 #include <exception>
 #include <string>
@@ -17,12 +20,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-#include "../test/matrix_params.hh"
-#include "slate/generate_matrix.hh"
-#include "../test/random.hh"
-#include "generate_matrix_utils.hh"
-#include "generate_sigma.hh"
 
 namespace slate {
 

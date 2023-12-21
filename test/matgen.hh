@@ -3,13 +3,10 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
-
 #ifndef SLATE_GENERATE_MATGEN_HH
 #define SLATE_GENERATE_MATGEN_HH
 
-
-#include "test.hh"
-#include "../matgen/matgen_params.hh"
+#include "slate/generate_matrix.hh"
 
 namespace slate {
 
@@ -26,12 +23,10 @@ void generate_matrix(
     mg_params.seed = params.seed();
     mg_params.marked = params.marked();
 
-    //mg_params.generate_label() = params.generate_label();
-
     generate_matrix( mg_params, A, opts);
 
-    //label will be put here as output as well
-    mg_params.cond_actual = params.cond_actual();
+    params.cond_actual() = mg_params.cond_actual;
+    params.label() = mg_params.label;
 }
 
 } // namespace slate

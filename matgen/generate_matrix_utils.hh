@@ -7,7 +7,8 @@
 #define SLATE_GENERATE_MATRIX_UTILS_HH
 
 #include "slate/slate.hh"
-#include "../test/test.hh"
+#include "random.hh"
+#include "slate/matgen_params.hh"
 
 #include <exception>
 #include <string>
@@ -20,10 +21,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-#include "../test/matrix_params.hh"
-#include "../test/random.hh"
-
 
 namespace slate {
 

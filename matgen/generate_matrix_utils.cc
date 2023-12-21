@@ -4,7 +4,10 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "../test/test.hh"
+#include "random.hh"
+#include "generate_matrix_utils.hh"
+#include "slate/matgen_params.hh"
+#include "../testsweeper/testsweeper.hh"
 
 #include <exception>
 #include <string>
@@ -17,11 +20,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-// #include "../test/matrix_params.hh"
-#include "../test/random.hh"
-#include "generate_matrix_utils.hh"
-#include "matgen_params.hh"
 
 namespace slate {
 
@@ -400,12 +398,12 @@ void decode_matrix(
                  ansi_red, kind.c_str(), ansi_normal );
     }
 
-    //if (params.marked)
-        //params.generate_label();
+    if (params.marked)
+        params.generate_label();
 }
 
 //------------------------------------------------------------------------------
-/// Generates an arbitrary seed that is unlikely to be repeated
+/// Generates the actual seed from the user provided seed.
 int64_t configure_seed(MPI_Comm comm, int64_t user_seed)
 {
 
@@ -476,4 +474,3 @@ void decode_matrix(
 
 
 } // namespace slate
-

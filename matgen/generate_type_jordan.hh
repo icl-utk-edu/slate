@@ -6,9 +6,9 @@
 #ifndef SLATE_GENERATE_TYPE_JORDAN_HH
 #define SLATE_GENERATE_TYPE_JORDAN_HH
 
-
 #include "slate/slate.hh"
-#include "../test/test.hh"
+#include "slate/generate_matrix.hh"
+#include "random.hh"
 
 #include <exception>
 #include <string>
@@ -21,11 +21,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-#include "../test/matrix_params.hh"
-#include "slate/generate_matrix.hh"
-#include "../test/random.hh"
-
 
 namespace slate {
 

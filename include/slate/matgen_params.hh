@@ -4,28 +4,29 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include <string>
-
+#include <map>
 
 #ifndef SLATE_MATGEN_PARAMS_HH
 #define SLATE_MATGEN_PARAMS_HH
 
+extern std::map< std::string, int > matrix_labels;
+
 namespace slate {
 
 class MatgenParams {
-    public: //setting to public, class starts as private
-        int64_t verbose;
-        std::string kind;
-        double cond_request;
-        double cond_actual;
-        double condD;
-        int64_t seed;
-        bool marked;
-
-        //void generate_label(); 	
+public:
+    int64_t verbose;
+    std::string kind;
+    double cond_request;
+    double cond_actual;
+    double condD;
+    int64_t seed;
+    int64_t label;
+    void generate_label();
+    bool marked;
 };
-
 
 } // slate namespace
 
-#endif
+#endif // SLATE_MATGEN_PARAMS_HH
 

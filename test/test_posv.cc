@@ -8,6 +8,7 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "matgen.hh"
 
 #include "matrix_utils.hh"
 #include "test_utils.hh"

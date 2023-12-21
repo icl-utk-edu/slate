@@ -4,7 +4,15 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "../test/test.hh"
+#include "slate/generate_matrix.hh"
+#include "random.hh"
+#include "generate_matrix_utils.hh"
+#include "generate_type_geev.hh"
+#include "generate_type_heev.hh"
+#include "generate_type_rand.hh"
+#include "generate_sigma.hh"
+#include "generate_type_svd.hh"
+#include "slate/matgen_params.hh"
 
 #include <exception>
 #include <string>
@@ -18,22 +26,10 @@
 #include <cstdlib>
 #include <utility>
 
-//#include "../test/matrix_params.hh"
-#include "slate/generate_matrix.hh"
-#include "../test/random.hh"
-#include "generate_matrix_utils.hh"
-#include "generate_type_geev.hh"
-#include "generate_type_heev.hh"
-#include "generate_type_rand.hh"
-#include "generate_sigma.hh"
-#include "generate_type_svd.hh"
-#include "matgen_params.hh"
-
 namespace slate {
 
 template <typename scalar_t>
 void generate_matrix(
-    //MatrixParams& params,
     MatgenParams& params,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,

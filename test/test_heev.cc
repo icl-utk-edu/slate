@@ -10,7 +10,6 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_copy.hh"
-#include "matgen.hh"
 
 #include <cmath>
 #include <cstdio>

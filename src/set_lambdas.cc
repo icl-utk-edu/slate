@@ -9,14 +9,14 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Set matrix entries.
-/// Transposition is currently ignored.
-/// TODO: Inspect transposition?
+/// Transposition is automatically handled. 
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in] value
-///     TODO
+///     A function that takes global row and column indices i and j,
+///     and returns the scalar value for entry Aij.
 ///
 /// @param[in,out] A
 ///     The m-by-n matrix A.
@@ -98,14 +98,14 @@ void set(
 
 //------------------------------------------------------------------------------
 /// Set matrix entries.
-/// Transposition is currently ignored.
-/// TODO: Inspect transposition?
+/// Transposition is automatically handled.
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in] value
-///     TODO
+///     A function that takes global row and column indices i and j,
+///     and returns the scalar value for entry Aij.
 ///
 /// @param[in,out] A
 ///     The m-by-n matrix A.

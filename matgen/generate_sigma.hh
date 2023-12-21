@@ -7,7 +7,9 @@
 #define SLATE_GENERATE_SIGMA_HH
 
 #include "slate/slate.hh"
-#include "../test/test.hh"
+#include "slate/generate_matrix.hh"
+#include "random.hh"
+#include "generate_matrix_utils.hh"
 
 #include <exception>
 #include <string>
@@ -20,11 +22,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-#include "../test/matrix_params.hh"
-#include "slate/generate_matrix.hh"
-#include "../test/random.hh"
-#include "generate_matrix_utils.hh"
 
 namespace slate {
 

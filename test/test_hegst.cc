@@ -8,7 +8,6 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
-#include "matgen.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_copy.hh"

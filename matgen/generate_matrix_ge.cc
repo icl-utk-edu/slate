@@ -12,7 +12,6 @@
 #include "generate_type_rand.hh"
 #include "generate_sigma.hh"
 #include "generate_type_svd.hh"
-#include "slate/matgen_params.hh"
 
 #include <exception>
 #include <string>

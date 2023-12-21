@@ -8,7 +8,7 @@
 
 #include "slate/slate.hh"
 #include "random.hh"
-#include "slate/matgen_params.hh"
+#include "slate/generate_matrix.hh"
 
 #include <exception>
 #include <string>

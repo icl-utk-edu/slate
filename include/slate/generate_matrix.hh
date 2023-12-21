@@ -9,10 +9,25 @@
 #include "blas.hh"
 #include "lapack.hh"
 #include "slate/slate.hh"
-#include "matgen_params.hh"
+
+extern std::map< std::string, int > matrix_labels;
 
 namespace slate {
 
+//------------------------------------------------------------------------------
+// Parameters for Matrices.
+class MatgenParams {
+public:
+    int64_t verbose;
+    std::string kind;
+    double cond_request;
+    double cond_actual;
+    double condD;
+    int64_t seed;
+    int64_t label;
+    void generate_label();
+    bool marked;
+};
 //------------------------------------------------------------------------------
 // Overload with sigma.
 template <typename scalar_t>

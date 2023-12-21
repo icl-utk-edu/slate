@@ -13,8 +13,6 @@
 #include "test.hh"
 #include "slate/slate.hh"
 #include "slate/generate_matrix.hh"
-#include "../matgen/generate_matrix_utils.hh"
-#include "slate/matgen_params.hh"
 
 // -----------------------------------------------------------------------------
 using testsweeper::ParamType;

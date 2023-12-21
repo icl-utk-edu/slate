@@ -4,10 +4,10 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
+#include "slate/generate_matrix.hh"
 #include "random.hh"
 #include "generate_matrix_utils.hh"
-#include "slate/matgen_params.hh"
-#include "../testsweeper/testsweeper.hh"
+#include "testsweeper.hh"
 
 #include <exception>
 #include <string>

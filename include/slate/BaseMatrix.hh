@@ -2455,15 +2455,21 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
     Layout src_layout = src_tile->layout();
     bool need_convert = src_layout != target_layout;
 
-    // A race condition can occur when doing GPU->GPU transfers when async
-    // TODO Consider inter-Queue dependencies instead of disabling async
-    async &= !(dst_device != HostNum && src_device != HostNum);
+    // A race condition can occur when doing GPU->GPU transfers because we only
+    // use the queue for one of the devices
+    // TODO Consider inter-Queue dependencies instead of synchronizing w/ host
+    bool extra_sync = dst_device != HostNum && src_device != HostNum;
 
     if (dst_tile->layout() != target_layout && ! dst_tile->isTransposable()) {
         storage_->tileMakeTransposable( dst_tile );
     }
 
     if (is_square || ! need_convert) {
+        if (extra_sync) {
+            lapack::Queue* src_queue = comm_queue( src_device );
+            src_queue->sync();
+        }
+
         lapack::Queue* queue = comm_queue( work_device );
         src_tile->copyData( dst_tile, *queue, async );
 
@@ -2487,6 +2493,11 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             work_device = src_device;
             work_data = src_tile->layoutBackData();
             work_stride = src_tile->layoutBackStride();
+        }
+
+        if (extra_sync && work_device == dst_device) {
+            lapack::Queue* src_queue = comm_queue( src_device );
+            src_queue->sync();
         }
 
         lapack::Queue* queue = comm_queue( work_device );
@@ -2520,7 +2531,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             work_tile.copyData( dst_tile, *queue, true );
         }
         // Above kernels are asynchronous
-        if (! async || need_workspace) {
+        if ((extra_sync && work_device == src_device) || ! async || need_workspace) {
             queue->sync();
         }
         if (need_workspace) {

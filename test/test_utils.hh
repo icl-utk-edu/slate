@@ -26,19 +26,25 @@ inline bool is_invalid_parameters(Params& params, bool keep_nonuniform_ref = fal
     }
 
     if (dev_dist == slate::Dist::Col && origin == slate::Origin::ScaLAPACK) {
-        params.msg() = "skipping: dev_dist = Col tile not supported with ScaLAPACK";
+        params.msg() = "skipping: dev_dist = Col tile not supported with origin=ScaLAPACK";
         return true;
     }
 
     if (nonuniform_nb && origin == slate::Origin::ScaLAPACK) {
-        params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
+        params.msg() = "skipping: nonuniform tile not supported with origin=ScaLAPACK";
         return true;
     }
 
     #ifdef SLATE_HAVE_SCALAPACK
-        if (!keep_nonuniform_ref && nonuniform_nb && params.ref()) {
+        if (!keep_nonuniform_ref && nonuniform_nb && params.ref() != 'n') {
             params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
-            params.ref() = false;
+            if (params.ref() == 'o') {
+                // If ref=='o', the user doesn't want to run SLATE version
+                return true;
+            }
+            else {
+                params.ref() = 'n';
+            }
         }
     #else
         // Can only run ref when we have ScaLAPACK

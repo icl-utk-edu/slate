@@ -100,28 +100,27 @@ void test_trnorm_work(Params& params, bool run)
     // compute and save timing/performance
     params.time() = time;
 
-    #ifdef SLATE_HAVE_SCALAPACK
-        // comparison with reference routine from ScaLAPACK
-
-        // initialize BLACS and ScaLAPACK
-        blas_int ictxt, A_desc[9];
-        A_alloc.create_ScaLAPACK_context( &ictxt );
-        A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
-
-        auto& A_data = ref_copy ? A_alloc.Aref_data : A_alloc.A_data;
-
-        if (origin != slate::Origin::ScaLAPACK && !ref_copy) {
-            A_data.resize( A_alloc.lld * A_alloc.nloc );
-
-            copy(A, &A_data[0], A_desc);
-        }
-
-        // TODO move the above into this if statement
-        if (check || ref) {
+    if (check || ref) {
+        #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
+            // initialize BLACS and ScaLAPACK
+            blas_int ictxt, A_desc[9];
+            A_alloc.create_ScaLAPACK_context( &ictxt );
+            A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
+
+            auto& A_data = ref_copy ? A_alloc.Aref_data : A_alloc.A_data;
+
+            if (origin != slate::Origin::ScaLAPACK && !ref_copy) {
+                A_data.resize( A_alloc.lld * A_alloc.nloc );
+
+                copy(A, &A_data[0], A_desc);
+            }
+
             // allocate work space
-            std::vector<real_t> worklantr(std::max(A_alloc.mloc, A_alloc.nloc));
+            std::vector<real_t> worklantr( std::max(A_alloc.mloc, A_alloc.nloc) );
+
+            // comparison with reference routine from ScaLAPACK
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -162,152 +161,141 @@ void test_trnorm_work(Params& params, bool run)
 
             // Allow for difference
             params.okay() = (params.error() <= tol);
-        }
 
-        //---------- extended tests
-        if (extended) {
-            if (grid_order != slate::GridOrder::Col) {
-                printf("WARNING: cannot do extended tests with row-major grid\n");
-            }
-            else {
-                // allocate work space
-                std::vector<real_t> worklantr(std::max(A_alloc.mloc, A_alloc.nloc));
-
-                // seed all MPI processes the same
-                srand(1234);
-
-                // Test tiles in 2x2 in all 4 corners, and 4 random rows and cols,
-                // up to 64 tiles total.
-                // Indices may be out-of-bounds if mt or nt is small, so check in loops.
-                int64_t mt = A.mt();
-                int64_t nt = A.nt();
-                std::set<int64_t> i_indices = { 0, 1, mt - 2, mt - 1 };
-                std::set<int64_t> j_indices = { 0, 1, nt - 2, nt - 1 };
-                for (size_t k = 0; k < 4; ++k) {
-                    i_indices.insert(rand() % mt);
-                    j_indices.insert(rand() % nt);
+            //---------- extended tests
+            if (extended) {
+                if (grid_order != slate::GridOrder::Col) {
+                    printf("WARNING: cannot do extended tests with row-major grid\n");
                 }
-                for (auto j : j_indices) {
-                    if (j < 0 || j >= nt)
-                        continue;
-                    int64_t jb = std::min(n - j*nb, nb);
-                    slate_assert(jb == A.tileNb(j));
+                else {
+                    // seed all MPI processes the same
+                    srand(1234);
 
-                    for (auto i : i_indices) {
-                        // lower requires i >= j
-                        // upper requires i <= j
-                        if (i < 0 || i >= mt || (uplo == slate::Uplo::Lower ? i < j : i > j))
+                    // Test tiles in 2x2 in all 4 corners, and 4 random rows and cols,
+                    // up to 64 tiles total.
+                    // Indices may be out-of-bounds if mt or nt is small, so check in loops.
+                    int64_t mt = A.mt();
+                    int64_t nt = A.nt();
+                    std::set<int64_t> i_indices = { 0, 1, mt - 2, mt - 1 };
+                    std::set<int64_t> j_indices = { 0, 1, nt - 2, nt - 1 };
+                    for (size_t k = 0; k < 4; ++k) {
+                        i_indices.insert(rand() % mt);
+                        j_indices.insert(rand() % nt);
+                    }
+                    for (auto j : j_indices) {
+                        if (j < 0 || j >= nt)
                             continue;
-                        int64_t ib = std::min(m - i*nb, nb);
-                        slate_assert(ib == A.tileMb(i));
+                        int64_t jb = std::min(n - j*nb, nb);
+                        slate_assert(jb == A.tileNb(j));
 
-                        // Test entries in 2x2 in all 4 corners, and 1 other random row and col,
-                        // up to 25 entries per tile.
-                        // Indices may be out-of-bounds if ib or jb is small, so check in loops.
-                        std::set<int64_t> ii_indices = { 0, 1, ib - 2, ib - 1, rand() % ib };
-                        std::set<int64_t> jj_indices = { 0, 1, jb - 2, jb - 1, rand() % jb };
-
-                        // todo: complex peak
-                        scalar_t peak = rand() / double(RAND_MAX)*1e6 + 1e6;
-                        if (rand() < RAND_MAX / 2)
-                            peak *= -1;
-                        if (rand() < RAND_MAX / 20)
-                            peak = nan("");
-                        scalar_t save = 0;
-
-                        for (auto jj : jj_indices) {
-                            if (jj < 0 || jj >= jb)
+                        for (auto i : i_indices) {
+                            // lower requires i >= j
+                            // upper requires i <= j
+                            if (i < 0 || i >= mt || (uplo == slate::Uplo::Lower ? i < j : i > j))
                                 continue;
+                            int64_t ib = std::min(m - i*nb, nb);
+                            slate_assert(ib == A.tileMb(i));
 
-                            for (auto ii : ii_indices) {
-                                if (ii < 0 || ii >= ib
-                                    || (i == j && (uplo == slate::Uplo::Lower
-                                                   ? ii < jj
-                                                   : ii > jj))) {
+                            // Test entries in 2x2 in all 4 corners, and 1 other random row and col,
+                            // up to 25 entries per tile.
+                            // Indices may be out-of-bounds if ib or jb is small, so check in loops.
+                            std::set<int64_t> ii_indices = { 0, 1, ib - 2, ib - 1, rand() % ib };
+                            std::set<int64_t> jj_indices = { 0, 1, jb - 2, jb - 1, rand() % jb };
+
+                            // todo: complex peak
+                            scalar_t peak = rand() / double(RAND_MAX)*1e6 + 1e6;
+                            if (rand() < RAND_MAX / 2)
+                                peak *= -1;
+                            if (rand() < RAND_MAX / 20)
+                                peak = nan("");
+                            scalar_t save = 0;
+
+                            for (auto jj : jj_indices) {
+                                if (jj < 0 || jj >= jb)
                                     continue;
-                                }
 
-                                int64_t ilocal = int(i / p)*nb + ii;
-                                int64_t jlocal = int(j / q)*nb + jj;
-                                if (A.tileIsLocal(i, j)) {
-                                    A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor);
-                                    auto T = A(i, j);
-                                    save = T(ii, jj);
-                                    slate_assert(A_data[ ilocal + jlocal*A_alloc.lld ] == save);
-                                    T.at(ii, jj) = peak;
-                                    A_data[ ilocal + jlocal*A_alloc.lld ] = peak;
-                                    // todo: this move shouldn't be required -- the trnorm should copy data itself.
-                                    A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
-                                }
-
-                                A_norm = slate::norm(norm, A, opts);
-
-                                real_t A_norm_ref = scalapack_plantr(
-                                                        norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
-                                                        m, n, &A_data[0], 1, 1, A_desc, &worklantr[0]);
-
-                                // difference between norms
-                                real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-                                if (norm == slate::Norm::One) {
-                                    error /= sqrt(m);
-                                }
-                                else if (norm == slate::Norm::Inf) {
-                                    error /= sqrt(n);
-                                }
-                                else if (norm == slate::Norm::Fro) {
-                                    error /= sqrt(m*n);
-                                }
-
-                                // Allow for difference, except max norm in real should be exact.
-                                real_t eps = std::numeric_limits<real_t>::epsilon();
-                                real_t tol;
-                                if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
-                                    tol = 0;
-                                else
-                                    tol = 10*eps;
-
-                                if (A.mpiRank() == 0) {
-                                    // if peak is nan, expect A_norm to be nan,
-                                    // except in Unit case with i == j and ii == jj,
-                                    // where peak shouldn't affect A_norm.
-                                    bool okay = (std::isnan(real(peak)) && ! (diag == slate::Diag::Unit && i == j && ii == jj)
-                                                 ? std::isnan(A_norm)
-                                                 : error <= tol);
-                                    params.okay() = params.okay() && okay;
-                                    if (verbose || ! okay) {
-                                        printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
-                                               llong( i ), llong( j ), llong( ii ), llong( jj ),
-                                               real(peak), A_norm, A_norm_ref, error,
-                                               (okay ? "pass" : "failed"));
+                                for (auto ii : ii_indices) {
+                                    if (ii < 0 || ii >= ib
+                                        || (i == j && (uplo == slate::Uplo::Lower
+                                                       ? ii < jj
+                                                       : ii > jj))) {
+                                        continue;
                                     }
-                                }
 
-                                if (A.tileIsLocal(i, j)) {
-                                    A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor);
-                                    auto T = A(i, j);
-                                    T.at(ii, jj) = save;
-                                    A_data[ ilocal + jlocal*A_alloc.lld ] = save;
-                                    // todo: this move shouldn't be required -- the trnorm should copy data itself.
-                                    A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
+                                    int64_t ilocal = int(i / p)*nb + ii;
+                                    int64_t jlocal = int(j / q)*nb + jj;
+                                    if (A.tileIsLocal(i, j)) {
+                                        A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor);
+                                        auto T = A(i, j);
+                                        save = T(ii, jj);
+                                        slate_assert(A_data[ ilocal + jlocal*A_alloc.lld ] == save);
+                                        T.at(ii, jj) = peak;
+                                        A_data[ ilocal + jlocal*A_alloc.lld ] = peak;
+                                        // todo: this move shouldn't be required -- the trnorm should copy data itself.
+                                        A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
+                                    }
+
+                                    A_norm = slate::norm(norm, A, opts);
+
+                                    A_norm_ref = scalapack_plantr(
+                                                     norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
+                                                     m, n, &A_data[0], 1, 1, A_desc, &worklantr[0]);
+
+                                    // difference between norms
+                                    error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
+                                    if (norm == slate::Norm::One) {
+                                        error /= sqrt(m);
+                                    }
+                                    else if (norm == slate::Norm::Inf) {
+                                        error /= sqrt(n);
+                                    }
+                                    else if (norm == slate::Norm::Fro) {
+                                        error /= sqrt(m*n);
+                                    }
+
+                                    if (A.mpiRank() == 0) {
+                                        // if peak is nan, expect A_norm to be nan,
+                                        // except in Unit case with i == j and ii == jj,
+                                        // where peak shouldn't affect A_norm.
+                                        bool okay = (std::isnan(real(peak)) && ! (diag == slate::Diag::Unit && i == j && ii == jj)
+                                                     ? std::isnan(A_norm)
+                                                     : error <= tol);
+                                        params.okay() = params.okay() && okay;
+                                        if (verbose || ! okay) {
+                                            printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
+                                                   llong( i ), llong( j ), llong( ii ), llong( jj ),
+                                                   real(peak), A_norm, A_norm_ref, error,
+                                                   (okay ? "pass" : "failed"));
+                                        }
+                                    }
+
+                                    if (A.tileIsLocal(i, j)) {
+                                        A.tileGetForWriting(i, j, slate::LayoutConvert::ColMajor);
+                                        auto T = A(i, j);
+                                        T.at(ii, jj) = save;
+                                        A_data[ ilocal + jlocal*A_alloc.lld ] = save;
+                                        // todo: this move shouldn't be required -- the trnorm should copy data itself.
+                                        A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
 
-        Cblacs_gridexit(ictxt);
-        //Cblacs_exit(1) does not handle re-entering
-    #else  // not SLATE_HAVE_SCALAPACK
-        SLATE_UNUSED( A_norm );
-        SLATE_UNUSED( check );
-        SLATE_UNUSED( ref );
-        SLATE_UNUSED( extended );
-        SLATE_UNUSED( verbose );
-        if (A.mpiRank() == 0)
-            printf( "ScaLAPACK not available\n" );
-    #endif
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
+        #else  // not SLATE_HAVE_SCALAPACK
+            SLATE_UNUSED( A_norm );
+            SLATE_UNUSED( check );
+            SLATE_UNUSED( ref );
+            SLATE_UNUSED( extended );
+            SLATE_UNUSED( verbose );
+            if (A.mpiRank() == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
+    }
 }
 
 // -----------------------------------------------------------------------------

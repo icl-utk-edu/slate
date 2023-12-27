@@ -409,8 +409,8 @@ if (opts.lu):
     [ 'getrs_nopiv',  gen + dtype + la + n + ge_matrix + nonuniform_nb
                       + ' --matrix rand_dominant' ],
 
-    [ 'getri',    gen + dtype + la + n + ge_matrix ],
-    [ 'getriOOP', gen + dtype + la + n + ge_matrix ],
+    [ 'getri',    gen + dtype + la + n ],
+    [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
     [ 'gesv_mixed',   gen + dtype_double + la + n + ge_matrix + nonuniform_nb ],

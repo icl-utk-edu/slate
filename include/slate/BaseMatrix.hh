@@ -2724,7 +2724,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
 // todo: async version
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
-                                   LayoutConvert in_layoutConvert, bool modify, bool hold,
+                                   LayoutConvert layoutConvert, bool modify, bool hold,
                                    bool async)
 {
     if (device != HostNum) {
@@ -2743,21 +2743,12 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
             storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
     }
 
-    LayoutConvert layoutConvert = (device == HostNum)
-                                  ? in_layoutConvert
-                                  : LayoutConvert::None;
-
     for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
         int64_t i = std::get<0>(*iter);
         int64_t j = std::get<1>(*iter);
         {
             tileGet(i, j, device, layoutConvert, modify, hold, true);
         }
-    }
-
-    // todo: if modify and target is host, batch convert on device first
-    if (device != HostNum && in_layoutConvert != LayoutConvert::None) {
-        tileLayoutConvert(tile_set, device, Layout(in_layoutConvert));
     }
 
     if (! async && device != HostNum)

@@ -148,13 +148,13 @@ void test_gesv_work(Params& params, bool run)
         depth = params.depth();
     }
 
+    if (! run)
+        return;
+
     // Check for common invalid combinations
     if (is_invalid_parameters( params )) {
         return;
     }
-
-    if (! run)
-        return;
 
     if ((params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres")
         && ! std::is_same<real_t, double>::value) {

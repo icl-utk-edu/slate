@@ -7,6 +7,7 @@
 #define SLATE_TEST_UTILS_HH
 
 #include "slate/slate.hh"
+#include "test.hh"
 
 ///-----------------------------------------------------------------------------
 /// Checks for common invalid parameter combinations

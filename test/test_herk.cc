@@ -7,7 +7,6 @@
 #include "test.hh"
 #include "blas/flops.hh"
 
-#include "grid_utils.hh"
 #include "matrix_utils.hh"
 #include "test_utils.hh"
 

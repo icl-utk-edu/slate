@@ -10,7 +10,6 @@
 #include "scalapack_copy.hh"
 #include "print_matrix.hh"
 
-#include "grid_utils.hh"
 #include "matrix_utils.hh"
 #include "test_utils.hh"
 

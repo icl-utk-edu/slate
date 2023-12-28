@@ -8,6 +8,7 @@
 
 #include "slate/slate.hh"
 #include "slate/generate_matrix.hh"
+#include "generate_sigma.hh"
 #include "random.hh"
 
 #include <exception>
@@ -124,13 +125,15 @@ void generate_svd(
 
     // random V, n-by-min_mn (stored column-wise in U)
     auto V = U.slice(0, n-1, 0, n-1);
+    int64_t V_mt = V.mt();
+    int64_t V_nt = V.nt();
     #pragma omp parallel
     #pragma omp master
     {
         int64_t j_global = 0;
-        for (int64_t j = 0; j < nt; ++j) {
+        for (int64_t j = 0; j < V_nt; ++j) {
             int64_t i_global = 0;
-            for (int64_t i = 0; i < mt; ++i) {
+            for (int64_t i = 0; i < V_mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task slate_omp_default_none shared( V ) \
                         firstprivate( i, j, i_global, j_global, seed )

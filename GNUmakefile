@@ -636,6 +636,7 @@ ifneq ($(only_unit),1)
         src/scale.cc \
         src/scale_row_col.cc \
         src/set.cc \
+        src/set_lambdas.cc \
         src/stedc.cc \
         src/stedc_deflate.cc \
         src/stedc_merge.cc \
@@ -698,12 +699,18 @@ ifeq ($(fortran_api),1)
         # End. Add alphabetically.
 endif
 
+# matrix generator
+libmatgen_src += \
+        matgen/generate_matrix_ge.cc \
+        matgen/generate_matrix_he_and_tz.cc \
+        matgen/generate_matrix_utils.cc \
+        matgen/matgen_label.cc \
+        matgen/random.cc \
+
 # main tester
 tester_src += \
-        test/matrix_generator.cc \
         test/matrix_params.cc \
         test/matrix_utils.cc \
-        test/random.cc \
         test/test.cc \
         test/test_add.cc \
         test/test_bdsqr.cc \
@@ -823,11 +830,12 @@ endif
 unit_test_obj = \
         unit_test/unit_test.o
 
-libslate_obj = $(addsuffix .o, $(basename $(libslate_src)))
-tester_obj   = $(addsuffix .o, $(basename $(tester_src)))
-unit_obj     = $(addsuffix .o, $(basename $(unit_src)))
-dep          = $(addsuffix .d, $(basename $(libslate_src) $(tester_src) \
-                                          $(unit_src) $(unit_test_obj)))
+libslate_obj  = $(addsuffix .o, $(basename $(libslate_src)))
+libmatgen_obj = $(addsuffix .o, $(basename $(libmatgen_src)))
+tester_obj    = $(addsuffix .o, $(basename $(tester_src)))
+unit_obj      = $(addsuffix .o, $(basename $(unit_src)))
+dep           = $(addsuffix .d, $(basename $(libslate_src) $(libmatgen_src) \
+                                           $(tester_src) $(unit_src) $(unit_test_obj)))
 
 tester    = test/tester
 unit_test = $(basename $(unit_src))
@@ -881,7 +889,7 @@ TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-TEST_LIBS    += -lslate -ltestsweeper
+TEST_LIBS    += -lslate -lslate_matgen -ltestsweeper
 ifneq (${SCALAPACK_LIBRARIES},none)
     TEST_LIBS += ${SCALAPACK_LIBRARIES}
     CXXFLAGS  += -DSLATE_HAVE_SCALAPACK
@@ -1063,6 +1071,30 @@ include/clean:
 	$(RM) include/*/*.gch test/*.gch
 
 #-------------------------------------------------------------------------------
+# libslate_matgen library
+libmatgen_a  = lib/libslate_matgen.a
+libmatgen_so = lib/libslate_matgen.so
+libmatgen    = lib/libslate_matgen.$(lib_ext)
+
+MATGEN_LDFLAGS += -L./lib
+MATGEN_LIBS    += -lslate
+
+$(libmatgen_a): $(libmatgen_obj)
+	mkdir -p lib
+	-rm $@
+	ar cr $@ $(libmatgen_obj)
+	ranlib $@
+
+$(libmatgen_so): $(libmatgen_obj) $(libslate_so)
+	mkdir -p lib
+	$(LD) $(MATGEN_LDFLAGS) $(LDFLAGS) \
+		$(libmatgen_obj) \
+		$(MATGEN_LIBS) $(LIBS) \
+		-shared $(install_name) -o $@
+
+matgen: $(libmatgen)
+
+#-------------------------------------------------------------------------------
 # main tester
 # Note 'test' is sub-directory rule; 'tester' is CMake-compatible rule.
 test: $(tester)
@@ -1071,7 +1103,7 @@ tester: $(tester)
 test/clean:
 	rm -f $(tester) $(tester_obj)
 
-$(tester): $(tester_obj) $(libslate) $(testsweeper)
+$(tester): $(tester_obj) $(libslate) $(libmatgen) $(testsweeper)
 	$(LD) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
 		$(TEST_LIBS) $(LIBS) \
 		-o $@
@@ -1297,10 +1329,11 @@ ${pkg}:
 #-------------------------------------------------------------------------------
 # general rules
 
-lib: $(libslate)
+lib: $(libslate) $(libmatgen)
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
-	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep)
+	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep) \
+			$(libmatgen_a) $(libmatgen_so) $(libmatgen_obj)
 	rm -f trace_*.svg
 
 distclean: clean
@@ -1366,6 +1399,7 @@ hooks: ${hooks}
 # Extra dependencies to force TestSweeper, BLAS++, LAPACK++ to be compiled before SLATE.
 
 $(libslate_obj):      | $(libblaspp) $(liblapackpp)
+$(libmatgen_obj):     | $(libblaspp) $(liblapackpp)
 $(tester_obj):        | $(libblaspp) $(liblapackpp)
 $(unit_test_obj):     | $(libblaspp) $(liblapackpp)
 $(unit_obj):          | $(libblaspp) $(liblapackpp)
@@ -1408,10 +1442,18 @@ echo:
 	@echo "libslate      = $(libslate)"
 	@echo "pkg           = ${pkg}"
 	@echo
+	@echo "libmatgen_a   = $(libmatgen_a)"
+	@echo "libmatgen_so  = $(libmatgen_so)"
+	@echo "libmatgen     = $(libmatgen)"
+	@echo
 	@echo "---------- Files"
 	@echo "libslate_src  = $(libslate_src)"
 	@echo
 	@echo "libslate_obj  = $(libslate_obj)"
+	@echo
+	@echo "libmatgen_src = $(libmatgen_src)"
+	@echo
+	@echo "libmatgen_obj = $(libmatgen_obj)"
 	@echo
 	@echo "tester_src    = $(tester_src)"
 	@echo

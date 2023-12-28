@@ -396,6 +396,7 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
 
         # Intel icpx options for OpenMP offload.
         target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
+	target_compile_options( slate_matgen PRIVATE "-fp-model=precise" )
         target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
 
         # Source files are set below after CUDA and HIP.

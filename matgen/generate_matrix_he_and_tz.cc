@@ -91,8 +91,8 @@ void generate_matrix(
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
-        case TestMatrixType::jordan:
-	    entry_type jordan_entry = []( int64_t i, int64_t j  ) {
+        case TestMatrixType::jordan: {
+	    entry_type jordan_entry = [A]( int64_t i, int64_t j  ) {
                 if (A.uplo() == Uplo::Lower) {	
                     return ( i == j || i + 1 == j ? 1.0 : 0.0 );
                 }
@@ -102,6 +102,7 @@ void generate_matrix(
             };
             set( jordan_entry, A, opts );
             break;
+        }
 
         case TestMatrixType::rand:
         case TestMatrixType::rands:

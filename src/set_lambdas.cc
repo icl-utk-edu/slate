@@ -122,7 +122,37 @@ void set(
     BaseTrapezoidMatrix<scalar_t>& A,
     Options const& opts )
 {
-    // TODO
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+
+    #pragma omp parallel
+    #pragma omp master
+    {
+        int64_t i_global = 0;
+        for (int64_t i = 0; i < mt; ++i) {
+            const int64_t mb = A.tileMb( i );
+            int64_t j_global = 0;
+            for (int64_t j = 0; j < nt; ++j) {
+                const int64_t nb = A.tileNb( j );
+                if (A.tileIsLocal( i, j )) {
+                    #pragma omp task slate_omp_default_none shared( A ) \
+                        firstprivate( i, j, mb, nb, i_global, j_global, value )
+                    {
+                        A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                        auto Aij = A( i, j );
+                        for (int64_t jj = 0; jj < nb; ++jj) {
+                            for (int64_t ii = 0; ii < mb; ++ii) {
+                                Aij.at( ii, jj )
+                                    = value( i_global + ii, j_global + jj );
+                            }
+                        }
+                    }
+                }
+                j_global += nb;
+            }
+            i_global += mb;
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

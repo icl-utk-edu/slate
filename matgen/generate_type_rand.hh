@@ -65,7 +65,8 @@ void generate_rand(
                         A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Aij = A(i, j);
                         slate::random::generate( rand_dist, seed,
-                                                 Aij.mb(), Aij.nb(), i_global, j_global,
+                                                 Aij.mb(), Aij.nb(),
+                                                 i_global, j_global,
                                                  Aij.data(), Aij.stride() );
 
                          // Make it diagonally dominant
@@ -90,7 +91,66 @@ void generate_rand(
         }
     }
 
-} 
+}
+
+template <typename scalar_t>
+void generate_rand(
+    BaseTrapezoidMatrix<scalar_t>& A,
+    TestMatrixType type, bool dominant, blas::real_type<scalar_t> sigma_max,
+    int64_t seed, Options const& opt )
+{
+    int64_t n = A.n();
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+
+    auto rand_dist = slate::random::Dist(int(type));
+
+    #pragma omp parallel
+    #pragma omp master
+    {
+        int64_t j_global = 0;
+        for (int64_t j = 0; j < nt; ++j) {
+            int64_t i_global = 0;
+            // lower trapezoid is [ j .. mt )
+            // upper trapezoid is [ 0 .. min( j+1, mt ) )
+            int64_t i_start = A.uplo() == Uplo::Lower ? j  : 0;
+            int64_t i_end   = A.uplo() == Uplo::Lower ? mt : std::min( j+1, mt );
+            for (int64_t i = 0; i < i_start; ++i) {
+                i_global += A.tileMb( i );
+            }
+            for (int64_t i = i_start; i < i_end; ++i) {
+                if (A.tileIsLocal( i, j )) {
+                    #pragma omp task slate_omp_default_none shared( A ) \
+                        firstprivate( i, j, j_global, i_global, dominant, \
+                                      n, sigma_max, seed, rand_dist )
+                    {
+                        A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                        auto Aij = A( i, j );
+                        slate::random::generate( rand_dist, seed,
+                                                 Aij.mb(), Aij.nb(),
+                                                 i_global, j_global,
+                                                 Aij.data(), Aij.stride() );
+
+                        // Make it diagonally dominant
+                        if (dominant && i == j) {
+                            int bound = std::min( Aij.mb(), Aij.nb() );
+                            for (int ii = 0; ii < bound; ++ii) {
+                                Aij.at( ii, ii ) += n;
+                            }
+                        }
+                        // Scale the matrix
+                        if (sigma_max != 1) {
+                            scalar_t s = sigma_max;
+                            tile::scale( s, Aij );
+                        }
+                    }
+                }
+                i_global += A.tileMb( i );
+            }
+            j_global += A.tileNb( j );
+        }
+    }
+}
 
 } // namespace slate
 

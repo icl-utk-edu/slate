@@ -91,56 +91,17 @@ void generate_matrix(
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
-        case TestMatrixType::jordan: {
-            set(zero, one, A ); // ones on diagonal
-            if (A.uplo() == Uplo::Lower) {
-                // ones on sub-diagonal
-                for (int64_t i = 0; i < nt; ++i) {
-                    // Set 1 element from sub-diagonal tile to 1.
-                    if (i > 0) {
-                        if (A.tileIsLocal(i, i-1)) {
-                            A.tileGetForWriting( i, i-1, LayoutConvert::ColMajor );
-                            auto T = A(i, i-1);
-                            T.at(0, T.nb()-1) = 1.;
-                        }
-                    }
-
-                    // Set 1 element from sub-diagonal tile to 1.
-                    if (A.tileIsLocal(i, i)) {
-                        A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
-                        auto T = A(i, i);
-                        auto len = T.nb();
-                        for (int j = 0; j < len-1; ++j) {
-                            T.at(j+1, j) = 1.;
-                        }
-                    }
+        case TestMatrixType::jordan:
+	    entry_type jordan_entry = []( int64_t i, int64_t j  ) {
+                if (A.uplo() == Uplo::Lower) {	
+                    return ( i == j || i + 1 == j ? 1.0 : 0.0 );
                 }
-            }
-            else { // upper
-                // ones on sub-diagonal
-                for (int64_t i = 0; i < nt; ++i) {
-                    // Set 1 element from sub-diagonal tile to 1.
-                    if (i > 0) {
-                        if (A.tileIsLocal(i-1, i)) {
-                            A.tileGetForWriting( i-1, i, LayoutConvert::ColMajor );
-                            auto T = A(i-1, i);
-                            T.at(T.nb()-1, 0) = 1.;
-                        }
-                    }
-
-                    // Set 1 element from sub-diagonal tile to 1.
-                    if (A.tileIsLocal(i, i)) {
-                        A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
-                        auto T = A(i, i);
-                        auto len = T.nb();
-                        for (int j = 0; j < len-1; ++j) {
-                            T.at(j, j+1) = 1.;
-                        }
-                    }
-                }
-            }
+		else { // upper
+                    return ( i == j || i + 1 == j ? 1.0 : 0.0 );
+                } 
+            };
+            set( jordan_entry, A, opts );
             break;
-        }
 
         case TestMatrixType::rand:
         case TestMatrixType::rands:

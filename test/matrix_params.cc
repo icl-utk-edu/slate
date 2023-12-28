@@ -18,8 +18,6 @@ const ParamType Output = ParamType::Output;
 
 const double inf = std::numeric_limits<double>::infinity();
 
-//std::map< std::string, int > matrix_labels;
-
 // -----------------------------------------------------------------------------
 /// Construct MatrixParams
 MatrixParams::MatrixParams():

@@ -7,7 +7,6 @@
 #include "slate/generate_matrix.hh"
 #include "random.hh"
 #include "generate_matrix_utils.hh"
-#include "testsweeper.hh"
 
 #include <exception>
 #include <string>
@@ -25,11 +24,10 @@ namespace slate {
 
 const double inf = std::numeric_limits<double>::infinity();
 
-// ANSI color codes
-using testsweeper::ansi_esc;
-using testsweeper::ansi_red;
-using testsweeper::ansi_bold;
-using testsweeper::ansi_normal;
+const char *ansi_esc = "\x1b[";
+const char *ansi_red = "\x1b[31m";
+const char *ansi_bold = "\x1b[1m";
+const char *ansi_normal = "\x1b[0m";
 
 //------------------------------------------------------------------------------
 /// Splits a string by any of the delimiters.
@@ -375,7 +373,7 @@ void decode_matrix(
              && type != TestMatrixType::geev
              && type != TestMatrixType::geevx) {
         // cond unused
-        cond = testsweeper::no_data_flag;
+        cond = nan("1234");
     }
     params.cond_actual = cond;
 

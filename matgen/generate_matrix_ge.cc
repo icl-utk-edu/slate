@@ -174,7 +174,7 @@ void generate_matrix(
         }
 
         case TestMatrixType::kms: {
-            const int64_t rho = 0.5;
+            const double rho = 0.5;
 	    entry_type kms_entry = [rho]( int64_t i, int64_t j ) {
                 return std::pow( rho, std::abs(j - i));
             };

@@ -81,8 +81,6 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    int life_factor_one = 1;
-    bool is_shared = lookahead > 0;
 
     W.block_size = ib;
     W.factorType = blockFactorType;
@@ -160,12 +158,12 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                 bcast_list_VT.push_back({k, k, {A.sub(k+1, A_mt-1, k, k)}});
 
                 A.template listBcast<target>(
-                    bcast_list_A, layout, tag_k, life_factor_one, true);
+                    bcast_list_A, layout, tag_k );
                 W.U_factors.template listBcast<target>(
-                    bcast_list_U, layout, tag_k, life_factor_one, true);
+                    bcast_list_U, layout, tag_k );
                 if (blockFactorType != BlockFactor::QR) {
                     W.VT_factors.template listBcast<target>(
-                        bcast_list_VT, layout, tag_k, life_factor_one, true);
+                        bcast_list_VT, layout, tag_k );
                 }
 
                 // Allow concurrent Bcast's
@@ -220,7 +218,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                     bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
                 A.template listBcastMT<target>(
-                  bcast_list, layout, life_factor_one, is_shared);
+                  bcast_list, layout );
             }
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
@@ -297,42 +295,34 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                         layout, priority_zero, 1);
                 }
             }
-            if (target == Target::Devices) {
-                #pragma omp task depend(inout:diag[k])
-                {
-                    if (A.tileIsLocal(k, k) && k+1 < A_nt) {
-                        std::set<int> dev_set;
-                        A.sub(k+1, A_mt-1, k, k).getLocalDevices(&dev_set);
-                        A.sub(k, k, k+1, A_nt-1).getLocalDevices(&dev_set);
 
-                        for (auto device : dev_set) {
-                            A.tileUnsetHold(k, k, device);
-                            A.tileRelease(k, k, device);
-                            W.U_factors.tileUnsetHold(k, k, device);
-                            W.U_factors.tileRelease(k, k, device);
-                            W.VT_factors.tileUnsetHold(k, k, device);
-                            W.VT_factors.tileRelease(k, k, device);
-                        }
-                    }
-                }
-                if (is_shared) {
-                    #pragma omp task depend(inout:column[k])
-                    {
-                        for (int64_t i = k+1; i < A_mt; ++i) {
-                            if (A.tileIsLocal(i, k)) {
-                                A.tileUpdateOrigin(i, k);
+            #pragma omp task depend(inout:column[k])
+            {
+                auto left_panel = A.sub( k, A_mt-1, k, k );
+                auto top_panel = A.sub( k, k, k+1, A_nt-1 );
+                auto U_k = W.U_factors.sub( k, k, k, k );
+                auto VT_k = (blockFactorType != BlockFactor::QR
+                                ? W.VT_factors.sub( k, k, k, k )
+                                : W.VT_factors.sub( 0, -1, 0, -1 ));
 
-                                std::set<int> dev_set;
-                                A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+                // Erase remote tiles on all devices including host
+                left_panel.releaseRemoteWorkspace();
+                top_panel.releaseRemoteWorkspace();
+                U_k.releaseRemoteWorkspace();
+                VT_k.releaseRemoteWorkspace();
 
-                                for (auto device : dev_set) {
-                                    A.tileUnsetHold(i, k, device);
-                                    A.tileRelease(i, k, device);
-                                }
-                            }
-                        }
-                    }
-                }
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                left_panel.tileUpdateAllOrigin();
+                top_panel.tileUpdateAllOrigin();
+                U_k.tileUpdateAllOrigin();
+                VT_k.tileUpdateAllOrigin();
+
+                // Erase local workspace on devices.
+                left_panel.releaseLocalWorkspace();
+                top_panel.releaseLocalWorkspace();
+                U_k.releaseLocalWorkspace();
+                VT_k.releaseLocalWorkspace();
             }
         }
 
@@ -410,7 +400,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                                             = s*tile_VT(ind, jj+col_offset);
                                     }
                                 }
-                                W.VT_factors.tileTick(i, i);
+                                W.VT_factors.releaseRemoteWorkspaceTile(i, i);
                             }
                         }
                         else if (W.VT_factors.tileIsLocal(i, i)) {
@@ -467,7 +457,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                                             = tile_U(ii+row_offset, ind);
                                     }
                                 }
-                                W.U_factors.tileTick(i, i);
+                                W.U_factors.releaseRemoteWorkspaceTile(i, i);
                             }
                         }
                         else if (W.U_factors.tileIsLocal(i, i)) {

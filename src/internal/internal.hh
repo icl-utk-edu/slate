@@ -359,8 +359,7 @@ void trsm_addmod(Side side, Uplo uplo, scalar_t alpha,
                  std::vector<blas::real_type<scalar_t>>&& S,
                  Matrix<scalar_t>&& B,
                  BlockFactor blockFactorType, int64_t ib,
-                 int priority=0, Layout layout=Layout::ColMajor, int64_t queue_index=0,
-                 Options const& opts = Options());
+                 int priority=0, Layout layout=Layout::ColMajor, int64_t queue_index=0 );
 
 //-----------------------------------------
 // trsmA_addmod()

@@ -88,19 +88,6 @@ void trsm_addmod(Side side, Uplo uplo,
     const int priority_one  = 1;
     const int priority_zero = 0;
 
-    Options opts2 = opts;
-
-    // Requires 2+lookahead queues
-    if (target == Target::Devices) {
-        assert(B.numComputeQueues() >= 2+lookahead);
-
-        // Use only TileReleaseStrategy::Slate for trsm_addmod.
-        // Internal routines (trsm_addmod and gemm) called here
-        // won't release any tiles. Trsm will
-        // clean up tiles.
-        opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-    }
-
     const int64_t queue_0 = 0;
     const int64_t queue_1 = 1;
 
@@ -127,7 +114,7 @@ void trsm_addmod(Side side, Uplo uplo,
                              VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(k, k, 0, nt-1),
-                        blockFactorType, ib, priority_one, layout, queue_1, opts2);
+                        blockFactorType, ib, priority_one, layout, queue_1 );
 
                     // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -154,7 +141,7 @@ void trsm_addmod(Side side, Uplo uplo,
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, 0, nt-1),
                             alph, B.sub(i, i, 0, nt-1),
-                            layout, priority_one, i-k+1, opts2);
+                            layout, priority_one, i-k+1 );
                     }
                 }
 
@@ -172,7 +159,7 @@ void trsm_addmod(Side side, Uplo uplo,
                             -one, A.sub(k+1+lookahead, mt-1, k, k),
                                   B.sub(k, k, 0, nt-1),
                             alph, B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                            layout, priority_zero, queue_0, opts2);
+                            layout, priority_zero, queue_0 );
                     }
                 }
 
@@ -217,7 +204,7 @@ void trsm_addmod(Side side, Uplo uplo,
                              VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(k, k, 0, nt-1),
-                        blockFactorType, ib, priority_one, layout, queue_1, opts2);
+                        blockFactorType, ib, priority_one, layout, queue_1 );
 
                     // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -241,7 +228,7 @@ void trsm_addmod(Side side, Uplo uplo,
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, 0, nt-1),
                             alph, B.sub(i, i, 0, nt-1),
-                            layout, priority_one, i-k+lookahead+2, opts2);
+                            layout, priority_one, i-k+lookahead+2 );
                     }
                 }
 
@@ -258,7 +245,7 @@ void trsm_addmod(Side side, Uplo uplo,
                             -one, A.sub(0, k-1-lookahead, k, k),
                                   B.sub(k, k, 0, nt-1),
                             alph, B.sub(0, k-1-lookahead, 0, nt-1),
-                            layout, priority_zero, queue_0, opts2);
+                            layout, priority_zero, queue_0 );
                     }
                 }
 
@@ -303,7 +290,7 @@ void trsm_addmod(Side side, Uplo uplo,
                              VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(0, mt-1, k, k),
-                        blockFactorType, ib, priority_one, layout, queue_1, opts2);
+                        blockFactorType, ib, priority_one, layout, queue_1 );
 
                     // send A(k, j=0:k-1) to ranks owning block column B(:, j)
                     BcastList bcast_list_A;
@@ -327,7 +314,7 @@ void trsm_addmod(Side side, Uplo uplo,
                             -one, B.sub(0, mt-1, k, k),
                                   A.sub(k, k, j, j),
                             alph, B.sub(0, mt-1, j, j),
-                            layout, priority_one, j-k+lookahead+2, opts2);
+                            layout, priority_one, j-k+lookahead+2 );
                     }
                 }
 
@@ -344,7 +331,7 @@ void trsm_addmod(Side side, Uplo uplo,
                             -one, B.sub(0, mt-1, k, k),
                                   A.sub(k, k, 0, k-1-lookahead),
                             alph, B.sub(0, mt-1, 0, k-1-lookahead),
-                            layout, priority_zero, queue_0, opts2);
+                            layout, priority_zero, queue_0 );
                     }
                 }
 
@@ -389,7 +376,7 @@ void trsm_addmod(Side side, Uplo uplo,
                               VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(0, mt-1, k, k),
-                        blockFactorType, ib, priority_one, layout, queue_1, opts2);
+                        blockFactorType, ib, priority_one, layout, queue_1 );
 
                     // send A(k, j=k+1:nt-1) to ranks owning block column B(:, j)
                     BcastList bcast_list_A;
@@ -416,7 +403,7 @@ void trsm_addmod(Side side, Uplo uplo,
                             -one, B.sub(0, mt-1, k, k),
                                   A.sub(k, k, j, j),
                             alph, B.sub(0, mt-1, j, j),
-                            layout, priority_one, j-k+1, opts2);
+                            layout, priority_one, j-k+1 );
                     }
                 }
 
@@ -434,7 +421,7 @@ void trsm_addmod(Side side, Uplo uplo,
                             -one, B.sub(0, mt-1, k, k),
                                   A.sub(k, k, k+1+lookahead, nt-1),
                             alph, B.sub(0, mt-1, k+1+lookahead, nt-1),
-                            layout, priority_zero, queue_0, opts2);
+                            layout, priority_zero, queue_0 );
                     }
                 }
 

@@ -1737,7 +1737,7 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool p
 
 //------------------------------------------------------------------------------
 /// Send tile {i, j} of op(A) to the given MPI rank.
-/// Destination rank must call tileRecv().
+/// Destination rank must call tileRecv() or tileIrecv().
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1766,7 +1766,7 @@ void BaseMatrix<scalar_t>::tileSend(
 
 //------------------------------------------------------------------------------
 /// Immediately send tile {i, j} of op(A) to the given MPI rank.
-/// Destination rank must call tileRecv().
+/// Destination rank must call tileRecv() or tileIrecv().
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1804,7 +1804,7 @@ void BaseMatrix<scalar_t>::tileIsend(
 //------------------------------------------------------------------------------
 /// Receive tile {i, j} of op(A) to the given MPI rank.
 /// Tile is allocated as workspace if it doesn't yet exist.
-/// Source rank must call tileSend().
+/// Source rank must call tileSend() or tileIsend().
 /// Data received must be in 'layout' (ColMajor/RowMajor) major.
 ///
 /// Note that when target=Devices and non-GPU-aware MPI is used, an OpenMP task
@@ -1858,8 +1858,10 @@ void BaseMatrix<scalar_t>::tileRecv(
 //------------------------------------------------------------------------------
 /// Receive tile {i, j} of op(A) to the given MPI rank using immediate mode..
 /// Tile is allocated as workspace if it doesn't yet exist.
-/// Source rank must call tileSend().
+/// Source rank must call tileSend() or tileIsend().
 /// Data received must be in 'layout' (ColMajor/RowMajor) major.
+///
+/// For non-GPU-aware MPI, Irecv currently can't respect the target.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1876,7 +1878,6 @@ void BaseMatrix<scalar_t>::tileRecv(
 ///
 /// @param[in] tag
 ///     MPI tag
-///
 ///
 /// @param[out] request
 ///     MPI request object
@@ -1900,8 +1901,7 @@ void BaseMatrix<scalar_t>::tileIrecv(
 
         tileModified( i, j, recv_dev, true );
 
-        // For non-GPU-aware MPI, Irecv currently can't respect the target
-        // TODO Investigate the use of generalized recieves
+        // TODO Investigate the use of generalized receives to support target.
     }
     else {
         *request = MPI_REQUEST_NULL;

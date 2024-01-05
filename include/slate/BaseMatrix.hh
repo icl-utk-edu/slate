@@ -494,6 +494,7 @@ public:
     void tileRecv(int64_t i, int64_t j, int dst_rank,
                   Layout layout, int tag = 0);
 
+    template <Target target = Target::Host>
     void tileIrecv(int64_t i, int64_t j, int dst_rank,
                   Layout layout, int tag, MPI_Request* request);
 
@@ -1736,7 +1737,7 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool p
 
 //------------------------------------------------------------------------------
 /// Send tile {i, j} of op(A) to the given MPI rank.
-/// Destination rank must call tileRecv().
+/// Destination rank must call tileRecv() or tileIrecv().
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1758,16 +1759,14 @@ template <Target target>
 void BaseMatrix<scalar_t>::tileSend(
     int64_t i, int64_t j, int dst_rank, int tag)
 {
-    if (dst_rank != mpiRank()) {
-        // todo: need to acquire read access lock to TileNode(i, j)
-        tileGetForReading(i, j, LayoutConvert::None);
-        at(i, j).send(dst_rank, mpiComm(), tag);
-    }
+    MPI_Request request;
+    tileIsend<target>( i, j, dst_rank, tag, &request );
+    slate_mpi_call( MPI_Wait( &request, MPI_STATUS_IGNORE ) );
 }
 
 //------------------------------------------------------------------------------
 /// Immediately send tile {i, j} of op(A) to the given MPI rank.
-/// Destination rank must call tileRecv().
+/// Destination rank must call tileRecv() or tileIrecv().
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1805,8 +1804,11 @@ void BaseMatrix<scalar_t>::tileIsend(
 //------------------------------------------------------------------------------
 /// Receive tile {i, j} of op(A) to the given MPI rank.
 /// Tile is allocated as workspace if it doesn't yet exist.
-/// Source rank must call tileSend().
+/// Source rank must call tileSend() or tileIsend().
 /// Data received must be in 'layout' (ColMajor/RowMajor) major.
+///
+/// Note that when target=Devices and non-GPU-aware MPI is used, an OpenMP task
+/// may be created to copy the tile to device.
 ///
 /// @tparam target
 ///     Destination to target; either Host (default) or Device.
@@ -1832,21 +1834,22 @@ template <Target target>
 void BaseMatrix<scalar_t>::tileRecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag)
 {
-    if (src_rank != mpiRank()) {
-        storage_->tilePrepareToReceive( globalIndex( i, j ), layout );
-        tileAcquire(i, j, layout);
+    MPI_Request request;
+    tileIrecv<target>( i, j, src_rank, layout, tag, &request );
+    slate_mpi_call( MPI_Wait( &request, MPI_STATUS_IGNORE ) );
 
-        // Receive data.
-        at(i, j).recv(src_rank, mpiComm(), layout, tag);
+    // Copy to devices if not using GPU-aware MPI.
+    if (target == Target::Devices) {
+        int recv_dev = tileDevice( i, j );
+        auto ijdev = globalIndex( i, j, recv_dev );
 
-        tileModified( i, j, HostNum, true );
+        if (!storage_->tileExists( ijdev )
+            || storage_->tileState( ijdev ) == MOSI::Invalid ) {
 
-        // Copy to devices.
-        if (target == Target::Devices) {
             #pragma omp task slate_omp_default_none \
-                firstprivate( i, j )
+                firstprivate( i, j, recv_dev )
             {
-                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
+                tileGetForReading(i, j, recv_dev, LayoutConvert::None);
             }
         }
     }
@@ -1855,8 +1858,10 @@ void BaseMatrix<scalar_t>::tileRecv(
 //------------------------------------------------------------------------------
 /// Receive tile {i, j} of op(A) to the given MPI rank using immediate mode..
 /// Tile is allocated as workspace if it doesn't yet exist.
-/// Source rank must call tileSend().
+/// Source rank must call tileSend() or tileIsend().
 /// Data received must be in 'layout' (ColMajor/RowMajor) major.
+///
+/// For non-GPU-aware MPI, Irecv currently can't respect the target.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1874,22 +1879,29 @@ void BaseMatrix<scalar_t>::tileRecv(
 /// @param[in] tag
 ///     MPI tag
 ///
-///
 /// @param[out] request
 ///     MPI request object
 ///
 template <typename scalar_t>
+template <Target target>
 void BaseMatrix<scalar_t>::tileIrecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag, MPI_Request* request)
 {
     if (src_rank != mpiRank()) {
-        storage_->tilePrepareToReceive( globalIndex( i, j ), layout );
-        tileAcquire(i, j, layout);
+        int recv_dev = HostNum;
+        if (target == Target::Devices && gpu_aware_mpi()) {
+            recv_dev = tileDevice( i, j );
+        }
+
+        storage_->tilePrepareToReceive( globalIndex( i, j ), recv_dev, layout );
+        tileAcquire(i, j, recv_dev, layout);
 
         // Receive data.
-        at(i, j).irecv(src_rank, mpiComm(), layout, tag, request);
+        at(i, j, recv_dev).irecv(src_rank, mpiComm(), layout, tag, request);
 
-        tileModified(i, j, HostNum, true);
+        tileModified( i, j, recv_dev, true );
+
+        // TODO Investigate the use of generalized receives to support target.
     }
     else {
         *request = MPI_REQUEST_NULL;
@@ -1997,9 +2009,12 @@ void BaseMatrix<scalar_t>::listBcast(
 
         // If this rank is in the set.
         if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
-
             // If receiving the tile.
-            storage_->tilePrepareToReceive( globalIndex( i, j ), layout_ );
+            int device = HostNum;
+            if (target == Target::Devices && gpu_aware_mpi()) {
+                device = tileDevice( i, j );
+            }
+            storage_->tilePrepareToReceive( globalIndex( i, j ), device, layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -2139,7 +2154,11 @@ void BaseMatrix<scalar_t>::listBcastMT(
             // If this rank is in the set.
             if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
                 // If receiving the tile.
-                storage_->tilePrepareToReceive( globalIndex( i, j ), layout_ );
+                int device = HostNum;
+                if (target == Target::Devices && gpu_aware_mpi()) {
+                    device = tileDevice( i, j );
+                }
+                storage_->tilePrepareToReceive( globalIndex( i, j ), device, layout_ );
 
                 // Send across MPI ranks.
                 // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -2210,83 +2229,6 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
             }
         }
     }
-}
-
-//------------------------------------------------------------------------------
-/// @deprecated
-/// [internal]
-/// Broadcast tile {i, j} to all MPI ranks in the bcast_set.
-/// This should be called by all (and only) ranks that are in bcast_set,
-/// as either the root sender or a receiver.
-/// This implementation creates a subcommunicator and calls MPI broadcast.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] bcast_set
-///     Set of MPI ranks to broadcast to.
-///
-// todo: use the commFromSet() function from slate_internal_comm.cc
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileBcastToSet(
-    int64_t i, int64_t j, std::set<int> const& bcast_set)
-{
-    // this function does not use tags, kept for reference
-    assert(false);  // This variant of tileBcastToSet() is obsolete
-
-    // Quit if only root in the broadcast set.
-    if (bcast_set.size() == 1)
-        return;
-
-    // Convert the set of ranks to a vector.
-    std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
-
-    // Create the broadcast group.
-    MPI_Group bcast_group;
-    #pragma omp critical(slate_mpi)
-    slate_mpi_call(
-        MPI_Group_incl(mpi_group_, bcast_vec.size(), bcast_vec.data(),
-                       &bcast_group));
-
-    // Create a broadcast communicator.
-    int tag = 0;
-    MPI_Comm bcast_comm;
-    #pragma omp critical(slate_mpi)
-    {
-        trace::Block trace_block("MPI_Comm_create_group");
-        slate_mpi_call(
-            MPI_Comm_create_group(mpi_comm_, bcast_group, tag, &bcast_comm));
-    }
-    assert(bcast_comm != MPI_COMM_NULL);
-
-    // Find the broadcast rank.
-    int bcast_rank;
-    #pragma omp critical(slate_mpi)
-    MPI_Comm_rank(bcast_comm, &bcast_rank);
-
-    // Find the broadcast root rank.
-    int root_rank = tileRank(i, j);
-    int bcast_root;
-    #pragma omp critical(slate_mpi)
-    slate_mpi_call(
-        MPI_Group_translate_ranks(mpi_group_, 1, &root_rank,
-                                  bcast_group, &bcast_root));
-
-    // Do the broadcast.
-    at(i, j).bcast(bcast_root, bcast_comm);
-
-    // Free the group.
-    #pragma omp critical(slate_mpi)
-    slate_mpi_call(
-        MPI_Group_free(&bcast_group));
-
-    // Free the communicator.
-    #pragma omp critical(slate_mpi)
-    slate_mpi_call(
-        MPI_Comm_free(&bcast_comm));
 }
 
 //------------------------------------------------------------------------------

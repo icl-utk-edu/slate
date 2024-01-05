@@ -306,7 +306,7 @@ void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag)
         for (int64_t i = istart; i <= iend; ++i) {
 
             // If receiving the tile.
-            this->storage_->tilePrepareToReceive( this->globalIndex( i, j ),
+            this->storage_->tilePrepareToReceive( this->globalIndex( i, j ), HostNum,
                                                   this->layout_ );
 
             // Send across MPI ranks.

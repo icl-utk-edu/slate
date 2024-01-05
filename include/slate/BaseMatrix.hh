@@ -483,10 +483,15 @@ public:
     void tileRelease( int64_t i, int64_t j, int device=HostNum );
 
     //--------------------------------------------------------------------------
-    template <Target target = Target::Host>
     void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
 
-    template <Target target = Target::Host>
+    template <Target target>
+    [[deprecated( "Setting the Target of tileSend is deprecated. Will be removed 2024-12." )]]
+    void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0)
+    {
+        tileSend( i, j, dst_rank, tag );
+    }
+
     void tileIsend(int64_t i, int64_t j, int dst_rank,
                    int tag, MPI_Request* request);
 
@@ -1755,12 +1760,11 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool p
 ///     MPI tag, default 0.
 ///
 template <typename scalar_t>
-template <Target target>
 void BaseMatrix<scalar_t>::tileSend(
     int64_t i, int64_t j, int dst_rank, int tag)
 {
     MPI_Request request;
-    tileIsend<target>( i, j, dst_rank, tag, &request );
+    tileIsend( i, j, dst_rank, tag, &request );
     slate_mpi_call( MPI_Wait( &request, MPI_STATUS_IGNORE ) );
 }
 
@@ -1787,14 +1791,34 @@ void BaseMatrix<scalar_t>::tileSend(
 ///     Pointer to an MPI_Request struct
 ///
 template <typename scalar_t>
-template <Target target>
 void BaseMatrix<scalar_t>::tileIsend(
     int64_t i, int64_t j, int dst_rank, int tag, MPI_Request* request)
 {
     if (dst_rank != mpiRank()) {
-        //todo: need to qcquire read access lock to TileNode(i, j)
-        tileGetForReading(i, j, LayoutConvert::None);
-        at(i, j).isend(dst_rank, mpiComm(), tag, request);
+        //todo: need to acquire read access lock to TileNode(i, j)
+
+        int send_dev = HostNum;
+        if (gpu_aware_mpi()) {
+            // If we have GPU aware MPI, we can use any existing valid tile
+            auto& tile_node = storage_->at(globalIndex(i, j));
+            // acquire read access to the (i, j) TileNode
+            LockGuard guard(tile_node.getLock());
+
+            // find a valid source (Modified/Shared) tile
+            for (int d = HostNum; d < num_devices(); ++d) {
+                if (tile_node.existsOn(d)) {
+                    if (tile_node[d]->state() != MOSI::Invalid) {
+                        send_dev = d;
+                        break;
+                    }
+                }
+            }
+        }
+        else {
+            tileGetForReading(i, j, LayoutConvert::None);
+        }
+
+        at(i, j, send_dev).isend(dst_rank, mpiComm(), tag, request);
     }
     else {
         *request = MPI_REQUEST_NULL;

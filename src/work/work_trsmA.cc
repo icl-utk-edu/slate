@@ -229,9 +229,10 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 else {
                     const int root = A.tileRank(k, k);
 
+                    #pragma omp taskgroup
                     for (int64_t j = 0; j < nt; ++j) {
                         if (B.tileIsLocal(k, j)) {
-                            B.tileRecv(k, j, root, layout);
+                            B.template tileRecv<target>(k, j, root, layout);
                         }
                     }
                 }
@@ -384,9 +385,10 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 else {
                     const int root = A.tileRank(k, k);
 
+                    #pragma omp taskgroup
                     for (int64_t j = 0; j < nt; ++j) {
                         if (B.tileIsLocal(k, j)) {
-                            B.tileRecv(k, j, root, layout);
+                            B.template tileRecv<target>(k, j, root, layout);
                         }
                     }
                 }

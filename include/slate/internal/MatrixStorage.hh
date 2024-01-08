@@ -570,7 +570,7 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::initQueues()
 {
-    comm_queues_   .resize(num_devices());
+    comm_queues_.resize(num_devices());
 
     compute_queues_.resize(1);
     compute_queues_.at(0).resize(num_devices(), nullptr);

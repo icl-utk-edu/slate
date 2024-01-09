@@ -165,10 +165,6 @@ public:
     template <typename TileType>
     friend TileType conj_transpose( TileType& A );
 
-    /// @deprecated
-    template <typename TileType>
-    friend TileType conjTranspose( TileType& A );
-
     /// Returns number of rows of op(A), where A is this tile
     int64_t mb() const { return (op_ == Op::NoTrans ? mb_ : nb_); }
 
@@ -362,8 +358,11 @@ public:
         return false;
     }
 
+    Tile<scalar_t> slice(
+        Op op, int64_t i, int64_t j, int64_t mb, int64_t nb, Uplo uplo);
+
 protected:
-    // BaseMatrix sets mb, nb, offset.
+    // BaseMatrix sets tile state
     template <typename T>
     friend class BaseMatrix;
 
@@ -372,11 +371,6 @@ protected:
     friend class TileNode;
     template <typename T>
     friend class MatrixStorage;
-
-
-    void mb(int64_t in_mb);
-    void nb(int64_t in_nb);
-    void offset(int64_t i, int64_t j);
 
     void state(MOSI_State stateIn)
     {
@@ -662,81 +656,68 @@ Uplo Tile<scalar_t>::uploPhysical() const
 }
 
 //------------------------------------------------------------------------------
-/// Sets number of rows of op(A), where A is this tile.
+/// Creates a tile with the same data that slices the view of this tile.
 ///
-/// @param[in] in_mb
-///     New number of rows. 0 <= in_mb <= mb.
+/// Specifically offsets the data pointer to op(A)(i, j), where this is this
+/// tile, sets the number of rows and columns to mb, and sets uplo to uplo
 ///
-template <typename scalar_t>
-void Tile<scalar_t>::mb(int64_t in_mb)
-{
-    slate_assert(0 <= in_mb && in_mb <= mb());
-    if (op_ == Op::NoTrans)
-        mb_ = in_mb;
-    else
-        nb_ = in_mb;
-}
-
-//------------------------------------------------------------------------------
-/// Sets number of cols of op(A), where A is this tile.
-///
-/// @param[in] in_nb
-///     New number of cols. 0 <= in_nb <= nb.
-///
-template <typename scalar_t>
-void Tile<scalar_t>::nb(int64_t in_nb)
-{
-    slate_assert(0 <= in_nb && in_nb <= nb());
-    if (op_ == Op::NoTrans)
-        nb_ = in_nb;
-    else
-        mb_ = in_nb;
-}
-
-//------------------------------------------------------------------------------
-/// Offsets data pointer to op(A)(i, j), where A is this tile.
+/// @param[in] op
+///     Whether the matrix is transposed or not
 ///
 /// @param[in] i
-///     Row offset. 0 <= i < mb.
+///     Row offset. 0 <= i <= i+mb < this->mb.
 ///
 /// @param[in] j
-///     Col offset. 0 <= j < nb.
+///     Col offset. 0 <= j <= j+nb < this->nb.
+///
+/// @param[in] mb
+///     Number of rows. 0 <= mb <= this->mb.
+///
+/// @param[in] nb
+///     Number of columns. 0 <= nb <= this->nb.
+///
+/// @param[in] uplo
+///     Upper, lower, or general storage flag
 ///
 template <typename scalar_t>
-void Tile<scalar_t>::offset(int64_t i, int64_t j)
+Tile<scalar_t> Tile<scalar_t>::slice(
+    Op op, int64_t i, int64_t j, int64_t mb, int64_t nb, Uplo uplo)
 {
-    slate_assert(0 <= i && i < mb());
-    slate_assert(0 <= j && j < nb());
+    assert(0 <= i && 0 <= mb && i + mb <= mb_);
+    assert(0 <= j && 0 <= nb && j + nb <= nb_);
 
-    if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor)) {
-        data_ = &data_[ i + j*stride_ ];
+    auto out = *this;
+
+    out.op_ = op;
+    out.mb_ = mb;
+    out.nb_ = nb;
+    out.uplo_ = uplo;
+
+    if (layout_ == Layout::ColMajor) {
+        out.data_ = &data_[ i + j*stride_ ];
     }
     else {
-        data_ = &data_[ j + i*stride_ ];
+        out.data_ = &data_[ j + i*stride_ ];
     }
 
-    if ((op_ == Op::NoTrans) == (user_layout_ == Layout::ColMajor)) {
-        user_data_ = &user_data_[ i + j*user_stride_ ];
+    if (user_layout_ == Layout::ColMajor) {
+        out.user_data_ = &user_data_[ i + j*user_stride_ ];
         if (ext_data_ != nullptr) {
-            ext_data_ = &ext_data_[ j + i*nb_];
+            out.ext_data_ = &ext_data_[ j + i*nb_];
         }
     }
     else {
-        user_data_ = &user_data_[ j + i*user_stride_ ];
+        out.user_data_ = &user_data_[ j + i*user_stride_ ];
         if (ext_data_ != nullptr) {
-            ext_data_ = &ext_data_[ i + j*mb_];
+            out.ext_data_ = &ext_data_[ i + j*mb_];
         }
     }
+
+    return out;
 }
 
 //------------------------------------------------------------------------------
 /// Set's the tile's layout, updating the stride and front buffer as need be
-///
-/// @param[in] i
-///     Row offset. 0 <= i < mb.
-///
-/// @param[in] j
-///     Col offset. 0 <= j < nb.
 ///
 template <typename scalar_t>
 void Tile<scalar_t>::setLayout(Layout new_layout)

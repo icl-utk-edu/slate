@@ -92,6 +92,7 @@ public:
 
     int64_t getMaxHostTiles();
     int64_t getMaxDeviceTiles(int device);
+    int64_t getMaxDeviceTiles();
     void allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1);
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
@@ -597,6 +598,27 @@ int64_t BaseTrapezoidMatrix<scalar_t>::getMaxDeviceTiles(int device)
 }
 
 //------------------------------------------------------------------------------
+/// Returns number of local tiles of the matrix on this rank and given device.
+template <typename scalar_t>
+int64_t BaseTrapezoidMatrix<scalar_t>::getMaxDeviceTiles()
+{
+    std::vector<int64_t> num_tiles( this->num_devices() );
+    if (this->uplo() == Uplo::Lower) {
+        for (int64_t j = 0; j < this->nt(); ++j)
+            for (int64_t i = j; i < this->mt(); ++i)  // lower
+                if (this->tileIsLocal(i, j))
+                    num_tiles[ this->tileDevice( i, j ) ] += 1;
+    }
+    else {
+        for (int64_t j = 0; j < this->nt(); ++j)
+            for (int64_t i = 0; i <= j && i < this->mt(); ++i)  // upper
+                if (this->tileIsLocal(i, j))
+                    num_tiles[ this->tileDevice( i, j ) ] += 1;
+    }
+    return *std::max_element( num_tiles.begin(), num_tiles.end() );
+}
+
+//------------------------------------------------------------------------------
 /// Allocates batch arrays and BLAS++ queues for all devices.
 /// This overrides BaseMatrix::allocateBatchArrays
 /// to use the number of local tiles inside the upper or lower trapezoid.
@@ -615,8 +637,7 @@ void BaseTrapezoidMatrix<scalar_t>::allocateBatchArrays(
     int64_t batch_size, int64_t num_arrays)
 {
     if (batch_size == 0) {
-        for (int device = 0; device < this->num_devices(); ++device)
-            batch_size = std::max(batch_size, getMaxDeviceTiles(device));
+        batch_size = getMaxDeviceTiles();
     }
     this->storage_->allocateBatchArrays(batch_size, num_arrays);
 }
@@ -634,10 +655,7 @@ void BaseTrapezoidMatrix<scalar_t>::reserveHostWorkspace()
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::reserveDeviceWorkspace()
 {
-    int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices(); ++device)
-        num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    this->storage_->reserveDeviceWorkspace(num_tiles);
+    this->storage_->reserveDeviceWorkspace( getMaxDeviceTiles() );
 }
 
 //------------------------------------------------------------------------------
@@ -768,7 +786,7 @@ template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 {
     int64_t mt = this->mt();
-    std::vector< std::set<ij_tuple> > tiles_set_host(this->num_devices());
+    std::set<ij_tuple> tiles_set_host;
     std::vector< std::set<ij_tuple> > tiles_set_dev(this->num_devices());
 
     for (int64_t j = 0; j < this->nt(); ++j) {
@@ -784,14 +802,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
                     && tile_node[ HostNum ]->origin()) {
                     if (tile_node[ HostNum ]->stateOn( MOSI::Invalid )) {
                         // tileGetForReading(i, j, LayoutConvert::None);
-                        for (int d = 0; d < this->num_devices(); ++d) {
-                            if (tile_node.existsOn(d)
-                                && tile_node[d]->state() != MOSI::Invalid)
-                            {
-                                tiles_set_host[d].insert({i, j});
-                                break;
-                            }
-                        }
+                        tiles_set_host.insert({i, j});
                     }
                 }
                 else {
@@ -813,14 +824,13 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 
     #pragma omp taskgroup
     {
-        for (int d = 0; d < this->num_devices(); ++d) {
-            if (! tiles_set_host[d].empty()) {
-                #pragma omp task slate_omp_default_none \
-                    firstprivate( d ) shared( tiles_set_host )
-                {
-                    this->tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
-                }
+        if (! tiles_set_host.empty()) {
+            #pragma omp task slate_omp_default_none shared( tiles_set_host )
+            {
+                this->tileGetForReading(tiles_set_host, LayoutConvert::None);
             }
+        }
+        for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
                 #pragma omp task slate_omp_default_none \
                     firstprivate( d ) shared( tiles_set_dev )

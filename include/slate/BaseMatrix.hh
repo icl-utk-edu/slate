@@ -144,10 +144,6 @@ public:
     template<typename MatrixType>
     friend MatrixType conj_transpose( MatrixType& A );
 
-    /// @deprecated
-    template<typename MatrixType>
-    friend MatrixType conjTranspose( MatrixType& A );
-
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
 
@@ -378,8 +374,12 @@ public:
     {
         tileGetForReading( tile_set, HostNum, layout );
     }
+    [[deprecated( "tileGetForReading no longer obeys from_device. Will be removed 2024-10." )]]
     void tileGetForReading(std::set<ij_tuple>& tile_set, LayoutConvert layout,
-                            int from_device);
+                            int from_device)
+    {
+        tileGetForReading( tile_set, layout );
+    }
 
     void tileGetAllForReading(int device, LayoutConvert layout);
 
@@ -627,9 +627,6 @@ public:
     int       mpiRank()  const { return mpi_rank_; }
     MPI_Group mpiGroup() const { return mpi_group_; }
 
-    [[deprecated("use slate::HostNum constant")]]
-    int       hostNum()  const { return HostNum; }
-
     /// Removes all tiles from matrix.
     /// WARNING: currently this clears the entire parent matrix,
     /// not just a sub-matrix.
@@ -697,24 +694,17 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return batch arrays for the A, B, or C matrices,
-    /// on host, to send to device
+    /// @return batch arrays on host, to send to device
     scalar_t** array_host(int device, int64_t batch_arrays_index=0)
     {
-        assert(batch_arrays_index >= 0);
-        std::vector< scalar_t** >& array = storage_->array_host_.at(
-                                                            batch_arrays_index);
-        return array.at(device);
+        return storage_->batchArrayHost( device, batch_arrays_index );
     }
 
     //--------------------------------------------------------------------------
-    /// @return batch arrays for the A, B, or C matrices, on device
+    /// @return batch arrays on device
     scalar_t** array_device(int device, int64_t batch_arrays_index=0)
     {
-        assert(batch_arrays_index >= 0);
-        std::vector< scalar_t** >& array = storage_->array_dev_.at(
-                                                            batch_arrays_index);
-        return array.at(device);
+        return storage_->batchArrayDevice( device, batch_arrays_index );
     }
 
     //--------------------------------------------------------------------------
@@ -725,7 +715,7 @@ public:
     ///
     lapack::Queue* comm_queue(int device)
     {
-        return storage_->comm_queues_.at(device);
+        return storage_->comm_queue( device );
     }
 
     //--------------------------------------------------------------------------
@@ -739,9 +729,7 @@ public:
     ///
     lapack::Queue* compute_queue(int device, int queue_index=0)
     {
-        assert((queue_index >= 0) &&
-               (queue_index < int(storage_->compute_queues_.size())));
-        return storage_->compute_queues_.at(queue_index).at(device);
+        return storage_->compute_queue( device, queue_index );
     }
 
     //--------------------------------------------------------------------------
@@ -749,7 +737,7 @@ public:
     ///
     int numComputeQueues()
     {
-        return int(storage_->compute_queues_.size());
+        return storage_->num_compute_queues();
     }
 
 protected:
@@ -1366,30 +1354,13 @@ template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
 {
-    auto tile = *(storage_->at( globalIndex(i, j, device) ));
-
-    // Set op first, before setting offset, mb, nb!
-    tile.op(op_);
-
-    // Set row & col offset within first block-row & block-col; before mb, nb!
-    if (op_ == Op::NoTrans) {
-        tile.offset(i == 0 ? row0_offset_ : 0,
-                    j == 0 ? col0_offset_ : 0);
+    if (op_ != Op::NoTrans) {
+        std::swap( i, j );
     }
-    else {
-        tile.offset(i == 0 ? col0_offset_ : 0,
-                    j == 0 ? row0_offset_ : 0);
-    }
-
-    // Set tile size.
-    tile.mb(tileMb(i));
-    tile.nb(tileNb(j));
-
-    // Set uplo on diagonal tile (off-diagonal tiles are always general).
-    if (i == j)
-        tile.uplo(uplo_);
-
-    return tile;
+    auto* tile = storage_->at( { ioffset_+i, joffset_+j, device } );
+    return tile->slice( op_, (i == 0 ? row0_offset_ : 0), (j == 0 ? col0_offset_ : 0),
+                        tileMbInternal( i ), tileNbInternal( j ),
+                        (i == j ? uplo_ : Uplo::General) );
 }
 
 //------------------------------------------------------------------------------
@@ -2837,31 +2808,6 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
 }
 
 //------------------------------------------------------------------------------
-/// Gets a set of tiles for reading on host from a specific device.
-/// @see tileGetForReading
-///
-/// @param[in] tile_set
-///     Set of (i, j) tuples indicating indices of Tiles' to be acquired.
-///     Tiles should exist on the specified device.
-///
-/// @param[in] layout
-///     Indicates whether to convert the Layout of the received data:
-///     - ColMajor: convert layout to column major.
-///     - RowMajor: convert layout to row major.
-///     - None: do not convert layout.
-///
-/// @param[in] from_device
-///     Tiles' source device ID.
-///
-// todo: async version
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
-                                             LayoutConvert layout, int from_device)
-{
-    tileGet( tile_set, HostNum, layout, false, false, false );
-}
-
-//------------------------------------------------------------------------------
 /// Gets tile(i, j) for writing on device.
 /// Sets destination tile's state to MOSI::Modified.
 /// Will copy-in the tile if it does not exist or its state is MOSI::Invalid.
@@ -3211,7 +3157,7 @@ Tile<scalar_t> BaseMatrix<scalar_t>::tileUpdateOrigin(int64_t i, int64_t j)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 {
-    std::vector< std::set<ij_tuple> > tiles_set_host(num_devices());
+    std::set<ij_tuple> tiles_set_host;
     std::vector< std::set<ij_tuple> > tiles_set_dev(num_devices());
     for (int64_t j = 0; j < this->nt(); ++j) {
         for (int64_t i = 0; i < this->mt(); ++i) {
@@ -3224,14 +3170,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
                     && tile_node[ HostNum ]->origin()) {
                     if (tile_node[ HostNum ]->stateOn(MOSI::Invalid)) {
                         // tileGetForReading(i, j, LayoutConvert::None);
-                        for (int d = 0; d < num_devices(); ++d) {
-                            if (tile_node.existsOn(d)
-                                && tile_node[d]->state() != MOSI::Invalid)
-                            {
-                                tiles_set_host[d].insert({i, j});
-                                break;
-                            }
-                        }
+                        tiles_set_host.insert({i, j});
                     }
                 }
                 else {
@@ -3253,14 +3192,13 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 
     #pragma omp taskgroup
     {
-        for (int d = 0; d < num_devices(); ++d) {
-            if (! tiles_set_host[d].empty()) {
-                #pragma omp task slate_omp_default_none \
-                    firstprivate( d ) shared( tiles_set_host )
-                {
-                    tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
-                }
+        if (! tiles_set_host.empty()) {
+            #pragma omp task slate_omp_default_none shared( tiles_set_host )
+            {
+                tileGetForReading(tiles_set_host, HostNum, LayoutConvert::None);
             }
+        }
+        for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
                 #pragma omp task slate_omp_default_none \
                     firstprivate( d ) shared( tiles_set_dev )
@@ -3730,9 +3668,58 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::getRanks(std::set<int>* bcast_set) const
 {
-    for (int64_t i = 0; i < mt(); ++i)
-        for (int64_t j = 0; j < nt(); ++j)
-            bcast_set->insert(tileRank(i, j));
+    if (order_ != GridOrder::Unknown) {
+        // If we know our grid is cyclic, we can compute the ranks analytically
+        // NB. We only use storage indices, so op_ doesn't affect it.
+
+        int row_start, row_end, col_start, col_end;
+
+        if (mt_ >= nprow_) {
+            row_start = 0;
+            row_end = nprow_;
+        }
+        else {
+            row_start = ioffset_ % nprow_;
+            row_end = row_start + mt_;
+        }
+
+        if (nt_ >= npcol_) {
+            col_start = 0;
+            col_end = npcol_;
+        }
+        else {
+            col_start = joffset_ % npcol_;
+            col_end = col_start + nt_;
+        }
+
+        bool col_major = (order_ == GridOrder::Col);
+
+        int k_start = col_major ? col_start : row_start;
+        int k_end   = col_major ? col_end   : row_end;
+        int k_grid  = col_major ? npcol_    : nprow_;
+        int l_start = col_major ? row_start : col_start;
+        int l_end   = col_major ? row_end   : col_end;
+        int l_grid  = col_major ? nprow_    : npcol_;
+
+        int k_mod_grid = k_start;
+        for (int k = k_start; k < k_end; ++k) {
+            int l_mod_grid = l_start;
+            for (int l = l_start; l < l_end; ++l) {
+                bcast_set->insert( l_mod_grid + k_mod_grid*l_grid );
+
+                // Manually wrap values around to avoid division
+                l_mod_grid += 1;
+                l_mod_grid = (l_mod_grid == l_grid) ? 0 : l_mod_grid;
+            }
+            k_mod_grid += 1;
+            k_mod_grid = (k_mod_grid == k_grid) ? 0 : k_mod_grid;
+        }
+    }
+    else {
+        for (int64_t i = 0; i < mt(); ++i)
+            for (int64_t j = 0; j < nt(); ++j)
+                bcast_set->insert(tileRank(i, j));
+    }
 }
 
 //------------------------------------------------------------------------------

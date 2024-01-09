@@ -38,6 +38,7 @@ Memory::~Memory()
     // Debug::printNumFreeMemBlocks(*this);
 }
 
+/*
 //------------------------------------------------------------------------------
 /// Allocates num_blocks in host memory
 /// and adds them to the pool of free blocks.
@@ -45,7 +46,6 @@ Memory::~Memory()
 // todo: merge with addDeviceBlocks by recognizing HostNum?
 void Memory::addHostBlocks(int64_t num_blocks)
 {
-/*
     // or std::byte* (C++17)
     uint8_t* host_mem;
     host_mem = (uint8_t*) allocHostMemory(block_size_*num_blocks);
@@ -53,8 +53,8 @@ void Memory::addHostBlocks(int64_t num_blocks)
 
     for (int64_t i = 0; i < num_blocks; ++i)
         free_blocks_[ HostNum ].push(host_mem + i*block_size_);
-*/
 }
+*/
 
 //------------------------------------------------------------------------------
 /// Allocates num_blocks in given device's memory
@@ -71,13 +71,13 @@ void Memory::addDeviceBlocks(int device, int64_t num_blocks, blas::Queue *queue)
         free_blocks_[device].push(dev_mem + i*block_size_);
 }
 
+/*
 //------------------------------------------------------------------------------
 /// Empties the pool of free blocks of host memory and frees the allocations.
 ///
 // todo: merge with clearDeviceBlocks by recognizing HostNum?
 void Memory::clearHostBlocks()
 {
-/*
     Debug::checkHostMemoryLeaks(*this);
 
     while (! free_blocks_[ HostNum ].empty())
@@ -89,8 +89,8 @@ void Memory::clearHostBlocks()
         allocated_mem_[ HostNum ].pop();
     }
     capacity_[ HostNum ] = 0;
-*/
 }
+*/
 
 //------------------------------------------------------------------------------
 /// Empties the pool of free blocks of given device's memory and frees the

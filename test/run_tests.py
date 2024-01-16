@@ -123,6 +123,7 @@ group_opt.add_argument( '--target', action='store', help='default=%(default)s', 
 group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
 group_opt.add_argument( '--dev-dist',  action='store', help='default=%(default)s', default='c,r' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
+group_opt.add_argument( '--nonuniform-nb', action='store', help='default=%(default)s', default='n' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
@@ -298,6 +299,7 @@ target = ' --target ' + opts.target if (opts.target) else ''
 la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
 ddist  = ' --dev-dist  ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
+nonuniform_nb = ' --nonuniform-nb ' + opts.nonuniform_nb if (opts.nonuniform_nb) else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
@@ -346,9 +348,9 @@ if (opts.blas3):
     cmds += [
     [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku + matrixBC ],
 
-    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab + matrixBC ],
-    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab + matrixBC ],
-    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab + matrixBC ],
+    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb ],
+    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb ],
+    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb ],
 
     [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab + matrixBC ],
     # todo: hemmA GPU support
@@ -384,28 +386,28 @@ if (opts.blas3):
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',         gen + dtype + la + n + thresh ],
+    [ 'gesv',         gen + dtype + la + n + thresh + nonuniform_nb ],
     [ 'gesv_tntpiv',  gen + dtype + la + n ],
-    [ 'gesv_nopiv',   gen + dtype + la + n
-                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+    [ 'gesv_nopiv',   gen + dtype + la + n + nonuniform_nb
+                      + ' --matrix rand_dominant' ],
 
     # todo: mn
-    [ 'getrf',        gen + dtype + la + n + thresh ],
+    [ 'getrf',        gen + dtype + la + n + thresh + nonuniform_nb ],
     [ 'getrf_tntpiv', gen + dtype + la + n ],
-    [ 'getrf_nopiv',  gen + dtype + la + n
-                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+    [ 'getrf_nopiv',  gen + dtype + la + n + nonuniform_nb
+                      + ' --matrix rand_dominant' ],
 
-    [ 'getrs',        gen + dtype + la + n + trans + thresh ],
+    [ 'getrs',        gen + dtype + la + n + trans + thresh + nonuniform_nb ],
     [ 'getrs_tntpiv', gen + dtype + la + n + trans ],
-    [ 'getrs_nopiv',  gen + dtype + la + n + trans
-                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+    [ 'getrs_nopiv',  gen + dtype + la + n + trans + nonuniform_nb
+                      + ' --matrix rand_dominant' ],
 
     [ 'getri',    gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
-    [ 'gesv_mixed',   gen + dtype_double + la + n ],
-    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' ],
+    [ 'gesv_mixed',   gen + dtype_double + la + n + nonuniform_nb ],
+    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' + nonuniform_nb ],
     [ 'gesv_rbt', gen + dtype + la + n ],
     ]
 
@@ -626,31 +628,31 @@ if (opts.cond):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'add',    gen + dtype + mn + ab        ],
-    [ 'tzadd',  gen + dtype + mn + ab + uplo ],
-    [ 'tradd',  gen + dtype + n  + ab + uplo ],
-    [ 'syadd',  gen + dtype + n  + ab + uplo ],
-    [ 'headd',  gen + dtype + n  + ab + uplo ],
+    [ 'add',    gen + dtype + mn + ab + nonuniform_nb        ],
+    [ 'tzadd',  gen + dtype + mn + ab + nonuniform_nb + uplo ],
+    [ 'tradd',  gen + dtype + n  + ab + nonuniform_nb + uplo ],
+    [ 'syadd',  gen + dtype + n  + ab + nonuniform_nb + uplo ],
+    [ 'headd',  gen + dtype + n  + ab + nonuniform_nb + uplo ],
 
-    [ 'copy',   gen + dtype + mn             ],
-    [ 'tzcopy', gen + dtype + mn      + uplo ],
-    [ 'trcopy', gen + dtype + n       + uplo ],
-    [ 'sycopy', gen + dtype + n       + uplo ],
-    [ 'hecopy', gen + dtype + n       + uplo ],
+    [ 'copy',   gen + dtype + mn      + nonuniform_nb        ],
+    [ 'tzcopy', gen + dtype + mn      + nonuniform_nb + uplo ],
+    [ 'trcopy', gen + dtype + n       + nonuniform_nb + uplo ],
+    [ 'sycopy', gen + dtype + n       + nonuniform_nb + uplo ],
+    [ 'hecopy', gen + dtype + n       + nonuniform_nb + uplo ],
 
-    [ 'scale',   gen + dtype + mn + ab        ],
-    [ 'tzscale', gen + dtype + mn + ab + uplo ],
-    [ 'trscale', gen + dtype + n  + ab + uplo ],
-    [ 'syscale', gen + dtype + n  + ab + uplo ],
-    [ 'hescale', gen + dtype + n  + ab + uplo ],
+    [ 'scale',   gen + dtype + mn + ab + nonuniform_nb        ],
+    [ 'tzscale', gen + dtype + mn + ab + nonuniform_nb + uplo ],
+    [ 'trscale', gen + dtype + n  + ab + nonuniform_nb + uplo ],
+    [ 'syscale', gen + dtype + n  + ab + nonuniform_nb + uplo ],
+    [ 'hescale', gen + dtype + n  + ab + nonuniform_nb + uplo ],
 
-    [ 'scale_row_col', gen + dtype + mn + equed ],
+    [ 'scale_row_col', gen + dtype + mn + equed + nonuniform_nb ],
 
-    [ 'set',    gen + dtype + mn + ab        ],
-    [ 'tzset',  gen + dtype + mn + ab + uplo ],
-    [ 'trset',  gen + dtype +  n + ab + uplo ],
-    [ 'syset',  gen + dtype +  n + ab + uplo ],
-    [ 'heset',  gen + dtype +  n + ab + uplo ],
+    [ 'set',    gen + dtype + mn + ab + nonuniform_nb        ],
+    [ 'tzset',  gen + dtype + mn + ab + nonuniform_nb + uplo ],
+    [ 'trset',  gen + dtype +  n + ab + nonuniform_nb + uplo ],
+    [ 'syset',  gen + dtype +  n + ab + nonuniform_nb + uplo ],
+    [ 'heset',  gen + dtype +  n + ab + nonuniform_nb + uplo ],
     ]
 
 # ------------------------------------------------------------------------------

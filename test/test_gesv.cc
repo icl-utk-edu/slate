@@ -9,6 +9,7 @@
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
+#include "matrix_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -60,7 +61,6 @@ void test_gesv_work(Params& params, bool run)
     int64_t nrhs = params.nrhs();
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
-    int64_t nb = params.nb();
     int64_t ib = params.ib();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
@@ -77,6 +77,8 @@ void test_gesv_work(Params& params, bool run)
     slate::GridOrder grid_order = params.grid_order();
     params.matrix.mark();
     params.matrixB.mark();
+
+    mark_params_for_test_Matrix( params );
 
     // Currently only gesv* supports timer_level >= 2.
     std::vector<std::string> timer_lvl_support{ "gesv", "gesv_mixed",
@@ -154,20 +156,9 @@ void test_gesv_work(Params& params, bool run)
     if (! run)
         return;
 
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
-
-    if (nonuniform_nb) {
-        if (ref || origin == slate::Origin::ScaLAPACK) {
-            params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
-            return;
-        }
-        params.ref() = 'n';
-        params.origin() = slate::Origin::Host;
-        ref = false;
-        origin = slate::Origin::Host;
+    if (nonuniform_nb && origin == slate::Origin::ScaLAPACK) {
+        params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
+        return;
     }
 
     if ((params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres")
@@ -192,78 +183,20 @@ void test_gesv_work(Params& params, bool run)
 
     int64_t info = 0;
 
-    // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
-    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-
-    // Matrix B: figure out local size.
-    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
-    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
-    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-
-    // To generate matrix with non-uniform tile size using the lambda constructor
-    std::function< int64_t (int64_t j) >
-    tileNb = [nb](int64_t j) {
-        // for non-uniform tile size
-        return (j % 2 != 0 ? nb/2 : nb);
-    };
-
-    // rank and device functions for using the lambda constructor
-    auto tileRank = slate::func::process_2d_grid( slate::GridOrder::Col, p, q );
-    int num_devices_ = blas::get_device_count();
-    auto tileDevice = slate::func::device_1d_grid( slate::GridOrder::Col,
-                                                   p, num_devices_ );
-
-    std::vector<scalar_t> A_data, B_data, X_data;
-    slate::Matrix<scalar_t> A, B, X;
-    if (origin != slate::Origin::ScaLAPACK) {
-        // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
-        if (nonuniform_nb) {
-            A = slate::Matrix<scalar_t>(m, n, tileNb, tileNb, tileRank,
-                                        tileDevice, MPI_COMM_WORLD);
-            B = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank,
-                                        tileDevice, MPI_COMM_WORLD);
-        }
-        else {
-            A = slate::Matrix<scalar_t>(
-                m, n,    nb, nb, grid_order, p, q, MPI_COMM_WORLD );
-            B = slate::Matrix<scalar_t>(
-                n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
-        }
-        A.insertLocalTiles(origin_target);
-        B.insertLocalTiles(origin_target);
-
-        if (is_iterative) {
-            X_data.resize(lldB*nlocB);
-            if (nonuniform_nb) {
-                X = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank,
-                                            tileDevice, MPI_COMM_WORLD);
-            }
-            else {
-                X = slate::Matrix<scalar_t>(
-                    n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
-            }
-            X.insertLocalTiles(origin_target);
-        }
+    auto A_alloc = allocate_test_Matrix<scalar_t>( check || ref, true, m, n, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, true, n, nrhs, params );
+    TestMatrix<slate::Matrix<scalar_t>> X_alloc;
+    if (is_iterative) {
+        X_alloc = allocate_test_Matrix<scalar_t>( false, true, n, nrhs, params );
     }
-    else {
-        // Create SLATE matrix from the ScaLAPACK layouts
-        A_data.resize( lldA * nlocA );
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
 
-        B_data.resize( lldB * nlocB );
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(
-            n, nrhs, &B_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
-
-        if (is_iterative) {
-            X_data.resize(lldB*nlocB);
-            X = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, nrhs, &X_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
-        }
-    }
+    auto& A         = A_alloc.A;
+    auto& Aref      = A_alloc.Aref;
+    auto& Aref_data = A_alloc.Aref_data;
+    auto& B         = B_alloc.A;
+    auto& Bref      = B_alloc.Aref;
+    auto& Bref_data = B_alloc.Aref_data;
+    auto& X         = X_alloc.A;
 
     slate::Pivots pivots;
 
@@ -272,28 +205,7 @@ void test_gesv_work(Params& params, bool run)
     slate::generate_matrix(params.matrixB, B, matgen_opts);
 
     // If check/ref is required, copy test data.
-    slate::Matrix<scalar_t> Aref, Bref;
-    std::vector<scalar_t> Aref_data, Bref_data;
     if (check || ref) {
-        if (nonuniform_nb) {
-            Aref = slate::Matrix<scalar_t>(m, n, tileNb, tileNb, tileRank,
-                                           tileDevice, MPI_COMM_WORLD);
-            Bref = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank,
-                                           tileDevice, MPI_COMM_WORLD);
-            Aref.insertLocalTiles( slate::Target::Host );
-            Bref.insertLocalTiles( slate::Target::Host );
-        }
-        else {
-            Aref_data.resize( lldA* nlocA );
-            Bref_data.resize( lldB* nlocB );
-            Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                       m, n, &Aref_data[0], lldA, nb, nb,
-                       grid_order, p, q, MPI_COMM_WORLD );
-            Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                       n, nrhs, &Bref_data[0], lldB, nb, nb,
-                       grid_order, p, q, MPI_COMM_WORLD );
-        }
-
         slate::copy(A, Aref);
         slate::copy(B, Bref);
     }
@@ -474,35 +386,18 @@ void test_gesv_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
             if (nonuniform_nb) {
-                printf("Unsupported to test nonuniform tile size using scalapack\n");
+                params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
                 return;
             }
 
-            // BLACS/MPI variables
-            blas_int ictxt, myrow_, mycol_, p_, q_;
-            blas_int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit( &ictxt, grid_order2str( grid_order ), p, q );
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
-
-            // ScaLAPACK descriptor for the reference matrix
-            blas_int Aref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            blas_int Bref_desc[9];
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+            blas_int ictxt, Aref_desc[9], Bref_desc[9];
+            create_ScaLAPACK_context( grid_order, p, q, &ictxt );
+            A_alloc.ScaLAPACK_descriptor( ictxt, Aref_desc );
+            B_alloc.ScaLAPACK_descriptor( ictxt, Bref_desc );
 
             // ScaLAPACK data for pivots.
-            std::vector<blas_int> ipiv_ref(lldA + nb);
+            std::vector<blas_int> ipiv_ref(A_alloc.lld + A_alloc.nb);
 
             if (params.routine == "getrs") {
                 // Factor matrix A.

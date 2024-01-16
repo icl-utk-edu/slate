@@ -12,6 +12,7 @@
 #include "print_matrix.hh"
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -27,9 +28,6 @@ void test_scale_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-
-    // Constants
-    const scalar_t one = 1.0;
 
     // get & mark input values
     slate::Uplo uplo;
@@ -51,16 +49,16 @@ void test_scale_work(Params& params, bool run)
     else {
         n = params.dim.n();
     }
-    int64_t nb = params.nb();
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
     bool ref_only = params.ref() == 'o';
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
+
+    mark_params_for_test_Matrix( params );
 
     // mark non-standard output values
     params.time();
@@ -73,47 +71,20 @@ void test_scale_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
+    auto A_alloc = allocate_test_Matrix<scalar_t>( check || ref, false, m, n, params );
 
-    // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
-    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data;
+    auto& Afull     = A_alloc.A;
+    auto& Aref_full = A_alloc.Aref;
+    auto& Aref_data = A_alloc.Aref_data;
 
-    slate::Matrix<scalar_t> Afull;
-    if (origin != slate::Origin::ScaLAPACK) {
-        // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target( origin );
-        Afull = slate::Matrix<scalar_t>( m, n, nb, p, q, MPI_COMM_WORLD);
-        Afull.insertLocalTiles( origin_target );
-    }
-    else {
-        // Allocate ScaLAPACK data.
-        A_data.resize( lldA*nlocA );
-        // Create SLATE matrix from the ScaLAPACK layout.
-        Afull = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
-    }
     slate::generate_matrix( params.matrix, Afull );
 
     // Cast to desired matrix type.
     matrix_type A = matrix_cast< matrix_type >( Afull, uplo, diag );
 
     // if reference run is required, copy test data
-    std::vector<scalar_t> Aref_data;
-    slate::Matrix<scalar_t> Aref_full;
-    matrix_type Aref;
     if (check || ref) {
-        // For simplicity, always use ScaLAPACK format for ref matrices.
-        Aref_data.resize( lldA*nlocA );
-        Aref_full = slate::Matrix<scalar_t>::fromScaLAPACK(
-                        m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        Aref = matrix_cast< matrix_type >( Afull, uplo, diag );
-        slate::copy( Afull, Aref_full );
+        copy_matrix( Afull, Aref_full );
     }
 
     //if (trans == slate::Op::Trans)
@@ -151,26 +122,10 @@ void test_scale_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
-            // BLACS/MPI variables
-            blas_int ictxt, p_, q_, myrow_, mycol_;
-            blas_int A_desc[9];
-            blas_int mpi_rank_ = 0, nprocs = 1;
-
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank_ == mpi_rank );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
-
-            int64_t info;
-            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
-            slate_assert(info == 0);
+            blas_int ictxt, A_desc[9];
+            create_ScaLAPACK_context( slate::GridOrder::Col, p, q, &ictxt );
+            A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
 
             real_t A_norm = slate::norm( slate::Norm::Max, A );
 
@@ -181,6 +136,7 @@ void test_scale_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
+            int64_t info;
             scalapack_plascl( uplo2str(uplo), alpha, beta, m, n,
                               &Aref_data[0], 1, 1, A_desc, &info );
             slate_assert(info == 0);
@@ -194,8 +150,8 @@ void test_scale_work(Params& params, bool run)
             // Do this on full m-by-n matrix to detect if on, say,
             // a lower triangular matrix, the kernel accidentally modifies
             // the upper triangle.
-            slate::add( -one, Aref_full, one, Afull );
-            real_t A_diff_norm = slate::norm( slate::Norm::Max, Afull );
+            subtract_matrices( Afull, Aref_full );
+            real_t A_diff_norm = slate::norm( slate::Norm::Max, Aref_full );
 
             print_matrix( "A_diff_full", Afull, params );
 
@@ -208,7 +164,6 @@ void test_scale_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
-            SLATE_UNUSED( one );
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

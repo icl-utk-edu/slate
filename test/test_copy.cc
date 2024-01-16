@@ -12,6 +12,7 @@
 #include "print_matrix.hh"
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -27,9 +28,6 @@ void test_copy_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-
-    // Constants
-    const scalar_t one = 1.0;
 
     // get & mark input values
     slate::Uplo uplo;
@@ -49,16 +47,16 @@ void test_copy_work(Params& params, bool run)
     else {
         n = params.dim.n();
     }
-    int64_t nb = params.nb();
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
     bool ref_only = params.ref() == 'o';
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
+
+    mark_params_for_test_Matrix( params );
 
     // mark non-standard output values
     params.time();
@@ -71,39 +69,16 @@ void test_copy_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
+    auto A_alloc = allocate_test_Matrix<scalar_t>( check || ref, false, m, n, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, false, m, n, params );
 
-    // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
-    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data, B_data;
-    real_t A_norm, B_norm;
+    auto& Afull     = A_alloc.A;
+    auto& Bfull     = B_alloc.A;
+    auto& Aref_full = A_alloc.Aref;
+    auto& Bref_full = B_alloc.Aref;
+    auto& Aref_data = A_alloc.Aref_data;
+    auto& Bref_data = B_alloc.Aref_data;
 
-    int64_t nlocB = nlocA, lldB = lldA;
-
-    slate::Matrix<scalar_t> Afull, Bfull;
-    if (origin != slate::Origin::ScaLAPACK) {
-        // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target( origin );
-        Afull = slate::Matrix<scalar_t>( m, n, nb, p, q, MPI_COMM_WORLD);
-        Afull.insertLocalTiles( origin_target );
-        Bfull = slate::Matrix<scalar_t>( m, n, nb, p, q, MPI_COMM_WORLD);
-        Bfull.insertLocalTiles( origin_target );
-    }
-    else {
-        // Allocate ScaLAPACK data.
-        A_data.resize( lldA*nlocA );
-        B_data.resize( lldB*nlocB );
-        // Create SLATE matrix from the ScaLAPACK layout.
-        Afull = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
-        Bfull = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    m, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD );
-    }
     slate::generate_matrix( params.matrix, Afull );
     slate::generate_matrix( params.matrix, Bfull );
 
@@ -112,22 +87,9 @@ void test_copy_work(Params& params, bool run)
     matrix_type B = matrix_cast< matrix_type >( Bfull, uplo, diag );
 
     // if reference run is required, copy test data
-    std::vector<scalar_t> Aref_data, Bref_data;
-    slate::Matrix<scalar_t> Aref_full, Bref_full;
-    matrix_type Aref, Bref;
     if (check || ref) {
-        // For simplicity, always use ScaLAPACK format for ref matrices.
-        Aref_data.resize( lldA*nlocA );
-        Aref_full = slate::Matrix<scalar_t>::fromScaLAPACK(
-                        m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        Aref = matrix_cast< matrix_type >( Afull, uplo, diag );
-        slate::copy( Afull, Aref_full );
-
-        Bref_data.resize( lldB*nlocB );
-        Bref_full = slate::Matrix<scalar_t>::fromScaLAPACK(
-                        m,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        Bref = matrix_cast< matrix_type >( Bfull, uplo, diag );
-        slate::copy( Bfull, Bref_full );
+        copy_matrix( Afull, Aref_full );
+        copy_matrix( Bfull, Bref_full );
     }
 
     //if (trans == slate::Op::Trans)
@@ -171,30 +133,14 @@ void test_copy_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
-            // BLACS/MPI variables
-            blas_int ictxt, p_, q_, myrow_, mycol_;
-            blas_int A_desc[9], B_desc[9];
-            blas_int mpi_rank_ = 0, nprocs = 1;
-
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank_ == mpi_rank );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
+            blas_int ictxt, A_desc[9], B_desc[9];
+            create_ScaLAPACK_context( slate::GridOrder::Col, p, q, &ictxt );
+            A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
+            B_alloc.ScaLAPACK_descriptor( ictxt, B_desc );
 
-            int64_t info;
-            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
-            scalapack_descinit(B_desc, m, n, nb, nb, 0, 0, ictxt, lldB, &info);
-            slate_assert(info == 0);
-
-            A_norm = slate::norm( slate::Norm::Max, A );
-            B_norm = slate::norm( slate::Norm::Max, B );
+            real_t A_norm = slate::norm( slate::Norm::Max, A );
+            real_t B_norm = slate::norm( slate::Norm::Max, B );
 
             print_matrix( "Aref_full", Aref_full, params );
             print_matrix( "Bref_full", Bref_full, params );
@@ -218,10 +164,10 @@ void test_copy_work(Params& params, bool run)
             // Do this on full m-by-n matrix to detect if on, say,
             // a lower triangular matrix, the kernel accidentally modifies
             // the upper triangle.
-            slate::add( -one, Aref_full, one, Afull );
-            slate::add( -one, Bref_full, one, Bfull );
-            real_t A_diff_norm = slate::norm( slate::Norm::Max, Afull );
-            real_t B_diff_norm = slate::norm( slate::Norm::Max, Bfull );
+            subtract_matrices( Afull, Aref_full );
+            subtract_matrices( Bfull, Bref_full );
+            real_t A_diff_norm = slate::norm( slate::Norm::Max, Aref_full );
+            real_t B_diff_norm = slate::norm( slate::Norm::Max, Bref_full );
 
             print_matrix( "A_diff_full", Afull, params );
             print_matrix( "B_diff_full", Bfull, params );
@@ -235,7 +181,6 @@ void test_copy_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
-            SLATE_UNUSED( one );
             SLATE_UNUSED( A_norm );
             SLATE_UNUSED( B_norm );
             if (mpi_rank == 0)

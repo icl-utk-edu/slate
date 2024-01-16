@@ -107,7 +107,7 @@ int64_t getrf(
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                 }
                 A.template listBcast<target>(
-                    bcast_list_A, Layout::ColMajor, tag_k );
+                    bcast_list_A, target_layout, tag_k );
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -139,7 +139,7 @@ int64_t getrf(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_1, Layout::ColMajor, queue_jk1 );
+                        priority_1, target_layout, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -196,7 +196,7 @@ int64_t getrf(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_0, Layout::ColMajor, queue_1 );
+                        priority_0, target_layout, queue_1 );
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -204,9 +204,8 @@ int64_t getrf(
                         // send A(k, j) across column A(k+1:mt-1, j)
                         bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                     }
-                    // todo: trsm still operates in ColMajor
                     A.template listBcast<target>(
-                        bcast_list_A, Layout::ColMajor, tag_kl1);
+                        bcast_list_A, target_layout, tag_kl1);
 
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(

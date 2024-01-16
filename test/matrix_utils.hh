@@ -8,6 +8,8 @@
 
 #include "slate/slate.hh"
 
+#include "scalapack_wrappers.hh"
+
 //------------------------------------------------------------------------------
 // Zero out B, then copy band matrix B from A.
 // B is stored as a non-symmetric matrix, so we can apply Q from left
@@ -201,6 +203,150 @@ matrix_type matrix_cast(
     slate::Diag diag )
 {
     return matrix_cast_impl( MatrixType< matrix_type >(), A, uplo, diag );
+}
+
+
+//------------------------------------------------------------------------------
+// Functions for allocating test matrices
+
+template <typename MatrixType>
+class TestMatrix {
+    using scalar_t = typename MatrixType::value_type;
+
+public:
+    // SLATE matrices
+    MatrixType A;
+    MatrixType Aref;
+
+    // Storage for ScaLAPACK matrices
+    std::vector<scalar_t> A_data;
+    std::vector<scalar_t> Aref_data;
+
+    // ScaLAPACK configuration
+    int64_t m, n, mloc, nloc, lld, nb;
+
+    #ifdef SLATE_HAVE_SCALAPACK
+    void ScaLAPACK_descriptor( blas_int ictxt, blas_int A_desc[9] ) {
+        int64_t info;
+        scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mloc, &info);
+        slate_assert(info == 0);
+    }
+    #endif
+};
+
+//------------------------------------------------------------------------------
+/// Marks the paramters used by allocate_test_Matrix
+inline void mark_params_for_test_Matrix(Params& params)
+{
+    params.grid.m();
+    params.grid.n();
+    params.nb();
+    params.nonuniform_nb();
+    params.origin();
+    params.grid_order();
+}
+
+//------------------------------------------------------------------------------
+/// Allocates a Matrix<scalar_t> and optionally a reference version for testing.
+///
+/// @param[in] ref_matrix
+///     Whether to allocate a reference matrix
+///
+/// @param[in] nonuniform_ref
+///     If params.nonuniform_nb(), whether to also allocate the reference matrix
+///     with non-uniform tiles.
+///
+/// @param[in] m
+///     The number of rows
+///
+/// @param[in] n
+///     The number of columns
+///
+/// @param[in] params
+///     The test params object which contains many of the key parameters
+///
+template <typename scalar_t>
+TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
+        bool ref_matrix,
+        bool nonuniform_ref,
+        int64_t m,
+        int64_t n,
+        Params& params)
+{
+    // Load params variables
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
+    int64_t nb = params.nb();
+    bool nonuniform_nb = params.nonuniform_nb() == 'y';
+    slate::Origin origin = params.origin();
+    slate::GridOrder grid_order = params.grid_order();
+
+    // The object to be returned
+    TestMatrix<slate::Matrix<scalar_t>> matrix;
+    matrix.m = m;
+    matrix.n = n;
+
+    // ScaLAPACK variables for reference matrix
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
+    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
+    matrix.nb = nb;
+    matrix.mloc = num_local_rows_cols( m, nb, myrow, p );
+    matrix.nloc = num_local_rows_cols( n, nb, mycol, q );
+    matrix.lld  = blas::max( 1, matrix.mloc ); // local leading dimension of A
+
+    // Functions for nonuniform tile sizes.
+    // Odd-numbered tiles are 2*nb, even-numbered tiles are nb.
+    std::function< int64_t (int64_t j) >
+    tileNb = [nb](int64_t j) {
+        return (j % 2 != 0 ? nb*2 : nb);
+    };
+    auto tileRank = slate::func::process_2d_grid( grid_order, p, q );
+    int num_devices_ = blas::get_device_count();
+    auto tileDevice = slate::func::device_1d_grid( slate::GridOrder::Col,
+                                                   p, num_devices_ );
+
+    // Setup matrix to test SLATE with
+    if (origin != slate::Origin::ScaLAPACK) {
+        // SLATE allocates CPU or GPU tiles.
+        slate::Target origin_target = origin2target( origin );
+        if (nonuniform_nb) {
+            params.msg() = "nonuniform nb " + std::to_string( tileNb( 0 ) )
+                         + ", "             + std::to_string( tileNb( 1 ) );
+            matrix.A = slate::Matrix<scalar_t>( m, n, tileNb, tileNb, tileRank,
+                                                tileDevice, MPI_COMM_WORLD);
+        }
+        else {
+            matrix.A = slate::Matrix<scalar_t>( m, n, nb, nb,
+                                                grid_order, p, q, MPI_COMM_WORLD );
+        }
+        matrix.A.insertLocalTiles( origin_target );
+    }
+    else {
+        assert( !nonuniform_nb );
+        // Create SLATE matrix from the ScaLAPACK layouts
+        matrix.A_data.resize( matrix.lld * matrix.nloc );
+        matrix.A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    m, n, &matrix.A_data[0], matrix.lld, nb, nb,
+                    grid_order, p, q, MPI_COMM_WORLD );
+    }
+
+    // Setup reference matrix
+    if (ref_matrix) {
+        if (nonuniform_nb && nonuniform_ref) {
+            matrix.Aref = slate::Matrix<scalar_t>( m, n, tileNb, tileNb, tileRank,
+                                                   tileDevice, MPI_COMM_WORLD );
+            matrix.Aref.insertLocalTiles( slate::Target::Host );
+        }
+        else {
+            matrix.Aref_data.resize( matrix.lld * matrix.nloc );
+            matrix.Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                       m, n, &matrix.Aref_data[0], matrix.lld, nb, nb,
+                       grid_order, p, q, MPI_COMM_WORLD );
+        }
+    }
+
+    return matrix;
 }
 
 #endif // SLATE_MATRIX_UTILS_HH

@@ -223,7 +223,7 @@ int64_t getrf_tntpiv(
                     Side::Right,
                     one, std::move(Tkk),
                          A.sub( k+1, A_mt-1, k, k ),
-                    priority_1, Layout::ColMajor, queue_0 );
+                    priority_1, target_layout, queue_0 );
             }
 
             #pragma omp task depend(inout:column[k]) \
@@ -238,7 +238,7 @@ int64_t getrf_tntpiv(
                     bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
                 A.template listBcastMT<target>(
-                    bcast_list, Layout::ColMajor );
+                    bcast_list, target_layout );
             }
 
             // update lookahead column(s), high priority
@@ -262,13 +262,13 @@ int64_t getrf_tntpiv(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub( k, k, j, j ),
-                        priority_1, Layout::ColMajor, queue_jk1 );
+                        priority_1, target_layout, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
                     A.tileBcast(
                         k, j, A.sub( k+1, A_mt-1, j, j ),
-                        Layout::ColMajor, tag_j );
+                        target_layout, tag_j );
                 }
 
                 #pragma omp task depend(in:column[k]) \
@@ -306,7 +306,7 @@ int64_t getrf_tntpiv(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub( k, k, k+1+lookahead, A_nt-1 ),
-                        priority_0, Layout::ColMajor, queue_1 );
+                        priority_0, target_layout, queue_1 );
                 }
 
                 #pragma omp task depend(inout:column[k+1+lookahead]) \
@@ -322,7 +322,7 @@ int64_t getrf_tntpiv(
                         bcast_list.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}, tag});
                     }
                     A.template listBcastMT<target>(
-                        bcast_list, Layout::ColMajor);
+                        bcast_list, target_layout);
 
                 }
 

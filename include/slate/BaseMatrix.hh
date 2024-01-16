@@ -892,8 +892,36 @@ BaseMatrix<scalar_t>::BaseMatrix(
         ++nt_;
     }
 
+    auto actTileMb = inTileMb;
+    if (last_mb_ != actTileMb( mt_-1 )) {
+        // Pass variables into lambda w/out reference to `this`.
+        int64_t mt_1 = mt_-1;
+        int64_t last_mb = last_mb_;
+        actTileMb = [inTileMb, last_mb, mt_1](int64_t i) {
+            if (i == mt_1) {
+                return last_mb;
+            }
+            else {
+                return inTileMb( i );
+            }
+        };
+    }
+    auto actTileNb = inTileNb;
+    if (last_nb_ != actTileNb( nt_-1 )) {
+        int64_t nt_1 = nt_-1;
+        int64_t last_nb = last_nb_;
+        actTileNb = [inTileNb, last_nb, nt_1](int64_t j) {
+            if (j == nt_1) {
+                return last_nb;
+            }
+            else {
+                return inTileNb( j );
+            }
+        };
+    }
+
     storage_ = std::make_shared< MatrixStorage< scalar_t > >(
-                                           mt_, nt_, inTileMb, inTileNb,
+                                           mt_, nt_, actTileMb, actTileNb,
                                            inTileRank, inTileDevice, mpi_comm );
 
     slate_mpi_call(
@@ -2653,9 +2681,14 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                          + " -> " + std::to_string(dst_device));
         }
 
-        target_layout = layout == LayoutConvert::None ?
-                        src_tile->layout() :
-                        Layout(layout);
+        target_layout = layout == LayoutConvert::None
+                        ? src_tile->layout()
+                        : Layout(layout);
+    }
+    else {
+        target_layout = layout == LayoutConvert::None
+                        ? tile_node[dst_device]->layout()
+                        : Layout(layout);
     }
 
     if (! tile_node.existsOn(dst_device)) {
@@ -2671,8 +2704,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
         tileCopyDataLayout( src_tile, dst_tile, target_layout, async );
 
         dst_tile->state(MOSI::Shared);
-        if (src_tile->stateOn(MOSI::Modified))
-            src_tile->state(MOSI::Shared);
+        src_tile->state(MOSI::Shared); // src was either shared or modified
     }
     if (modify) {
         tileModified(i, j, dst_device);
@@ -3397,6 +3429,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             batch_count =
                 std::max(batch_count, int64_t(bucket->second.first.size()));
         }
+        allocateBatchArrays( batch_count, 1 );
 
         lapack::Queue* queue = comm_queue(device);
 
@@ -3407,7 +3440,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             batch_count = bucket->second.first.size();
 
             scalar_t** array_dev = this->array_device(device);
-            scalar_t** work_array_dev = this->array_device(device) + batch_count;
+            scalar_t** work_array_dev = array_dev + batch_count;
 
             assert(array_dev      != nullptr);
             assert(work_array_dev != nullptr);

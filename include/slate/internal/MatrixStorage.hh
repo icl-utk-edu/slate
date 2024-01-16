@@ -107,10 +107,10 @@ public:
     void eraseOn(int device)
     {
         slate_assert(device >= -1 && device+1 < int(tiles_.size()));
-        if (tiles_[device+1] != nullptr) {
-            tiles_[device+1]->state(MOSI::Invalid);
-            delete tiles_[device+1];
-            tiles_[device+1] = nullptr;
+        auto tile = tiles_[device+1];
+        tiles_[device+1] = nullptr;
+        if (tile != nullptr) {
+            delete tile;
             --num_instances_;
         }
     }
@@ -675,11 +675,10 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
                 // Free device arrays.
                 blas::device_free(array_dev_[i][device], *queue);
 
-                // Free queues.
-                delete compute_queues_[i][device];
-
-                // Allocate queues.
-                compute_queues_[ i ][ device ] = new lapack::Queue( device );
+                if (compute_queues_[ i ][ device ] == nullptr) {
+                    // Allocate queues.
+                    compute_queues_[ i ][ device ] = new lapack::Queue( device );
+                }
 
                 // Allocate host arrays;
                 array_host_[i][device]

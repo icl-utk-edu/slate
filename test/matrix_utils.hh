@@ -311,6 +311,8 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target( origin );
         if (nonuniform_nb) {
+            params.msg() = "nonuniform nb " + std::to_string( tileNb( 0 ) )
+                         + ", "             + std::to_string( tileNb( 1 ) );
             matrix.A = slate::Matrix<scalar_t>( m, n, tileNb, tileNb, tileRank,
                                                 tileDevice, MPI_COMM_WORLD);
         }

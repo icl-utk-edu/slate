@@ -173,14 +173,18 @@ void test_add_work(Params& params, bool run)
             // the upper triangle.
             subtract_matrices( Afull, Aref_full );
             subtract_matrices( Bfull, Bref_full );
-            real_t A_diff_norm = slate::norm( slate::Norm::One, Aref_full );
-            real_t B_diff_norm = slate::norm( slate::Norm::One, Bref_full );
+            real_t A_diff_norm = slate::norm( slate::Norm::Max, Aref_full );
+            real_t B_diff_norm = slate::norm( slate::Norm::Max, Bref_full );
 
             print_matrix( "A_diff_full", Afull, params );
             print_matrix( "B_diff_full", Bfull, params );
 
-            real_t errorA = A_diff_norm / (n * A_norm);
-            real_t errorB = B_diff_norm / (n * B_norm);
+            // Ideally this would be element-wise error,
+            //     max_ij( | A_ij – Aref_ij | / | Aref_ij | ),
+            // instead of norm-wise error,
+            //     max_ij( | A_ij – Aref_ij | ) / max_ij( | Aref_ij | ).
+            real_t errorA = A_diff_norm / A_norm;
+            real_t errorB = B_diff_norm / B_norm;
 
             params.error() = errorA + errorB;
             real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;

@@ -206,7 +206,7 @@ matrix_type matrix_cast(
 }
 
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Functions for allocating test matrices
 
 template <typename MatrixType>
@@ -234,7 +234,7 @@ public:
     #endif
 };
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Marks the paramters used by allocate_test_Matrix
 inline void mark_params_for_test_Matrix(Params& params)
 {
@@ -246,23 +246,23 @@ inline void mark_params_for_test_Matrix(Params& params)
     params.grid_order();
 }
 
-// -----------------------------------------------------------------------------
-/// Allocates a Matrix<scalar_t> and a reference version for testing.
+//------------------------------------------------------------------------------
+/// Allocates a Matrix<scalar_t> and optionally a reference version for testing.
 ///
-/// @param ref_matrix[in]
+/// @param[in] ref_matrix
 ///     Whether to allocate a reference matrix
 ///
-/// @param nonuniform_ref[in]
+/// @param[in] nonuniform_ref
 ///     If params.nonuniform_nb(), whether to also allocate the reference matrix
 ///     with non-uniform tiles.
 ///
-/// @param m[in]
+/// @param[in] m
 ///     The number of rows
 ///
-/// @param n[in]
+/// @param[in] n
 ///     The number of columns
 ///
-/// @param params[in]
+/// @param[in] params
 ///     The test params object which contains many of the key parameters
 ///
 template <typename scalar_t>
@@ -295,10 +295,10 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
     matrix.nloc = num_local_rows_cols( n, nb, mycol, q );
     matrix.lld  = blas::max( 1, matrix.mloc ); // local leading dimension of A
 
-    // Functions for nonuniform tile sizes
+    // Functions for nonuniform tile sizes.
+    // Odd-numbered tiles are 2*nb, even-numbered tiles are nb.
     std::function< int64_t (int64_t j) >
     tileNb = [nb](int64_t j) {
-        // for non-uniform tile size
         return (j % 2 != 0 ? nb*2 : nb);
     };
     auto tileRank = slate::func::process_2d_grid( grid_order, p, q );

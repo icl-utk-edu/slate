@@ -906,7 +906,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
 
     auto actTileMb = inTileMb;
     if (last_mb_ != actTileMb( mt_-1 )) {
-        // Pass variables into lambda w/out full this object
+        // Pass variables into lambda w/out reference to `this`.
         int64_t mt_1 = mt_-1;
         int64_t last_mb = last_mb_;
         actTileMb = [inTileMb, last_mb, mt_1](int64_t i) {
@@ -2710,14 +2710,14 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                          + " -> " + std::to_string(dst_device));
         }
 
-        target_layout = layout == LayoutConvert::None ?
-                        src_tile->layout() :
-                        Layout(layout);
+        target_layout = layout == LayoutConvert::None
+                        ? src_tile->layout()
+                        : Layout(layout);
     }
     else {
-        target_layout = layout == LayoutConvert::None ?
-                        tile_node[dst_device]->layout() :
-                        Layout(layout);
+        target_layout = layout == LayoutConvert::None
+                        ? tile_node[dst_device]->layout()
+                        : Layout(layout);
     }
 
     if (! tile_node.existsOn(dst_device)) {

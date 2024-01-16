@@ -8,14 +8,24 @@
 
 #include "slate/slate.hh"
 
+///-----------------------------------------------------------------------------
+/// Applies the operator thunk to each element of A and B to update B.
+/// The matrices must have the same size, but can have different tile sizes and
+/// distributions. However, the elements of a tile of B must all belong to the
+/// same tile of A. For example, this is satisfied in the testers if B
+/// has tiles of size nb and A has tiles of size nb or 2*nb.
+///
 template <typename matrix_type>
-void matrix_iterator( matrix_type& A, matrix_type& B,
-                      std::function<void(const typename matrix_type::value_type&,
-                                         typename matrix_type::value_type&)> thunk )
+void matrix_iterator(
+    matrix_type& A, matrix_type& B,
+    std::function< void( typename matrix_type::value_type const&,
+                         typename matrix_type::value_type& ) > thunk )
 {
     using scalar_t = typename matrix_type::value_type;
     assert( A.m() == B.m() );
     assert( A.n() == B.n() );
+
+    const auto ColMajor = slate::LayoutConvert::ColMajor;
 
     int64_t B_mt = B.mt();
     int64_t B_nt = B.nt();
@@ -33,8 +43,8 @@ void matrix_iterator( matrix_type& A, matrix_type& B,
                         A.tileRecv( A_i, A_j, A.tileRank( A_i, A_j ),
                                     slate::Layout::ColMajor );
 
-                        A.tileGetForReading( A_i, A_j, slate::LayoutConvert::ColMajor );
-                        B.tileGetForWriting( B_i, B_j, slate::LayoutConvert::ColMajor );
+                        A.tileGetForReading( A_i, A_j, ColMajor );
+                        B.tileGetForWriting( B_i, B_j, ColMajor );
                         auto TA = A( A_i, A_j );
                         auto TB = B( B_i, B_j );
                         int64_t mb = TB.mb();
@@ -79,12 +89,12 @@ void matrix_iterator( matrix_type& A, matrix_type& B,
     A.releaseRemoteWorkspace();
 }
 
-// -----------------------------------------------------------------------------
-// subtract_matrices takes input matrices A and B, and performs B = B - A.
-// The matrices must have the same size, but can have different tile sizes and
-// distributions.  However, the elements of a tile of B must all belong to the
-// same tile of A
-
+///-----------------------------------------------------------------------------
+/// subtract_matrices takes input matrices A and B, and performs B = B - A.
+/// The matrices must have the same size, but can have different tile sizes and
+/// distributions. However, the elements of a tile of B must all belong to the
+/// same tile of A.
+///
 template <typename matrix_type>
 void subtract_matrices( matrix_type& A, matrix_type& B )
 {
@@ -93,12 +103,12 @@ void subtract_matrices( matrix_type& A, matrix_type& B )
     matrix_iterator( A, B, [](const scalar_t& a, scalar_t& b) { b -= a; } );
 }
 
-// -----------------------------------------------------------------------------
-// copy_matrix copies A to B
-// The matrices must have the same size, but can have different tile sizes and
-// distributions.  However, the elements of a tile of B must all belong to the
-// same tile of A
-
+///-----------------------------------------------------------------------------
+/// copy_matrix copies A to B
+/// The matrices must have the same size, but can have different tile sizes and
+/// distributions. However, the elements of a tile of B must all belong to the
+/// same tile of A.
+///
 template <typename matrix_type>
 void copy_matrix( matrix_type& A, matrix_type& B )
 {

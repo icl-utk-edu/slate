@@ -78,7 +78,7 @@ void test_gemm_work(Params& params, bool run)
         return;
 
     #ifndef SLATE_HAVE_SCALAPACK
-        // Can only run ref when we have ScaLAPACK
+        // Can run ref only when we have ScaLAPACK.
         if (ref) {
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );

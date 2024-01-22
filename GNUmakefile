@@ -143,13 +143,13 @@ ifneq ($(cuda),1)
     endif
 endif
 
-omptarget = 0
+use_omptarget_kernels = 0
+use_sycl_kernels = 0
 ifneq ($(cuda),1)
 ifneq ($(hip),1)
     ifeq (${gpu_backend},sycl)
-        # enable the omptarget offload kernels in SLATE for oneMKL-SYCL devices
-        $(info Note: enabling omp-target-offload kernels)
-        omptarget = 1
+        # enable the kernels in SLATE for oneMKL-SYCL devices
+        sycl = 1
 
         # -Wno-unused-command-line-argument avoids
         # icpx warning: -Wl,-rpath,...: 'linker' input unused.
@@ -163,7 +163,18 @@ ifneq ($(hip),1)
         CXXFLAGS += -fsycl -fp-model=precise -Wno-unused-command-line-argument \
                     -Wno-c99-extensions -Wno-pass-failed
         LIBS += -lsycl
-    endif
+
+        # How should the slate kernels be compiled
+        ifeq (${sycl_kernels},omptarget) # src/omptarget kernels
+            # enable the omptarget offload kernels in SLATE for oneMKL-SYCL devices
+		    use_omptarget_kernels = 1
+        else # src/sycl kernels - default/fall-through option
+			use_sycl_kernels = 1
+            CXXFLAGS += -fsycl-unnamed-lambda # allow unnamed sycl lambda kernels
+            LDFLAGS += -fsycl -fsycl-unnamed-lambda # allow unnamed sycl lambda kernels
+        endif
+
+   endif
 endif
 endif
 
@@ -210,8 +221,13 @@ endif
 ifeq ($(openmp),1)
     ifeq (${gpu_backend},sycl)
         # Intel icpx options for OpenMP offload.
-        CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
-        LDFLAGS  += -fiopenmp -fopenmp-targets=spir64
+        CXXFLAGS += -fiopenmp
+        LDFLAGS  += -fiopenmp
+	    ifeq (${use_omptarget_kernels},1)
+            # If SYCL + OpenMP-offload-kernels, specify omp device type
+	        CXXFLAGS += -fopenmp-targets=spir64
+		    LDFLAGS  += -fopenmp-targets=spir64
+        endif
     else
         # Most other compilers recognize this.
         CXXFLAGS += -fopenmp
@@ -542,6 +558,10 @@ cuda_hdr := \
 hip_src := $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(cuda_src))
 hip_hdr := $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(cuda_hdr))
 
+# SYCL implementations of device kernels
+sycl_kernels_src := $(patsubst src/cuda/%.cu,src/sycl/%.dp.cpp,$(cuda_src))
+sycl_kernels_hdr := $(patsubst src/cuda/%.cuh,src/sycl/%.dp.hpp,$(cuda_hdr))
+
 # OpenMP implementations of device kernels
 omptarget_src := \
         src/omptarget/device_geadd.cc \
@@ -564,6 +584,8 @@ ifeq (${cuda},1)
     libslate_src += ${cuda_src}
 else ifeq (${hip},1)
     libslate_src += ${hip_src}
+else ifeq ($(use_sycl_kernels),1)
+    libslate_src += $(sycl_kernels_src)
 else
     # Used for both OpenMP offload (${omptarget} == 1) and as stubs for
     # CPU-only build.
@@ -1334,6 +1356,9 @@ hooks: ${hooks}
 %.hip.o: %.hip.cc | $(hip_hdr)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
 
+%.dp.o: %.dp.cpp | $(sycl_kernels_hdr)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -1472,8 +1497,14 @@ echo:
 	@echo "sycl          = '$(sycl)'"
 	@echo
 	@echo "---------- OMP target-offload kernel options"
-	@echo "omptarget     = '${omptarget}'"
+	@echo "omptarget     = '${use_omptarget_kernels}'"
 	@echo "omptarget_src = ${omptarget_src}"
+	@echo "omptarget_hdr = ${omptarget_hdr}"
+	@echo
+	@echo "---------- SYCL device kernels"
+	@echo "sycl_kernels  = '$(use_sycl_kernels)'"
+	@echo "sycl_kernels_src  = '$(sycl_kernels_src)'"
+	@echo "sycl_kernels_hdr  = '$(sycl_kernels_hdr)'"
 	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"

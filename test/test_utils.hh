@@ -9,7 +9,7 @@
 #include "slate/slate.hh"
 #include "test.hh"
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Checks for common invalid parameter combinations
 ///
 /// @return true if the configuration should be skipped
@@ -59,7 +59,7 @@ inline bool is_invalid_parameters(Params& params, bool keep_nonuniform_ref = fal
     return false;
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Applies the operator thunk to each element of A and B to update B.
 /// The matrices must have the same size, but can have different tile sizes and
 /// distributions. However, the elements of a tile of B must all belong to the
@@ -150,7 +150,7 @@ void matrix_iterator(
     A.releaseRemoteWorkspace();
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// subtract_matrices takes input matrices A and B, and performs B = B - A.
 /// The matrices must have the same size, but can have different tile sizes and
 /// distributions. However, the elements of a tile of B must all belong to the
@@ -164,7 +164,7 @@ void subtract_matrices( matrix_type& A, matrix_type& B )
     matrix_iterator( A, B, [](const scalar_t& a, scalar_t& b) { b -= a; } );
 }
 
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// copy_matrix copies A to B
 /// The matrices must have the same size, but can have different tile sizes and
 /// distributions. However, the elements of a tile of B must all belong to the

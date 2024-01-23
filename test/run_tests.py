@@ -405,8 +405,8 @@ if (opts.lu):
                       + ' --matrix rand_dominant' ],
 
     [ 'getrs',        gen + dtype + la + n + trans + ge_matrix + nonuniform_nb + thresh ],
-    [ 'getrs_tntpiv', gen + dtype + la + n + ge_matrix ],
-    [ 'getrs_nopiv',  gen + dtype + la + n + ge_matrix + nonuniform_nb
+    [ 'getrs_tntpiv', gen + dtype + la + n + trans + ge_matrix ],
+    [ 'getrs_nopiv',  gen + dtype + la + n + trans + ge_matrix + nonuniform_nb
                       + ' --matrix rand_dominant' ],
 
     [ 'getri',    gen + dtype + la + n ],

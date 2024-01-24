@@ -199,10 +199,11 @@ void norm(
 
         jj = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t nb = A.tileNb( j );
+
             // off-diagonal blocks
             int64_t ii = 0;
             for (int64_t i = 0; i < A.mt(); ++i) {
-                int64_t nb = A.tileNb(j);
                 int64_t mb = A.tileMb(i);
                 if (A.tileIsLocal(i, j) &&
                     ( (  lower && i > j) ||
@@ -219,11 +220,10 @@ void norm(
                         &tiles_sums[A.m()*j + ii ], 1,
                         &values[ii], 1);
                 }
-                ii += A.tileMb(i);
+                ii += mb;
             }
 
             // diagonal blocks
-            int64_t nb = A.tileNb(j);
             if (A.tileIsLocal(j, j) ) {
                 // col sums
                 blas::axpy(

@@ -143,7 +143,7 @@ void norm(
         int64_t jj = 0;
         #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
-            // diagonal tile
+            // diagonal tiles
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, tiles_sums ) \
@@ -190,7 +190,7 @@ void norm(
             }
             jj += A.tileNb(j);
         }
-        //end omp taskgroup
+        // end omp taskgroup
 
         // Sum tile results into local results.
         // Summing up local contributions only.
@@ -198,10 +198,11 @@ void norm(
 
         jj = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t nb = A.tileNb( j );
+
             // off-diagonal blocks
             int64_t ii = 0;
             for (int64_t i = 0; i < A.mt(); ++i) {
-                int64_t nb = A.tileNb(j);
                 int64_t mb = A.tileMb(i);
                 if (A.tileIsLocal(i, j) &&
                     ( (  lower && i > j) ||
@@ -218,11 +219,10 @@ void norm(
                         &tiles_sums[A.m()*j + ii ], 1,
                         &values[ii], 1);
                 }
-                ii += A.tileMb(i);
+                ii += mb;
             }
 
             // diagonal blocks
-            int64_t nb = A.tileNb(j);
             if (A.tileIsLocal(j, j) ) {
                 // col sums
                 blas::axpy(
@@ -302,6 +302,7 @@ void norm(
                 }
             }
         }
+        // end omp taskgroup
     }
 }
 
@@ -326,7 +327,8 @@ void norm(
 /// @ingroup norm_internal
 ///
 template <typename scalar_t>
-void norm(internal::TargetType<Target::Devices>,
+void norm(
+    internal::TargetType<Target::Devices>,
     Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority, int queue_index)

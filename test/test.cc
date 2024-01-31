@@ -356,8 +356,8 @@ Params::Params():
     method_lu     ("lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "PartialPiv, CALU, NoPiv"),
     method_trsm   ("trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "auto=auto, A=trsmA, B=trsmB"),
 
-    grid_order("go",      3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
-    dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Row,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
+    grid_order("go",      3,    ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
+    dev_order ("do",      3,    ParamType::List, slate::GridOrder::Row,   str2grid_order, grid_order2str, "(do) Device grid order: c=Col, r=Row"),
 
     //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
     layout    ("layout",  6,    ParamType::List, slate::Layout::ColMajor, blas::char2layout, blas::layout2char, blas::layout2str, "layout: r=row major, c=column major"),
@@ -463,6 +463,7 @@ Params::Params():
     lookahead.name("la", "lookahead");
     panel_threads.name("pt", "panel-threads");
     grid_order.name("go", "grid-order");
+    dev_order.name("do", "dev-order");
 
     // Change name for the methods to use less space in the stdout
     method_cholQR.name("cholQR", "method-cholQR");

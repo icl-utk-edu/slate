@@ -265,11 +265,11 @@ inline void mark_params_for_test_Matrix(Params& params)
 {
     params.grid.m();
     params.grid.n();
-    params.dev_dist();
     params.nb();
     params.nonuniform_nb();
     params.origin();
     params.grid_order();
+    params.dev_order();
 }
 
 //------------------------------------------------------------------------------

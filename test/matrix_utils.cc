@@ -21,11 +21,11 @@ static TestMatrix<matrix_type> allocate_test_shared(
     // Load params variables
     int p = params.grid.m();
     int q = params.grid.n();
-    slate::Dist dev_dist = params.dev_dist();
     int64_t nb = params.nb();
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
     slate::Origin origin = params.origin();
     slate::GridOrder grid_order = params.grid_order();
+    slate::GridOrder dev_order = params.dev_order();
 
     // The object to be returned
     TestMatrix<matrix_type> matrix( m, n, nb, p, q, grid_order );
@@ -48,14 +48,13 @@ static TestMatrix<matrix_type> allocate_test_shared(
 
     auto tileRank = slate::func::process_2d_grid( grid_order, p, q );
     int num_devices_ = blas::get_device_count();
-    auto tileDevice = slate::func::device_1d_grid( slate::GridOrder( dev_dist ),
-                                                   p, num_devices_ );
+    auto tileDevice = slate::func::device_1d_grid( dev_order, p, num_devices_ );
 
     // Setup matrix to test SLATE with
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target( origin );
-        if (nonuniform_nb || dev_dist == slate::Dist::Col) {
+        if (nonuniform_nb || dev_order == slate::GridOrder::Col) {
             matrix.A = construct_irregular( tileNb, tileRank, tileDevice );
         }
         else {
@@ -65,7 +64,7 @@ static TestMatrix<matrix_type> allocate_test_shared(
     }
     else {
         assert( !nonuniform_nb );
-        assert( dev_dist == slate::Dist::Row );
+        assert( dev_order == slate::GridOrder::Row );
         // Create SLATE matrix from the ScaLAPACK layouts
         matrix.A_data.resize( matrix.lld * matrix.nloc );
         matrix.A = construct_scalapack( &matrix.A_data[0], matrix.lld, nb,

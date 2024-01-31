@@ -121,13 +121,13 @@ group_opt.add_argument( '--itype', action='store', help='default=%(default)s', d
 group_opt.add_argument( '--origin', action='store', help='default=%(default)s', default='s' )
 group_opt.add_argument( '--target', action='store', help='default=%(default)s', default='t' )
 group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
-group_opt.add_argument( '--dev-dist',  action='store', help='default=%(default)s', default='c,r' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
 group_opt.add_argument( '--nonuniform-nb', action='store', help='default=%(default)s', default='n' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
-group_opt.add_argument( '--grid-order', action='store', help='default=%(default)s', default='r' )
+group_opt.add_argument( '--grid-order', action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--dev-order',  action='store', help='default=%(default)s', default='r,c' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5' )
 group_opt.add_argument( '--matrix',  action='store', help='default=%(default)s', default='' )
@@ -298,12 +298,12 @@ itype  = ' --itype '  + opts.itype  if (opts.itype)  else ''
 origin = ' --origin ' + opts.origin if (opts.origin) else ''
 target = ' --target ' + opts.target if (opts.target) else ''
 la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
-ddist  = ' --dev-dist ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nonuniform_nb = ' --nonuniform-nb ' + opts.nonuniform_nb if (opts.nonuniform_nb) else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
-grid_order = ' --grid-order ' + opts.grid_order  if (opts.grid_order)  else ''
+grid_order = ' --grid-order ' + opts.grid_order if (opts.grid_order) else ''
+dev_order  = ' --dev-order '  + opts.dev_order  if (opts.dev_order)  else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 thresh = ' --thresh ' + opts.thresh if (opts.thresh) else ''
 matrix  = ' --matrix  ' + opts.matrix  if (opts.matrix)  else ''
@@ -316,10 +316,10 @@ gen       = origin + target + grid + check + ref + tol + repeat + nb
 gen_no_nb = origin + target + grid + check + ref + tol + repeat
 gen_no_target =               grid + check + ref + tol + repeat + nb
 
-ge_matrix = ddist + grid_order
-sy_matrix = uplo + ddist + grid_order
-he_matrix = uplo + ddist + grid_order
-tr_matrix = uplo + diag + ddist + grid_order
+ge_matrix = grid_order + dev_order
+sy_matrix = grid_order + dev_order + uplo
+he_matrix = grid_order + dev_order + uplo
+tr_matrix = grid_order + dev_order + uplo + diag
 
 if (opts.matrix):
     gen += matrix

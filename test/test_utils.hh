@@ -18,16 +18,16 @@ inline bool is_invalid_parameters(Params& params, bool keep_nonuniform_ref = fal
 {
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Dist dev_dist = params.dev_dist();
+    slate::GridOrder dev_order = params.dev_order();
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
 
-    if (target != slate::Target::Devices && dev_dist == slate::Dist::Col) {
-        params.msg() = "skipping: dev_dist = Col applies only to target devices";
+    if (target != slate::Target::Devices && dev_order == slate::GridOrder::Col) {
+        params.msg() = "skipping: dev_order = Col applies only to target devices";
         return true;
     }
 
-    if (dev_dist == slate::Dist::Col && origin == slate::Origin::ScaLAPACK) {
-        params.msg() = "skipping: dev_dist = Col tile not supported with origin=ScaLAPACK";
+    if (dev_order == slate::GridOrder::Col && origin == slate::Origin::ScaLAPACK) {
+        params.msg() = "skipping: dev_order = Col not supported with origin=ScaLAPACK";
         return true;
     }
 

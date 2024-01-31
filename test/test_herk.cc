@@ -45,7 +45,7 @@ void test_herk_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
-    params.matrixB.mark();
+    params.matrixC.mark();
 
     mark_params_for_test_HermitianMatrix( params );
     mark_params_for_test_Matrix( params );
@@ -91,7 +91,7 @@ void test_herk_work(Params& params, bool run)
     auto& Cref      = C_alloc.Aref;
 
     slate::generate_matrix( params.matrix, A );
-    slate::generate_matrix( params.matrixB, C );
+    slate::generate_matrix( params.matrixC, C );
 
     // If reference run is required, record norms to be used in the check/ref.
     real_t A_norm=0, C_orig_norm=0;

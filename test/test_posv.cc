@@ -385,9 +385,13 @@ void test_posv_work(Params& params, bool run)
 
             if (verbose > 2) {
                 if (origin == slate::Origin::ScaLAPACK) {
-                    slate::Debug::diffLapackMatrices<scalar_t>(n, n, &A_data[0], A_alloc.lld, &Aref_data[0], A_alloc.lld, nb, nb);
+                    slate::Debug::diffLapackMatrices<scalar_t>(
+                        n, n, &A_data[0], A_alloc.lld,
+                        &Aref_data[0], A_alloc.lld, nb, nb);
                     if (params.routine != "potrf") {
-                        slate::Debug::diffLapackMatrices<scalar_t>(n, nrhs, &B_data[0], A_alloc.lld, &Bref_data[0], A_alloc.lld, nb, nb);
+                        slate::Debug::diffLapackMatrices<scalar_t>(
+                            n, nrhs, &B_data[0], B_alloc.lld,
+                            &Bref_data[0], B_alloc.lld, nb, nb);
                     }
                 }
             }

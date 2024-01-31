@@ -365,8 +365,6 @@ void norm(
 
     std::vector<std::vector<real_t> > vals_host_arrays(A.num_devices());
 
-    std::vector<real_t*> vals_dev_arrays(A.num_devices());
-
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values;
 
@@ -399,7 +397,7 @@ void norm(
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, devices_values ) \
-            shared( vals_host_arrays, vals_dev_arrays, irange, jrange ) \
+            shared( vals_host_arrays, irange, jrange ) \
             firstprivate(device, queue_index, in_norm, ldv, layout) \
             priority(priority)
         {

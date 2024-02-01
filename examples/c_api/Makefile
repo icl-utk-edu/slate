@@ -13,6 +13,8 @@ LDFLAGS       += ${shell pkg-config --libs-only-L        slate}
 LDFLAGS       += ${shell pkg-config --libs-only-other    slate}
 slate_libs     = ${shell pkg-config --libs-only-l        slate}
 
+CFLAGS := ${filter-out -std=c++%, ${CFLAGS}}
+
 #-------------------------------------------------------------------------------
 # SLATE examples
 # Link with -lslate -llapackpp -lblaspp.

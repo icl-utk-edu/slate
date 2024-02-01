@@ -13,12 +13,15 @@ LDFLAGS       += ${shell pkg-config --libs-only-L        slate}
 LDFLAGS       += ${shell pkg-config --libs-only-other    slate}
 slate_libs     = ${shell pkg-config --libs-only-l        slate}
 
+FCFLAGS := ${filter-out -std=c++%, ${FCFLAGS}}
+
 # ------------------------------------------------------------------------------
 # SLATE examples
 # Link with -lslate -llapackpp -lblaspp.
 # Implicitly links with your BLAS library.
 
 slate_src = ${wildcard ex*.f90}
+slate_obj = ${addsuffix .o, ${basename ${slate_src}}}
 slate_exe = ${basename ${slate_src}}
 exe += ${slate_exe}
 
@@ -36,8 +39,7 @@ ${slate_exe}: %: %.o util.o
 
 all: ${exe}
 
-ex%.o: ex%.f90 util.o
-	${FC} ${FCFLAGS} -c -o $@ $<
+${slate_obj}: util.o
 
 %.o: %.f90
 	${FC} ${FCFLAGS} -c -o $@ $<
@@ -56,8 +58,8 @@ distclean: clean
 # Debugging
 
 echo:
-	@echo "FC        = ${FC}"
-	@echo "FCFLAGS    = ${FCFLAGS}"
+	@echo "FC             = ${FC}"
+	@echo "FCFLAGS        = ${FCFLAGS}"
 	@echo "LDFLAGS        = ${LDFLAGS}"
 	@echo "LIBS           = ${LIBS}"
 	@echo "slate_libs     = ${slate_libs}"

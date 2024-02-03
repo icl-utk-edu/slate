@@ -2,7 +2,9 @@
 
 import sys
 import re
+import textwrap
 
+#-------------------------------------------------------------------------------
 # Read include/slate/Tile.hh to get Tile structure
 
 data_members_is_found = False
@@ -67,81 +69,83 @@ copyright = '''\
 //------------------------------------------------------------------------------
 // Auto-generated file by ''' + sys.argv[0] + '\n'
 
-file_hh.write(copyright)
-file_hh.write('''\n\
+#-------------------------------------------------------------------------------
+file_hh.write(
+    copyright + '''
 #ifndef SLATE_C_API_MATRIX_H
 #define SLATE_C_API_MATRIX_H
-\n''')
 
-file_hh.write('#include "mpi.h"\n') # todo slate must be compiled with mpi
-file_hh.write('#include "slate/c_api/types.h"\n\n')
+#include "mpi.h"
+#include "slate/c_api/types.h"
 
-file_hh.write('#include <complex.h>\n')
-file_hh.write('#include <stdbool.h>\n')
-file_hh.write('#include <stdint.h>\n')
-file_hh.write('\n')
+#include <complex.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-file_cc.write(copyright + '\n')
-file_cc.write('#include "slate/c_api/matrix.h"\n')
-file_cc.write('#include "c_api/util.hh"\n')
-file_cc.write('#include "slate/slate.hh"\n\n')
-
-file_hh.write('''\
 #ifdef __cplusplus
 extern "C" {
 #endif
-\n''')
 
-# Write Options accessors
-file_hh.write('typedef void* slate_Options;\n')
+typedef void* slate_Options;
 
-file_hh.write('slate_Options slate_Options_create();\n')
-file_cc.write('slate_Options slate_Options_create()\n')
-file_cc.write('{\n')
-file_cc.write('    return (void*) new slate::Options();\n')
-file_cc.write('}\n')
+slate_Options slate_Options_create();
+void slate_Options_destroy( slate_Options opts );
+void slate_Options_copy( slate_Options opts1, slate_Options opts2 );
+''' )
 
-file_hh.write('void slate_Options_destroy( slate_Options opts );\n')
-file_cc.write('void slate_Options_destroy( slate_Options opts )\n')
-file_cc.write('{\n')
-file_cc.write('    delete static_cast<slate::Options*>( opts );\n')
-file_cc.write('}\n')
+#-------------------------------------------------------------------------------
+file_cc.write(
+    copyright + '''
+#include "slate/c_api/matrix.h"
+#include "c_api/util.hh"
+#include "slate/slate.hh"
 
-file_hh.write('void slate_Options_copy( slate_Options opts1, slate_Options opts2 );\n')
-file_cc.write('void slate_Options_copy( slate_Options opts1, slate_Options opts2 )\n')
-file_cc.write('{\n')
-file_cc.write('    auto& opts1_ = *static_cast<slate::Options*>( opts1 );\n')
-file_cc.write('    auto& opts2_ = *static_cast<slate::Options*>( opts2 );\n')
-file_cc.write('    opts1_ = opts2_;\n')
-file_cc.write('}\n')
+slate_Options slate_Options_create()
+{
+    return (void*) new slate::Options();
+}
 
+void slate_Options_destroy( slate_Options opts )
+{
+    delete static_cast<slate::Options*>( opts );
+}
+
+void slate_Options_copy( slate_Options opts1, slate_Options opts2 )
+{
+    auto& opts1_ = *static_cast<slate::Options*>( opts1 );
+    auto& opts2_ = *static_cast<slate::Options*>( opts2 );
+    opts1_ = opts2_;
+}
+''' )
+
+#-------------------------------------------------------------------------------
+void = "void"
 for opt_name, val_type in options:
-    file_hh.write('void slate_Options_set_'+opt_name+'( slate_Options opts, '
-                 +val_type+' value );\n')
-    file_cc.write('void slate_Options_set_'+opt_name+'( slate_Options opts, '
-                 +val_type+' value )\n')
-    file_cc.write('{\n')
-    file_cc.write('    auto& opts_ = *static_cast<slate::Options*>( opts );\n')
-    file_cc.write('    opts_[ slate::Option::'+opt_name+' ] = value;\n')
-    file_cc.write('}\n')
+    width = max( 4, len( val_type ) )  # max( "void", val_type )
 
-    file_hh.write(val_type+' slate_Options_get_'+opt_name+'( slate_Options opts, '
-                  +val_type+' defval );\n')
-    file_cc.write(val_type+' slate_Options_get_'+opt_name+'( slate_Options opts, '
-                  +val_type+' defval )\n')
-    file_cc.write('{\n')
-    file_cc.write('    auto& opts_ = *static_cast<slate::Options*>( opts );\n')
-    file_cc.write('    auto defval_ = static_cast<slate::OptValueType<'
-                  +'slate::Option::'+opt_name+'>::T>( defval );\n')
-    file_cc.write('    return static_cast<'+val_type+'>(slate::get_option'
-                  +'<slate::Option::'+opt_name+'>( opts_, defval_ ));\n')
-    file_cc.write('}\n')
-file_hh.write('\n')
-file_cc.write('\n')
+    file_hh.write( textwrap.dedent( f'''
+        {void:{width}} slate_Options_set_{opt_name}( slate_Options opts, {val_type} value );
+        {val_type:{width}} slate_Options_get_{opt_name}( slate_Options opts, {val_type} defval );
+        ''' ) )
 
+    file_cc.write( textwrap.dedent( f'''
+        void slate_Options_set_{opt_name}( slate_Options opts, {val_type} value )
+        {{
+            auto& opts_ = *static_cast<slate::Options*>( opts );
+            opts_[ slate::Option::{opt_name} ] = value;
+        }}
 
+        {val_type} slate_Options_get_{opt_name}( slate_Options opts, {val_type} defval )
+        {{
+            auto& opts_ = *static_cast< slate::Options* >( opts );
+            auto defval_ = static_cast< slate::OptValueType< slate::Option::{opt_name} >::T >( defval );
+            return static_cast<{val_type}>( slate::get_option< slate::Option::{opt_name} >( opts_, defval_ ));
+        }}
+        ''' ) )
+# end for
+
+#-------------------------------------------------------------------------------
 # Write Tile and Matrix types and accessors
-
 data_types = [
     ['float',           '_r32', 'float'],
     ['double',          '_r64', 'double'],

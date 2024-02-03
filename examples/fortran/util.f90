@@ -16,13 +16,23 @@ contains
         end if
     end subroutine
 
-    subroutine random_matrix_r32( m, n, A, lda )
+    subroutine random_Tile_r32( T )
         use, intrinsic :: iso_fortran_env
+        use slate
         implicit none
+
+        type(slate_Tile_r32)            :: T
         integer(kind=c_int64_t)         :: m, n, lda
+        type(c_ptr)                     :: T_data_c
         real(kind=c_float), pointer     :: A(:)
         integer                         :: i, j
 
+        m   = slate_Tile_mb_r32( T )
+        n   = slate_Tile_nb_r32( T )
+        lda = slate_Tile_stride_r32( T )
+        T_data_c = slate_Tile_data_r32( T )
+        call c_f_pointer( T_data_c, A, [lda*n] )
+
         do j = 0, n-1
             do i = 1, m
                 A( i + j*lda ) = rand()
@@ -30,13 +40,23 @@ contains
         end do
     end subroutine
 
-    subroutine random_matrix_r64( m, n, A, lda )
+    subroutine random_Tile_r64( T )
         use, intrinsic :: iso_fortran_env
+        use slate
         implicit none
+
+        type(slate_Tile_r64)            :: T
         integer(kind=c_int64_t)         :: m, n, lda
+        type(c_ptr)                     :: T_data_c
         real(kind=c_double), pointer    :: A(:)
         integer                         :: i, j
 
+        m   = slate_Tile_mb_r64( T )
+        n   = slate_Tile_nb_r64( T )
+        lda = slate_Tile_stride_r64( T )
+        T_data_c = slate_Tile_data_r64( T )
+        call c_f_pointer( T_data_c, A, [lda*n] )
+
         do j = 0, n-1
             do i = 1, m
                 A( i + j*lda ) = rand()
@@ -44,13 +64,23 @@ contains
         end do
     end subroutine
 
-    subroutine random_matrix_c32( m, n, A, lda )
+    subroutine random_Tile_c32( T )
         use, intrinsic :: iso_fortran_env
+        use slate
         implicit none
+
+        type(slate_Tile_c32)            :: T
         integer(kind=c_int64_t)         :: m, n, lda
+        type(c_ptr)                     :: T_data_c
         complex(kind=c_float), pointer  :: A(:)
         integer                         :: i, j
 
+        m   = slate_Tile_mb_c32( T )
+        n   = slate_Tile_nb_c32( T )
+        lda = slate_Tile_stride_c32( T )
+        T_data_c = slate_Tile_data_c32( T )
+        call c_f_pointer( T_data_c, A, [lda*n] )
+
         do j = 0, n-1
             do i = 1, m
                 A( i + j*lda ) = cmplx( rand(), rand() )
@@ -58,13 +88,23 @@ contains
         end do
     end subroutine
 
-    subroutine random_matrix_c64( m, n, A, lda )
+    subroutine random_Tile_c64( T )
         use, intrinsic :: iso_fortran_env
+        use slate
         implicit none
+
+        type(slate_Tile_c64)            :: T
         integer(kind=c_int64_t)         :: m, n, lda
+        type(c_ptr)                     :: T_data_c
         complex(kind=c_double), pointer :: A(:)
         integer                         :: i, j
 
+        m   = slate_Tile_mb_c64( T )
+        n   = slate_Tile_nb_c64( T )
+        lda = slate_Tile_stride_c64( T )
+        T_data_c = slate_Tile_data_c64( T )
+        call c_f_pointer( T_data_c, A, [lda*n] )
+
         do j = 0, n-1
             do i = 1, m
                 A( i + j*lda ) = cmplx( rand(), rand() )
@@ -72,113 +112,77 @@ contains
         end do
     end subroutine
 
-    subroutine random_matrix_type_r32( A )
+    subroutine random_Matrix_r32( A )
         use, intrinsic :: iso_fortran_env
         use slate
         implicit none
 
         type(c_ptr), value              :: A
         type(slate_Tile_r32)            :: T
-        type(c_ptr)                     :: T_data_c
-        real(kind=c_float), pointer     :: T_data(:)
-        integer(kind=c_int64_t)         :: mb, nb, lda
         integer(kind=c_int64_t)         :: i, j
 
         do j = 0, slate_Matrix_nt_r32( A )-1
             do i = 0, slate_Matrix_mt_r32( A )-1
                 if (slate_Matrix_tileIsLocal_r32( A, i, j )) then
                     T = slate_Matrix_at_r32( A, i, j )
-                    mb = slate_Tile_mb_r32( T )
-                    nb = slate_Tile_nb_r32( T )
-                    lda = slate_Tile_stride_r32( T )
-                    T_data_c = slate_Tile_data_r32( T )
-                    call c_f_pointer( T_data_c, T_data, [lda*nb] )
-
-                    call random_matrix_r32( mb, nb, T_data, lda )
+                    call random_Tile_r32( T )
                 end if
             end do
         end do
     end subroutine
 
-    subroutine random_matrix_type_r64( A )
+    subroutine random_Matrix_r64( A )
         use, intrinsic :: iso_fortran_env
         use slate
         implicit none
 
         type(c_ptr), value              :: A
         type(slate_Tile_r64)            :: T
-        type(c_ptr)                     :: T_data_c
-        real(kind=c_double), pointer    :: T_data(:)
-        integer(kind=c_int64_t)         :: mb, nb, lda
         integer(kind=c_int64_t)         :: i, j
 
         do j = 0, slate_Matrix_nt_r64( A )-1
             do i = 0, slate_Matrix_mt_r64( A )-1
                 if (slate_Matrix_tileIsLocal_r64( A, i, j )) then
                     T = slate_Matrix_at_r64( A, i, j )
-                    mb = slate_Tile_mb_r64( T )
-                    nb = slate_Tile_nb_r64( T )
-                    lda = slate_Tile_stride_r64( T )
-                    T_data_c = slate_Tile_data_r64( T )
-                    call c_f_pointer( T_data_c, T_data, [lda*nb] )
-
-                    call random_matrix_r64( mb, nb, T_data, lda )
+                    call random_Tile_r64( T )
                 end if
             end do
         end do
     end subroutine
 
-    subroutine random_matrix_type_c32( A )
+    subroutine random_Matrix_c32( A )
         use, intrinsic :: iso_fortran_env
         use slate
         implicit none
 
         type(c_ptr), value              :: A
         type(slate_Tile_c32)            :: T
-        type(c_ptr)                     :: T_data_c
-        complex(kind=c_float), pointer  :: T_data(:)
-        integer(kind=c_int64_t)         :: mb, nb, lda
         integer(kind=c_int64_t)         :: i, j
 
         do j = 0, slate_Matrix_nt_c32( A )-1
             do i = 0, slate_Matrix_mt_c32( A )-1
                 if (slate_Matrix_tileIsLocal_c32( A, i, j )) then
                     T = slate_Matrix_at_c32( A, i, j )
-                    mb = slate_Tile_mb_c32( T )
-                    nb = slate_Tile_nb_c32( T )
-                    lda = slate_Tile_stride_c32( T )
-                    T_data_c = slate_Tile_data_c32( T )
-                    call c_f_pointer( T_data_c, T_data, [lda*nb] )
-
-                    call random_matrix_c32( mb, nb, T_data, lda )
+                    call random_Tile_c32( T )
                 end if
             end do
         end do
     end subroutine
 
-    subroutine random_matrix_type_c64( A )
+    subroutine random_Matrix_c64( A )
         use, intrinsic :: iso_fortran_env
         use slate
         implicit none
 
         type(c_ptr), value              :: A
         type(slate_Tile_c64)            :: T
-        type(c_ptr)                     :: T_data_c
-        complex(kind=c_double), pointer :: T_data(:)
-        integer(kind=c_int64_t)         :: mb, nb, lda
         integer(kind=c_int64_t)         :: i, j
 
         do j = 0, slate_Matrix_nt_c64( A )-1
             do i = 0, slate_Matrix_mt_c64( A )-1
                 if (slate_Matrix_tileIsLocal_c64( A, i, j )) then
                     T = slate_Matrix_at_c64( A, i, j )
-                    mb = slate_Tile_mb_c64( T )
-                    nb = slate_Tile_nb_c64( T )
-                    lda = slate_Tile_stride_c64( T )
-                    T_data_c = slate_Tile_data_c64( T )
-                    call c_f_pointer( T_data_c, T_data, [lda*nb] )
-
-                    call random_matrix_c64( mb, nb, T_data, lda )
+                    call random_Tile_c64( T )
                 end if
             end do
         end do

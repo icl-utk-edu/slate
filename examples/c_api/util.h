@@ -33,8 +33,12 @@ void print_func_( int rank, const char* func )
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_matrix_r32( int64_t m, int64_t n, float* A, int64_t lda )
+void random_Tile_r32( slate_Tile_r32 T )
 {
+    int64_t m   = slate_Tile_mb_r32( T );
+    int64_t n   = slate_Tile_nb_r32( T );
+    int64_t lda = slate_Tile_stride_r32( T );
+    float*  A   = slate_Tile_data_r32( T );
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
             A[ i + j*lda ] = rand() / (float) RAND_MAX;
@@ -44,8 +48,12 @@ void random_matrix_r32( int64_t m, int64_t n, float* A, int64_t lda )
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_matrix_r64( int64_t m, int64_t n, double* A, int64_t lda )
+void random_Tile_r64( slate_Tile_r64 T )
 {
+    int64_t m   = slate_Tile_mb_r64( T );
+    int64_t n   = slate_Tile_nb_r64( T );
+    int64_t lda = slate_Tile_stride_r64( T );
+    double* A   = slate_Tile_data_r64( T );
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
             A[ i + j*lda ] = rand() / (double) RAND_MAX;
@@ -55,8 +63,12 @@ void random_matrix_r64( int64_t m, int64_t n, double* A, int64_t lda )
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_matrix_c32( int64_t m, int64_t n, float _Complex* A, int64_t lda )
+void random_Tile_c32( slate_Tile_c32 T )
 {
+    int64_t m   = slate_Tile_mb_c32( T );
+    int64_t n   = slate_Tile_nb_c32( T );
+    int64_t lda = slate_Tile_stride_c32( T );
+    float _Complex*  A = slate_Tile_data_c32( T );
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
             float complex z = CMPLXF( rand() / (float) RAND_MAX,
@@ -68,101 +80,30 @@ void random_matrix_c32( int64_t m, int64_t n, float _Complex* A, int64_t lda )
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_matrix_c64( int64_t m, int64_t n, double _Complex* A, int64_t lda )
+void random_Tile_c64( slate_Tile_c64 T )
 {
+    int64_t m   = slate_Tile_mb_c64( T );
+    int64_t n   = slate_Tile_nb_c64( T );
+    int64_t lda = slate_Tile_stride_c64( T );
+    double _Complex* A = slate_Tile_data_c64( T );
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
             double complex z = CMPLX( rand() / (double) RAND_MAX,
                                       rand() / (double) RAND_MAX );
             A[ i + j*lda ] = z;
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-// generate random, diagonally dominant matrix A
-void random_matrix_diag_dominant_r32(
-    int64_t m, int64_t n, float* A, int64_t lda )
-{
-    int64_t max_mn = MAX( m, n );
-    for (int64_t j = 0; j < n; ++j) {
-        for (int64_t i = 0; i < m; ++i) {
-            A[ i + j*lda ] = rand() / (float) RAND_MAX;
-        }
-        if (j < m) {
-            // make diagonal real & dominant
-            A[ j + j*lda ] = A[ j + j*lda ] + max_mn;
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-// generate random, diagonally dominant matrix A
-void random_matrix_diag_dominant_r64(
-    int64_t m, int64_t n, double* A, int64_t lda )
-{
-    int64_t max_mn = MAX( m, n );
-    for (int64_t j = 0; j < n; ++j) {
-        for (int64_t i = 0; i < m; ++i) {
-            A[ i + j*lda ] = rand() / (double) RAND_MAX;
-        }
-        if (j < m) {
-            // make diagonal real & dominant
-            A[ j + j*lda ] = A[ j + j*lda ] + max_mn;
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-// generate random, diagonally dominant matrix A
-void random_matrix_diag_dominant_c32(
-    int64_t m, int64_t n, float _Complex* A, int64_t lda )
-{
-    int64_t max_mn = MAX( m, n );
-    for (int64_t j = 0; j < n; ++j) {
-        for (int64_t i = 0; i < m; ++i) {
-            float complex z = CMPLX( rand() / (float) RAND_MAX,
-                                     rand() / (float) RAND_MAX );
-            A[ i + j*lda ] = z;
-        }
-        if (j < m) {
-            // make diagonal real & dominant
-            A[ j + j*lda ] = creal( A[ j + j*lda ] ) + max_mn;
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-// generate random, diagonally dominant matrix A
-void random_matrix_diag_dominant_c64(
-    int64_t m, int64_t n, double _Complex* A, int64_t lda )
-{
-    int64_t max_mn = MAX( m, n );
-    for (int64_t j = 0; j < n; ++j) {
-        for (int64_t i = 0; i < m; ++i) {
-            double complex z = CMPLX( rand() / (double) RAND_MAX,
-                                      rand() / (double) RAND_MAX );
-            A[ i + j*lda ] = z;
-        }
-        if (j < m) {
-            // make diagonal real & dominant
-            A[ j + j*lda ] = creal( A[ j + j*lda ] ) + max_mn;
         }
     }
 }
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_matrix_type_r32( slate_Matrix_r32 A )
+void random_Matrix_r32( slate_Matrix_r32 A )
 {
     for (int64_t j = 0; j < slate_Matrix_nt_r32( A ); ++j) {
         for (int64_t i = 0; i < slate_Matrix_mt_r32( A ); ++i) {
             if (slate_Matrix_tileIsLocal_r32( A, i, j )) {
                 slate_Tile_r32 T = slate_Matrix_at_r32( A, i, j );
-                random_matrix_r32( slate_Tile_mb_r32( T ),
-                                   slate_Tile_nb_r32( T ),
-                                   slate_Tile_data_r32( T ),
-                                   slate_Tile_stride_r32( T ) );
+                random_Tile_r32( T );
             }
         }
     }
@@ -170,16 +111,13 @@ void random_matrix_type_r32( slate_Matrix_r32 A )
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_matrix_type_r64( slate_Matrix_r64 A )
+void random_Matrix_r64( slate_Matrix_r64 A )
 {
     for (int64_t j = 0; j < slate_Matrix_nt_r64( A ); ++j) {
         for (int64_t i = 0; i < slate_Matrix_mt_r64( A ); ++i) {
             if (slate_Matrix_tileIsLocal_r64( A, i, j )) {
                 slate_Tile_r64 T = slate_Matrix_at_r64( A, i, j );
-                random_matrix_r64( slate_Tile_mb_r64( T ),
-                                   slate_Tile_nb_r64( T ),
-                                   slate_Tile_data_r64( T ),
-                                   slate_Tile_stride_r64( T ) );
+                random_Tile_r64( T );
             }
         }
     }
@@ -187,16 +125,13 @@ void random_matrix_type_r64( slate_Matrix_r64 A )
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_matrix_type_c32( slate_Matrix_c32 A )
+void random_Matrix_c32( slate_Matrix_c32 A )
 {
     for (int64_t j = 0; j < slate_Matrix_nt_c32( A ); ++j) {
         for (int64_t i = 0; i < slate_Matrix_mt_c32( A ); ++i) {
             if (slate_Matrix_tileIsLocal_c32( A, i, j )) {
                 slate_Tile_c32 T = slate_Matrix_at_c32( A, i, j );
-                random_matrix_c32( slate_Tile_mb_c32( T ),
-                                   slate_Tile_nb_c32( T ),
-                                   slate_Tile_data_c32( T ),
-                                   slate_Tile_stride_c32( T ) );
+                random_Tile_c32( T );
             }
         }
     }
@@ -204,16 +139,13 @@ void random_matrix_type_c32( slate_Matrix_c32 A )
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_matrix_type_c64( slate_Matrix_c64 A )
+void random_Matrix_c64( slate_Matrix_c64 A )
 {
     for (int64_t j = 0; j < slate_Matrix_nt_c64( A ); ++j) {
         for (int64_t i = 0; i < slate_Matrix_mt_c64( A ); ++i) {
             if (slate_Matrix_tileIsLocal_c64( A, i, j )) {
                 slate_Tile_c64 T = slate_Matrix_at_c64( A, i, j );
-                random_matrix_c64( slate_Tile_mb_c64( T ),
-                                   slate_Tile_nb_c64( T ),
-                                   slate_Tile_data_c64( T ),
-                                   slate_Tile_stride_c64( T ) );
+                random_Tile_c64( T );
             }
         }
     }
@@ -221,7 +153,7 @@ void random_matrix_type_c64( slate_Matrix_c64 A )
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_symmetric_matrix_type_r32(
+void random_SymmetricMatrix_r32(
     slate_SymmetricMatrix_r32 A, slate_Uplo uplo )
 {
     for (int64_t j = 0; j < slate_SymmetricMatrix_nt_r32( A ); ++j) {
@@ -234,10 +166,7 @@ void random_symmetric_matrix_type_r32(
                     T = slate_SymmetricMatrix_at_r32(A, i, j);
                 else
                     continue;
-                random_matrix_r32( slate_Tile_mb_r32( T ),
-                                   slate_Tile_nb_r32( T ),
-                                   slate_Tile_data_r32( T ),
-                                   slate_Tile_stride_r32( T ) );
+                random_Tile_r32( T );
             }
         }
     }
@@ -245,7 +174,7 @@ void random_symmetric_matrix_type_r32(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_symmetric_matrix_type_r64(
+void random_SymmetricMatrix_r64(
     slate_SymmetricMatrix_r64 A, slate_Uplo uplo )
 {
     for (int64_t j = 0; j < slate_SymmetricMatrix_nt_r64( A ); ++j) {
@@ -258,10 +187,7 @@ void random_symmetric_matrix_type_r64(
                     T = slate_SymmetricMatrix_at_r64(A, i, j);
                 else
                     continue;
-                random_matrix_r64( slate_Tile_mb_r64( T ),
-                                   slate_Tile_nb_r64( T ),
-                                   slate_Tile_data_r64( T ),
-                                   slate_Tile_stride_r64( T ) );
+                random_Tile_r64( T );
             }
         }
     }
@@ -269,7 +195,7 @@ void random_symmetric_matrix_type_r64(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_symmetric_matrix_type_c32(
+void random_SymmetricMatrix_c32(
     slate_SymmetricMatrix_c32 A, slate_Uplo uplo )
 {
     for (int64_t j = 0; j < slate_SymmetricMatrix_nt_c32( A ); ++j) {
@@ -282,10 +208,7 @@ void random_symmetric_matrix_type_c32(
                     T = slate_SymmetricMatrix_at_c32(A, i, j);
                 else
                     continue;
-                random_matrix_c32( slate_Tile_mb_c32( T ),
-                                   slate_Tile_nb_c32( T ),
-                                   slate_Tile_data_c32( T ),
-                                   slate_Tile_stride_c32( T ) );
+                random_Tile_c32( T );
             }
         }
     }
@@ -293,7 +216,7 @@ void random_symmetric_matrix_type_c32(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_symmetric_matrix_type_c64(
+void random_SymmetricMatrix_c64(
     slate_SymmetricMatrix_c64 A, slate_Uplo uplo )
 {
     for (int64_t j = 0; j < slate_SymmetricMatrix_nt_c64( A ); ++j) {
@@ -306,10 +229,7 @@ void random_symmetric_matrix_type_c64(
                     T = slate_SymmetricMatrix_at_c64(A, i, j);
                 else
                     continue;
-                random_matrix_c64( slate_Tile_mb_c64( T ),
-                                   slate_Tile_nb_c64( T ),
-                                   slate_Tile_data_c64( T ),
-                                   slate_Tile_stride_c64( T ) );
+                random_Tile_c64( T );
             }
         }
     }
@@ -317,7 +237,7 @@ void random_symmetric_matrix_type_c64(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_hermitian_matrix_type_r32(
+void random_HermitianMatrix_r32(
     slate_HermitianMatrix_r32 A, slate_Uplo uplo )
 {
     for (int64_t j = 0; j < slate_HermitianMatrix_nt_r32( A ); ++j) {
@@ -330,10 +250,7 @@ void random_hermitian_matrix_type_r32(
                     T = slate_HermitianMatrix_at_r32(A, i, j);
                 else
                     continue;
-                random_matrix_r32( slate_Tile_mb_r32( T ),
-                                   slate_Tile_nb_r32( T ),
-                                   slate_Tile_data_r32( T ),
-                                   slate_Tile_stride_r32( T ) );
+                random_Tile_r32( T );
             }
         }
     }
@@ -341,7 +258,7 @@ void random_hermitian_matrix_type_r32(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_hermitian_matrix_type_r64(
+void random_HermitianMatrix_r64(
     slate_HermitianMatrix_r64 A, slate_Uplo uplo )
 {
     for (int64_t j = 0; j < slate_HermitianMatrix_nt_r64( A ); ++j) {
@@ -354,10 +271,7 @@ void random_hermitian_matrix_type_r64(
                     T = slate_HermitianMatrix_at_r64(A, i, j);
                 else
                     continue;
-                random_matrix_r64( slate_Tile_mb_r64( T ),
-                                   slate_Tile_nb_r64( T ),
-                                   slate_Tile_data_r64( T ),
-                                   slate_Tile_stride_r64( T ) );
+                random_Tile_r64( T );
             }
         }
     }
@@ -365,7 +279,7 @@ void random_hermitian_matrix_type_r64(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_hermitian_matrix_type_c32(
+void random_HermitianMatrix_c32(
     slate_HermitianMatrix_c32 A, slate_Uplo uplo )
 {
     for (int64_t j = 0; j < slate_HermitianMatrix_nt_c32( A ); ++j) {
@@ -378,10 +292,7 @@ void random_hermitian_matrix_type_c32(
                     T = slate_HermitianMatrix_at_c32(A, i, j);
                 else
                     continue;
-                random_matrix_c32( slate_Tile_mb_c32( T ),
-                                   slate_Tile_nb_c32( T ),
-                                   slate_Tile_data_c32( T ),
-                                   slate_Tile_stride_c32( T ) );
+                random_Tile_c32( T );
             }
         }
     }
@@ -389,7 +300,7 @@ void random_hermitian_matrix_type_c32(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_hermitian_matrix_type_c64(
+void random_HermitianMatrix_c64(
     slate_HermitianMatrix_c64 A, slate_Uplo uplo )
 {
     for (int64_t j = 0; j < slate_HermitianMatrix_nt_c64( A ); ++j) {
@@ -402,10 +313,7 @@ void random_hermitian_matrix_type_c64(
                     T = slate_HermitianMatrix_at_c64(A, i, j);
                 else
                     continue;
-                random_matrix_c64( slate_Tile_mb_c64( T ),
-                                   slate_Tile_nb_c64( T ),
-                                   slate_Tile_data_c64( T ),
-                                   slate_Tile_stride_c64( T ) );
+                random_Tile_c64( T );
             }
         }
     }
@@ -413,7 +321,7 @@ void random_hermitian_matrix_type_c64(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_triangular_matrix_type_r32(
+void random_TriangularMatrix_r32(
     slate_TriangularMatrix_r32 A, slate_Uplo uplo, slate_Diag diag )
 {
     for (int64_t j = 0; j < slate_TriangularMatrix_nt_r32( A ); ++j) {
@@ -427,10 +335,7 @@ void random_triangular_matrix_type_r32(
                 else
                     continue;
 
-                random_matrix_r32( slate_Tile_mb_r32( T ),
-                                   slate_Tile_nb_r32( T ),
-                                   slate_Tile_data_r32( T ),
-                                   slate_Tile_stride_r32( T ) );
+                random_Tile_r32( T );
             }
         }
     }
@@ -438,7 +343,7 @@ void random_triangular_matrix_type_r32(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_triangular_matrix_type_r64(
+void random_TriangularMatrix_r64(
     slate_TriangularMatrix_r64 A, slate_Uplo uplo, slate_Diag diag )
 {
     for (int64_t j = 0; j < slate_TriangularMatrix_nt_r64( A ); ++j) {
@@ -452,10 +357,7 @@ void random_triangular_matrix_type_r64(
                 else
                     continue;
 
-                random_matrix_r64( slate_Tile_mb_r64( T ),
-                                   slate_Tile_nb_r64( T ),
-                                   slate_Tile_data_r64( T ),
-                                   slate_Tile_stride_r64( T ) );
+                random_Tile_r64( T );
             }
         }
     }
@@ -463,7 +365,7 @@ void random_triangular_matrix_type_r64(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_triangular_matrix_type_c32(
+void random_TriangularMatrix_c32(
     slate_TriangularMatrix_c32 A, slate_Uplo uplo, slate_Diag diag )
 {
     for (int64_t j = 0; j < slate_TriangularMatrix_nt_c32( A ); ++j) {
@@ -477,10 +379,7 @@ void random_triangular_matrix_type_c32(
                 else
                     continue;
 
-                random_matrix_c32( slate_Tile_mb_c32( T ),
-                                   slate_Tile_nb_c32( T ),
-                                   slate_Tile_data_c32( T ),
-                                   slate_Tile_stride_c32( T ) );
+                random_Tile_c32( T );
             }
         }
     }
@@ -488,7 +387,7 @@ void random_triangular_matrix_type_c32(
 
 //------------------------------------------------------------------------------
 // generate random matrix A
-void random_triangular_matrix_type_c64(
+void random_TriangularMatrix_c64(
     slate_TriangularMatrix_c64 A, slate_Uplo uplo, slate_Diag diag )
 {
     for (int64_t j = 0; j < slate_TriangularMatrix_nt_c64( A ); ++j) {
@@ -502,10 +401,7 @@ void random_triangular_matrix_type_c64(
                 else
                     continue;
 
-                random_matrix_c64( slate_Tile_mb_c64( T ),
-                                   slate_Tile_nb_c64( T ),
-                                   slate_Tile_data_c64( T ),
-                                   slate_Tile_stride_c64( T ) );
+                random_Tile_c64( T );
             }
         }
     }
@@ -513,7 +409,7 @@ void random_triangular_matrix_type_c64(
 
 //------------------------------------------------------------------------------
 // generate random, diagonally dominant matrix A
-void random_hermitian_matrix_type_diag_dominant_r32(
+void random_HermitianMatrix_diag_dominant_r32(
     slate_HermitianMatrix_r32 A, slate_Uplo uplo )
 {
     int64_t max_mn = MAX( slate_HermitianMatrix_m_r32( A ),
@@ -529,10 +425,7 @@ void random_hermitian_matrix_type_diag_dominant_r32(
                 else
                     continue;
 
-                random_matrix_r32( slate_Tile_mb_r32( T ),
-                                   slate_Tile_nb_r32( T ),
-                                   slate_Tile_data_r32( T ),
-                                   slate_Tile_stride_r32( T ) );
+                random_Tile_r32( T );
 
                 if (i == j) {
                     // assuming tileMb == tileNb, then i == j are diagonal tiles
@@ -553,7 +446,7 @@ void random_hermitian_matrix_type_diag_dominant_r32(
 
 //------------------------------------------------------------------------------
 // generate random, diagonally dominant matrix A
-void random_hermitian_matrix_type_diag_dominant_r64(
+void random_HermitianMatrix_diag_dominant_r64(
     slate_HermitianMatrix_r64 A, slate_Uplo uplo )
 {
     int64_t max_mn = MAX( slate_HermitianMatrix_m_r64( A ),
@@ -569,10 +462,7 @@ void random_hermitian_matrix_type_diag_dominant_r64(
                 else
                     continue;
 
-                random_matrix_r64( slate_Tile_mb_r64( T ),
-                                   slate_Tile_nb_r64( T ),
-                                   slate_Tile_data_r64( T ),
-                                   slate_Tile_stride_r64( T ) );
+                random_Tile_r64( T );
 
                 if (i == j) {
                     // assuming tileMb == tileNb, then i == j are diagonal tiles
@@ -593,7 +483,7 @@ void random_hermitian_matrix_type_diag_dominant_r64(
 
 //------------------------------------------------------------------------------
 // generate random, diagonally dominant matrix A
-void random_hermitian_matrix_type_diag_dominant_c32(
+void random_HermitianMatrix_diag_dominant_c32(
     slate_HermitianMatrix_c32 A, slate_Uplo uplo )
 {
     int64_t max_mn = MAX( slate_HermitianMatrix_m_c32( A ),
@@ -609,10 +499,7 @@ void random_hermitian_matrix_type_diag_dominant_c32(
                 else
                     continue;
 
-                random_matrix_c32( slate_Tile_mb_c32( T ),
-                                   slate_Tile_nb_c32( T ),
-                                   slate_Tile_data_c32( T ),
-                                   slate_Tile_stride_c32( T ) );
+                random_Tile_c32( T );
 
                 if (i == j) {
                     // assuming tileMb == tileNb, then i == j are diagonal tiles
@@ -633,7 +520,7 @@ void random_hermitian_matrix_type_diag_dominant_c32(
 
 //------------------------------------------------------------------------------
 // generate random, diagonally dominant matrix A
-void random_hermitian_matrix_type_diag_dominant_c64(
+void random_HermitianMatrix_diag_dominant_c64(
     slate_HermitianMatrix_c64 A, slate_Uplo uplo )
 {
     int64_t max_mn = MAX( slate_HermitianMatrix_m_c64( A ),
@@ -649,10 +536,7 @@ void random_hermitian_matrix_type_diag_dominant_c64(
                 else
                     continue;
 
-                random_matrix_c64( slate_Tile_mb_c64( T ),
-                                   slate_Tile_nb_c64( T ),
-                                   slate_Tile_data_c64( T ),
-                                   slate_Tile_stride_c64( T ) );
+                random_Tile_c64( T );
 
                 if (i == j) {
                     // assuming tileMb == tileNb, then i == j are diagonal tiles

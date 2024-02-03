@@ -102,9 +102,9 @@ contains
         call slate_Matrix_insertLocalTiles_r32( A )
         call slate_Matrix_insertLocalTiles_r32( B )
         call slate_Matrix_insertLocalTiles_r32( C )
-        call random_matrix_type_r32( A )
-        call random_matrix_type_r32( B )
-        call random_matrix_type_r32( C )
+        call random_Matrix_r32( A )
+        call random_Matrix_r32( B )
+        call random_Matrix_r32( C )
 
         ! C = alpha A B + beta C
         call slate_multiply_r32( alpha, A, B, beta, C, c_null_ptr )
@@ -149,9 +149,9 @@ contains
         call slate_Matrix_insertLocalTiles_r64( A )
         call slate_Matrix_insertLocalTiles_r64( B )
         call slate_Matrix_insertLocalTiles_r64( C )
-        call random_matrix_type_r64( A )
-        call random_matrix_type_r64( B )
-        call random_matrix_type_r64( C )
+        call random_Matrix_r64( A )
+        call random_Matrix_r64( B )
+        call random_Matrix_r64( C )
 
         ! C = alpha A B + beta C
         call slate_multiply_r64( alpha, A, B, beta, C, c_null_ptr )
@@ -196,9 +196,9 @@ contains
         call slate_Matrix_insertLocalTiles_c32( A )
         call slate_Matrix_insertLocalTiles_c32( B )
         call slate_Matrix_insertLocalTiles_c32( C )
-        call random_matrix_type_c32( A )
-        call random_matrix_type_c32( B )
-        call random_matrix_type_c32( C )
+        call random_Matrix_c32( A )
+        call random_Matrix_c32( B )
+        call random_Matrix_c32( C )
 
         ! C = alpha A B + beta C
         call slate_multiply_c32( alpha, A, B, beta, C, c_null_ptr )
@@ -243,9 +243,9 @@ contains
         call slate_Matrix_insertLocalTiles_c64( A )
         call slate_Matrix_insertLocalTiles_c64( B )
         call slate_Matrix_insertLocalTiles_c64( C )
-        call random_matrix_type_c64( A )
-        call random_matrix_type_c64( B )
-        call random_matrix_type_c64( C )
+        call random_Matrix_c64( A )
+        call random_Matrix_c64( B )
+        call random_Matrix_c64( C )
 
         ! C = alpha A B + beta C
         call slate_multiply_c64( alpha, A, B, beta, C, c_null_ptr )
@@ -290,9 +290,9 @@ contains
         call slate_Matrix_insertLocalTiles_r32( A )
         call slate_Matrix_insertLocalTiles_r32( B )
         call slate_Matrix_insertLocalTiles_r32( C )
-        call random_matrix_type_r32( A )
-        call random_matrix_type_r32( B )
-        call random_matrix_type_r32( C )
+        call random_Matrix_r32( A )
+        call random_Matrix_r32( B )
+        call random_Matrix_r32( C )
 
         ! Matrices can be transposed or conjugate-transposed beforehand
         ! C = alpha AT BH + beta C
@@ -329,9 +329,9 @@ contains
         call slate_Matrix_insertLocalTiles_r64( A )
         call slate_Matrix_insertLocalTiles_r64( B )
         call slate_Matrix_insertLocalTiles_r64( C )
-        call random_matrix_type_r64( A )
-        call random_matrix_type_r64( B )
-        call random_matrix_type_r64( C )
+        call random_Matrix_r64( A )
+        call random_Matrix_r64( B )
+        call random_Matrix_r64( C )
 
         ! Matrices can be transposed or conjugate-transposed beforehand
         ! C = alpha AT BH + beta C
@@ -368,9 +368,9 @@ contains
         call slate_Matrix_insertLocalTiles_c32( A )
         call slate_Matrix_insertLocalTiles_c32( B )
         call slate_Matrix_insertLocalTiles_c32( C )
-        call random_matrix_type_c32( A )
-        call random_matrix_type_c32( B )
-        call random_matrix_type_c32( C )
+        call random_Matrix_c32( A )
+        call random_Matrix_c32( B )
+        call random_Matrix_c32( C )
 
         ! Matrices can be transposed or conjugate-transposed beforehand
         ! C = alpha AT BH + beta C
@@ -407,9 +407,9 @@ contains
         call slate_Matrix_insertLocalTiles_c64( A )
         call slate_Matrix_insertLocalTiles_c64( B )
         call slate_Matrix_insertLocalTiles_c64( C )
-        call random_matrix_type_c64( A )
-        call random_matrix_type_c64( B )
-        call random_matrix_type_c64( C )
+        call random_Matrix_c64( A )
+        call random_Matrix_c64( B )
+        call random_Matrix_c64( C )
 
         ! Matrices can be transposed or conjugate-transposed beforehand
         ! C = alpha AT BH + beta C

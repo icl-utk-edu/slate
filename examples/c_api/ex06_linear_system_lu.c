@@ -24,8 +24,8 @@ void test_lu_r32()
         n, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate_Matrix_insertLocalTiles_r32( A );
     slate_Matrix_insertLocalTiles_r32( B );
-    random_matrix_type_r32( A );
-    random_matrix_type_r32( B );
+    random_Matrix_r32( A );
+    random_Matrix_r32( B );
 
     slate_lu_solve_r32( A, B, NULL );
 
@@ -46,8 +46,8 @@ void test_lu_r64()
         n, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate_Matrix_insertLocalTiles_r64( A );
     slate_Matrix_insertLocalTiles_r64( B );
-    random_matrix_type_r64( A );
-    random_matrix_type_r64( B );
+    random_Matrix_r64( A );
+    random_Matrix_r64( B );
 
     slate_lu_solve_r64( A, B, NULL );
 
@@ -68,8 +68,8 @@ void test_lu_c32()
         n, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate_Matrix_insertLocalTiles_c32( A );
     slate_Matrix_insertLocalTiles_c32( B );
-    random_matrix_type_c32( A );
-    random_matrix_type_c32( B );
+    random_Matrix_c32( A );
+    random_Matrix_c32( B );
 
     slate_lu_solve_c32( A, B, NULL );
 
@@ -90,8 +90,8 @@ void test_lu_c64()
         n, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate_Matrix_insertLocalTiles_c64( A );
     slate_Matrix_insertLocalTiles_c64( B );
-    random_matrix_type_c64( A );
-    random_matrix_type_c64( B );
+    random_Matrix_c64( A );
+    random_Matrix_c64( B );
 
     slate_lu_solve_c64( A, B, NULL );
 
@@ -109,7 +109,7 @@ void test_lu_inverse_r32()
     slate_Matrix_r32 A = slate_Matrix_create_r32(
         n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate_Matrix_insertLocalTiles_r32( A );
-    random_matrix_type_r32( A );
+    random_Matrix_r32( A );
     slate_Pivots pivots = slate_Pivots_create();
 
     slate_lu_factor_r32( A, pivots, NULL );
@@ -129,7 +129,7 @@ void test_lu_inverse_r64()
     slate_Matrix_r64 A = slate_Matrix_create_r64(
         n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate_Matrix_insertLocalTiles_r64( A );
-    random_matrix_type_r64( A );
+    random_Matrix_r64( A );
     slate_Pivots pivots = slate_Pivots_create();
 
     slate_lu_factor_r64( A, pivots, NULL );
@@ -149,7 +149,7 @@ void test_lu_inverse_c32()
     slate_Matrix_c32 A = slate_Matrix_create_c32(
         n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate_Matrix_insertLocalTiles_c32( A );
-    random_matrix_type_c32( A );
+    random_Matrix_c32( A );
     slate_Pivots pivots = slate_Pivots_create();
 
     slate_lu_factor_c32( A, pivots, NULL );
@@ -169,7 +169,7 @@ void test_lu_inverse_c64()
     slate_Matrix_c64 A = slate_Matrix_create_c64(
         n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate_Matrix_insertLocalTiles_c64( A );
-    random_matrix_type_c64( A );
+    random_Matrix_c64( A );
     slate_Pivots pivots = slate_Pivots_create();
 
     slate_lu_factor_c64( A, pivots, NULL );

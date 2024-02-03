@@ -28,9 +28,9 @@ void test_gemm_r32()
     slate_Matrix_insertLocalTiles_r32( A );
     slate_Matrix_insertLocalTiles_r32( B );
     slate_Matrix_insertLocalTiles_r32( C );
-    random_matrix_type_r32( A );
-    random_matrix_type_r32( B );
-    random_matrix_type_r32( C );
+    random_Matrix_r32( A );
+    random_Matrix_r32( B );
+    random_Matrix_r32( C );
 
     // C = alpha A B + beta C, where A, B, C are all general matrices.
     slate_multiply_r32( alpha, A, B, beta, C, NULL );
@@ -68,9 +68,9 @@ void test_gemm_r64()
     slate_Matrix_insertLocalTiles_r64( A );
     slate_Matrix_insertLocalTiles_r64( B );
     slate_Matrix_insertLocalTiles_r64( C );
-    random_matrix_type_r64( A );
-    random_matrix_type_r64( B );
-    random_matrix_type_r64( C );
+    random_Matrix_r64( A );
+    random_Matrix_r64( B );
+    random_Matrix_r64( C );
 
     // C = alpha A B + beta C, where A, B, C are all general matrices.
     slate_multiply_r64( alpha, A, B, beta, C, NULL );
@@ -108,9 +108,9 @@ void test_gemm_c32()
     slate_Matrix_insertLocalTiles_c32( A );
     slate_Matrix_insertLocalTiles_c32( B );
     slate_Matrix_insertLocalTiles_c32( C );
-    random_matrix_type_c32( A );
-    random_matrix_type_c32( B );
-    random_matrix_type_c32( C );
+    random_Matrix_c32( A );
+    random_Matrix_c32( B );
+    random_Matrix_c32( C );
 
     // C = alpha A B + beta C, where A, B, C are all general matrices.
     slate_multiply_c32( alpha, A, B, beta, C, NULL );
@@ -148,9 +148,9 @@ void test_gemm_c64()
     slate_Matrix_insertLocalTiles_c64( A );
     slate_Matrix_insertLocalTiles_c64( B );
     slate_Matrix_insertLocalTiles_c64( C );
-    random_matrix_type_c64( A );
-    random_matrix_type_c64( B );
-    random_matrix_type_c64( C );
+    random_Matrix_c64( A );
+    random_Matrix_c64( B );
+    random_Matrix_c64( C );
 
     // C = alpha A B + beta C, where A, B, C are all general matrices.
     slate_multiply_c64( alpha, A, B, beta, C, NULL );
@@ -188,9 +188,9 @@ void test_gemm_trans_r32()
     slate_Matrix_insertLocalTiles_r32( A );
     slate_Matrix_insertLocalTiles_r32( B );
     slate_Matrix_insertLocalTiles_r32( C );
-    random_matrix_type_r32( A );
-    random_matrix_type_r32( B );
-    random_matrix_type_r32( C );
+    random_Matrix_r32( A );
+    random_Matrix_r32( B );
+    random_Matrix_r32( C );
 
     // Matrices can be transposed or conjugate-transposed beforehand.
     // C = alpha A^T B^H + beta C
@@ -220,9 +220,9 @@ void test_gemm_trans_r64()
     slate_Matrix_insertLocalTiles_r64( A );
     slate_Matrix_insertLocalTiles_r64( B );
     slate_Matrix_insertLocalTiles_r64( C );
-    random_matrix_type_r64( A );
-    random_matrix_type_r64( B );
-    random_matrix_type_r64( C );
+    random_Matrix_r64( A );
+    random_Matrix_r64( B );
+    random_Matrix_r64( C );
 
     // Matrices can be transposed or conjugate-transposed beforehand.
     // C = alpha A^T B^H + beta C
@@ -252,9 +252,9 @@ void test_gemm_trans_c32()
     slate_Matrix_insertLocalTiles_c32( A );
     slate_Matrix_insertLocalTiles_c32( B );
     slate_Matrix_insertLocalTiles_c32( C );
-    random_matrix_type_c32( A );
-    random_matrix_type_c32( B );
-    random_matrix_type_c32( C );
+    random_Matrix_c32( A );
+    random_Matrix_c32( B );
+    random_Matrix_c32( C );
 
     // Matrices can be transposed or conjugate-transposed beforehand.
     // C = alpha A^T B^H + beta C
@@ -284,9 +284,9 @@ void test_gemm_trans_c64()
     slate_Matrix_insertLocalTiles_c64( A );
     slate_Matrix_insertLocalTiles_c64( B );
     slate_Matrix_insertLocalTiles_c64( C );
-    random_matrix_type_c64( A );
-    random_matrix_type_c64( B );
-    random_matrix_type_c64( C );
+    random_Matrix_c64( A );
+    random_Matrix_c64( B );
+    random_Matrix_c64( C );
 
     // Matrices can be transposed or conjugate-transposed beforehand.
     // C = alpha A^T B^H + beta C

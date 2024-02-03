@@ -326,23 +326,23 @@ int main( int argc, char** argv )
     if (types[ 0 ]) {
         test_gemm_r32();
         test_gemm_trans_r32();
+        if (mpi_rank == 0)
+            printf( "\n" );
     }
-    if (mpi_rank == 0)
-        printf( "\n" );
 
     if (types[ 1 ]) {
         test_gemm_r64();
         test_gemm_trans_r64();
+        if (mpi_rank == 0)
+            printf( "\n" );
     }
-    if (mpi_rank == 0)
-        printf( "\n" );
 
     if (types[ 2 ]) {
         test_gemm_c32();
         test_gemm_trans_c32();
+        if (mpi_rank == 0)
+            printf( "\n" );
     }
-    if (mpi_rank == 0)
-        printf( "\n" );
 
     if (types[ 3 ]) {
         test_gemm_c64();

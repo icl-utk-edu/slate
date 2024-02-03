@@ -53,7 +53,7 @@ contains
 
         do j = 0, n-1
             do i = 1, m
-                A( i + j*lda ) = rand()
+                A( i + j*lda ) = cmplx( rand(), rand() )
             end do
         end do
     end subroutine
@@ -67,7 +67,7 @@ contains
 
         do j = 0, n-1
             do i = 1, m
-                A( i + j*lda ) = rand()
+                A( i + j*lda ) = cmplx( rand(), rand() )
             end do
         end do
     end subroutine
@@ -192,19 +192,14 @@ contains
         real                :: mpi_size_real
 
         mpi_size_real = mpi_size
-        p = floor( sqrt( mpi_size_real ) )
-        do while (p > 0)
+
+        do p = floor( sqrt( mpi_size_real ) ), 1, -1
             q = mpi_size / p
 
-            if (p == q) then
+            if (p*q == mpi_size) then
                return
             end if
         end do
-
-        ! no perfect grid found
-        print '(a, i1, a)', 'could not find a grid for ', mpi_size, 'ranks'
-        stop 1
-
     end subroutine
 
     subroutine parse_args( types )
@@ -212,20 +207,20 @@ contains
         logical           :: types(4)
         character(len=64) :: arg
 
-        if (command_argument_count() == 1) then
+        if (command_argument_count() == 0) then
             types( 1 ) = .true.
             types( 2 ) = .true.
             types( 3 ) = .true.
             types( 4 ) = .true.
         else
-            types( 1 ) = .true.
-            types( 2 ) = .true.
-            types( 3 ) = .true.
-            types( 4 ) = .true.
+            types( 1 ) = .false.
+            types( 2 ) = .false.
+            types( 3 ) = .false.
+            types( 4 ) = .false.
         endif
 
         do i = 1, command_argument_count()
-            call getarg( 0, arg )
+            call get_command_argument( i, arg )
             if (arg == 's') then
                 types( 1 ) = .true.
             else if (arg == 'd') then
@@ -236,8 +231,6 @@ contains
                 types( 4 ) = .true.
             end if
         end do
-
-
     end subroutine
 
 end module util

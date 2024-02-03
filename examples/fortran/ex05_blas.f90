@@ -112,12 +112,12 @@ contains
         if (slate_Matrix_num_devices_r32( C ) > 0) then
             opts = slate_Options_create()
             call slate_Options_set_Target( opts, slate_Target_Devices );
-            call slate_Options_set_Lookahead( opts, 2_8 )
+            call slate_Options_set_Lookahead( opts, 2_int64 )
 
             call slate_multiply_r32( alpha, A, B, beta, C, opts )
 
             call slate_Options_destroy( opts )
-        endif 
+        endif
 
 
         call slate_Matrix_destroy_r32( A )
@@ -159,12 +159,12 @@ contains
         if (slate_Matrix_num_devices_r64( C ) > 0) then
             opts = slate_Options_create()
             call slate_Options_set_Target( opts, slate_Target_Devices );
-            call slate_Options_set_Lookahead( opts, 2_8 )
+            call slate_Options_set_Lookahead( opts, 2_int64 )
 
             call slate_multiply_r64( alpha, A, B, beta, C, opts )
 
             call slate_Options_destroy( opts )
-        endif 
+        endif
 
 
         call slate_Matrix_destroy_r64( A )
@@ -206,12 +206,12 @@ contains
         if (slate_Matrix_num_devices_c32( C ) > 0) then
             opts = slate_Options_create()
             call slate_Options_set_Target( opts, slate_Target_Devices );
-            call slate_Options_set_Lookahead( opts, 2_8 )
+            call slate_Options_set_Lookahead( opts, 2_int64 )
 
             call slate_multiply_c32( alpha, A, B, beta, C, opts )
 
             call slate_Options_destroy( opts )
-        endif 
+        endif
 
 
         call slate_Matrix_destroy_c32( A )
@@ -253,12 +253,12 @@ contains
         if (slate_Matrix_num_devices_c64( C ) > 0) then
             opts = slate_Options_create()
             call slate_Options_set_Target( opts, slate_Target_Devices );
-            call slate_Options_set_Lookahead( opts, 2_8 )
+            call slate_Options_set_Lookahead( opts, 2_int64 )
 
             call slate_multiply_c64( alpha, A, B, beta, C, opts )
 
             call slate_Options_destroy( opts )
-        endif 
+        endif
 
 
         call slate_Matrix_destroy_c64( A )

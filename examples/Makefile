@@ -9,12 +9,14 @@ ifneq (${pkg_exists},0)
     ${error pkg-config could not find slate. Install SLATE, then add /prefix/lib/pkgconfig with your prefix to $$PKG_CONFIG_PATH.}
 endif
 
-CXX            = ${shell pkg-config --variable=CXX       slate}
-CXXFLAGS      += ${shell pkg-config --cflags             slate}
-LDFLAGS       += ${shell pkg-config --libs-only-L        slate}
-LDFLAGS       += ${shell pkg-config --libs-only-other    slate}
-slate_libs     = ${shell pkg-config --libs-only-l        slate}
-scalapack_libs = ${shell pkg-config --variable=scalapack slate}
+CXX            = ${shell pkg-config --variable=CXX         slate}
+CXXFLAGS      += ${shell pkg-config --cflags               slate}
+LDFLAGS       += ${shell pkg-config --libs-only-L          slate}
+LDFLAGS       += ${shell pkg-config --libs-only-other      slate}
+slate_libs     = ${shell pkg-config --libs-only-l          slate}
+scalapack_libs = ${shell pkg-config --variable=scalapack   slate}
+c_api          = ${shell pkg-config --variable=c_api       slate}
+fortran_api    = ${shell pkg-config --variable=fortran_api slate}
 
 #-------------------------------------------------------------------------------
 # SLATE's ScaLAPACK API example
@@ -50,19 +52,32 @@ ${slate_exe}: %: %.o
 
 .PHONY: c_api
 c_api:
-	cd c_api && $(MAKE) all
+	cd c_api && ${MAKE} all
 
 .PHONY: fortran
 fortran:
-	cd fortran && $(MAKE) all
+	cd fortran && ${MAKE} all
 
+
+#-------------------------------------------------------------------------------
+# `make test` rule
 
 test_args ?= s d c z
+
+test_extras :=
+
+ifeq (${c_api},1)
+    test_extras += --c_api
+endif
+
+ifeq (${fortran_api},1)
+    test_extras += --fortran
+endif
 
 # CMake uses `make test`, GNU autotools uses `make check`; allow both.
 test: check
 check: ${exe}
-	./run_tests.py --type "${test_args}" --c_api --fortran
+	./run_tests.py --type "${test_args}" ${test_extras}
 
 #-------------------------------------------------------------------------------
 # Generic rules.
@@ -70,13 +85,25 @@ check: ${exe}
 .SUFFIXES:
 .DEFAULT_GOAL := all
 
-all: ${exe} c_api fortran
+all: ${exe}
+
+ifeq (${c_api},1)
+    all: c_api
+endif
+
+ifeq (${fortran_api},1)
+    all: fortran
+endif
 
 %.o: %.cc
 	${CXX} ${CXXFLAGS} -c -o $@ $<
 
 clean:
 	${RM} ${exe} *.o *.d
+	@echo
+	cd c_api && ${MAKE} clean
+	@echo
+	cd fortran && ${MAKE} clean
 
 clean_exe:
 	${RM} ${exe}

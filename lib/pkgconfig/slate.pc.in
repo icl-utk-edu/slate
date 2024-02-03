@@ -3,7 +3,9 @@ exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
 CXX=#CXX
-scalapack=#SCALAPACK
+scalapack=#SCALAPACK_LIBRARIES
+c_api=#C_API
+fortran_api=#FORTRAN_API
 
 Name: SLATE
 Description: Distributed, GPU-accelerated dense linear algebra library.

@@ -1289,7 +1289,9 @@ ${pkg}:
 	          s'#CPPFLAGS'${CPPFLAGS_clean}'; \
 	          s'#LDFLAGS'${LDFLAGS_clean}'; \
 	          s'#LIBS'${LIBS}'; \
-	          s'#SCALAPACK'${SCALAPACK_LIBRARIES}';" \
+	          s'#SCALAPACK_LIBRARIES'${SCALAPACK_LIBRARIES}'; \
+	          s'#C_API'${c_api}'; \
+	          s'#FORTRAN_API'${fortran_api}';" \
 	          $@.in > $@
 
 #-------------------------------------------------------------------------------

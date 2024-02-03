@@ -539,8 +539,8 @@ void random_hermitian_matrix_type_diag_dominant_r32(
                     // make diagonal real & dominant
                     int64_t min_mb_nb = MIN(
                               slate_Tile_mb_r32( T ), slate_Tile_nb_r32( T ) );
+                    float* data = slate_Tile_data_r32( T );
                     for (int64_t ii = 0; ii < min_mb_nb; ++ii) {
-                        float* data = slate_Tile_data_r32( T );
                         data[ ii + ii*slate_Tile_stride_r32( T ) ] =
                           creal( data[ ii + ii*slate_Tile_stride_r32( T ) ] ) +
                           max_mn;
@@ -579,8 +579,8 @@ void random_hermitian_matrix_type_diag_dominant_r64(
                     // make diagonal real & dominant
                     int64_t min_mb_nb = MIN(
                               slate_Tile_mb_r64( T ), slate_Tile_nb_r64( T ) );
+                    double* data = slate_Tile_data_r64( T );
                     for (int64_t ii = 0; ii < min_mb_nb; ++ii) {
-                        double* data = slate_Tile_data_r64( T );
                         data[ ii + ii*slate_Tile_stride_r64( T ) ] =
                           creal( data[ ii + ii*slate_Tile_stride_r64( T ) ] ) +
                           max_mn;
@@ -619,8 +619,8 @@ void random_hermitian_matrix_type_diag_dominant_c32(
                     // make diagonal real & dominant
                     int64_t min_mb_nb = MIN(
                               slate_Tile_mb_c32( T ), slate_Tile_nb_c32( T ) );
+                    float _Complex* data = slate_Tile_data_c32( T );
                     for (int64_t ii = 0; ii < min_mb_nb; ++ii) {
-                        float _Complex* data = slate_Tile_data_c32( T );
                         data[ ii + ii*slate_Tile_stride_c32( T ) ] =
                           creal( data[ ii + ii*slate_Tile_stride_c32( T ) ] ) +
                           max_mn;
@@ -659,8 +659,8 @@ void random_hermitian_matrix_type_diag_dominant_c64(
                     // make diagonal real & dominant
                     int64_t min_mb_nb = MIN(
                               slate_Tile_mb_c64( T ), slate_Tile_nb_c64( T ) );
+                    double _Complex* data = slate_Tile_data_c64( T );
                     for (int64_t ii = 0; ii < min_mb_nb; ++ii) {
-                        double _Complex* data = slate_Tile_data_c64( T );
                         data[ ii + ii*slate_Tile_stride_c64( T ) ] =
                           creal( data[ ii + ii*slate_Tile_stride_c64( T ) ] ) +
                           max_mn;
@@ -690,7 +690,7 @@ void print_matrix_r64( const char* label, int m, int n, double* A, int lda )
     printf( "%s = [\n", label );
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
-            printf( "  %7.4lf", A[ i + j*lda ] );
+            printf( "  %7.4f", A[ i + j*lda ] );
         }
         printf( "\n" );
     }
@@ -720,7 +720,7 @@ void print_matrix_c64(
     printf( "%s = [\n", label );
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
-            printf( "  %7.4lf + %7.4fi",
+            printf( "  %7.4f + %7.4fi",
                     creal(A[ i + j*lda ]), cimag(A[ i + j*lda ]) );
         }
         printf( "\n" );
@@ -771,13 +771,13 @@ void parse_args( int argc, char** argv, bool types[ 4 ] )
         types[ 0 ] = types[ 1 ] = types[ 2 ] = types[ 3 ] = false;
     }
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "s"))
+        if (strcmp( argv[ i ], "s" ) == 0)
             types[ 0 ] = true;
-        else if (strcmp(argv[i], "d"))
+        else if (strcmp( argv[ i ], "d" ) == 0)
             types[ 1 ] = true;
-        else if (strcmp(argv[i], "c"))
+        else if (strcmp( argv[ i ], "c" ) == 0)
             types[ 2 ] = true;
-        else if (strcmp(argv[i], "z"))
+        else if (strcmp( argv[ i ], "z" ) == 0)
             types[ 3 ] = true;
         else {
             printf( "unknown option: \"%s\"\nUsage: %s [s] [d] [c] [z]\nfor single, double, complex, double-complex.\n",

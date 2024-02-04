@@ -150,7 +150,7 @@ void set(
 }
 
 template <typename scalar_t>
-void set( 
+void set(
     std::function< scalar_t (int64_t i, int64_t j) > const& value,
     Matrix<scalar_t>& A,
     Options const& opts);

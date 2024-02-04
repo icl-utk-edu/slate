@@ -9,7 +9,7 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Set matrix entries.
-/// Transposition is automatically handled. 
+/// Transposition is automatically handled.
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

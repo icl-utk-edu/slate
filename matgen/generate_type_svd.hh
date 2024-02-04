@@ -25,7 +25,7 @@
 
 namespace slate {
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Generates matrix using SVD, $A = U Sigma V^H$.
 ///
 /// Internal function, called from generate_matrix().
@@ -43,7 +43,6 @@ void generate_svd(
     int64_t seed,
     slate::Options const& opts )
 {
-
     using real_t = blas::real_type<scalar_t>;
     assert( A.m() >= A.n() );
 
@@ -202,4 +201,4 @@ void generate_svd(
 
 } // namespace slate
 
-#endif // SLATE_GENERATE_TYPE_HH
+#endif // SLATE_GENERATE_TYPE_SVD_HH

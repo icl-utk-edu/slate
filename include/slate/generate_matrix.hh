@@ -70,6 +70,7 @@ void generate_matrix(
     slate::HermitianMatrix< scalar_t >& A,
     slate::Options const& opts = slate::Options() );
 
+//------------------------------------------------------------------------------
 void generate_matrix_usage();
 
 } // namespace slate

@@ -24,10 +24,19 @@ namespace slate {
 
 const double inf = std::numeric_limits<double>::infinity();
 
-const char *ansi_esc = "\x1b[";
-const char *ansi_red = "\x1b[31m";
-const char *ansi_bold = "\x1b[1m";
-const char *ansi_normal = "\x1b[0m";
+// -----------------------------------------------------------------------------
+// ANSI color codes - enabled by default
+#ifndef NO_COLOR
+    const char *ansi_esc     = "\x1b[";
+    const char *ansi_red     = "\x1b[31m";
+    const char *ansi_bold    = "\x1b[1m";
+    const char *ansi_normal  = "\x1b[0m";
+#else
+    const char *ansi_esc     = "";
+    const char *ansi_red     = "";
+    const char *ansi_bold    = "";
+    const char *ansi_normal  = "";
+#endif
 
 //------------------------------------------------------------------------------
 /// Splits a string by any of the delimiters.
@@ -153,9 +162,15 @@ void decode_matrix(
 {
     using real_t = blas::real_type<scalar_t>;
 
-    const real_t ufl = std::numeric_limits< real_t >::min();      // == lamch("safe min")  ==  1e-38 or  2e-308
-    const real_t ofl = 1 / ufl;                                   //                            8e37 or   4e307
-    const real_t eps = std::numeric_limits< real_t >::epsilon();  // == lamch("precision") == 1.2e-7 or 2.2e-16
+    //                                                single      double
+    // underflow level (ufl) == lamch("safe min")  ==  1e-38  or  2e-308
+    const real_t ufl = std::numeric_limits< real_t >::min();
+
+    // overflow  level (ofl) ==                    ==   8e37  or  4e307
+    const real_t ofl = 1 / ufl;
+
+    // eps                   == lamch("precision") == 1.2e-7  or  2.2e-16
+    const real_t eps = std::numeric_limits< real_t >::epsilon();
 
     // locals
     char msg[ 256 ];
@@ -345,12 +360,12 @@ void decode_matrix(
     }
 
     // ----- check compatability of options
-    if (A.m() != A.n() &&
-        (type == TestMatrixType::jordan ||
-         type == TestMatrixType::poev   ||
-         type == TestMatrixType::heev   ||
-         type == TestMatrixType::geev   ||
-         type == TestMatrixType::geevx))
+    if (A.m() != A.n()
+        && (type == TestMatrixType::jordan
+            || type == TestMatrixType::poev
+            || type == TestMatrixType::heev
+            || type == TestMatrixType::geev
+            || type == TestMatrixType::geevx))
     {
         snprintf( msg, sizeof( msg ), "in '%s': matrix '%s' requires m == n",
                   kind.c_str(), base.c_str() );
@@ -404,7 +419,6 @@ void decode_matrix(
 /// Generates the actual seed from the user provided seed.
 int64_t configure_seed(MPI_Comm comm, int64_t user_seed)
 {
-
     // if the given seed is -1, generate a new seed
     if (user_seed == -1) {
         // use the highest resolution clock as the seed
@@ -414,14 +428,14 @@ int64_t configure_seed(MPI_Comm comm, int64_t user_seed)
     }
 
     // ensure seeds are uniform across MPI ranks
-    slate_mpi_call(MPI_Bcast(&user_seed, 1, MPI_INT64_T, 0, comm));
+    slate_mpi_call(
+        MPI_Bcast( &user_seed, 1, MPI_INT64_T, 0, comm ) );
 
     return user_seed;
 }
 
-
 //------------------------------------------------------------------------------
-// Explicit instantiations. 
+// Explicit instantiations.
 template
 void decode_matrix(
     MatgenParams& params,
@@ -469,6 +483,5 @@ void decode_matrix(
     blas::real_type<std::complex<double>>& sigma_max,
     bool& dominant,
     int64_t& zero_col );
-
 
 } // namespace slate

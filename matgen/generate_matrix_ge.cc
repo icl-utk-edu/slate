@@ -27,6 +27,12 @@
 
 namespace slate {
 
+//------------------------------------------------------------------------------
+/// Generates an m-by-n general-storage test matrix.
+/// Handles Matrix class.
+/// @see generate_matrix
+/// @ingroup generate_matrix
+///
 template <typename scalar_t>
 void generate_matrix(
     MatgenParams& params,
@@ -39,8 +45,8 @@ void generate_matrix(
 
     // Constants
     const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
-    const real_t d_zero = 0;
-    const real_t d_one  = 1;
+    const real_t r_zero = 0;
+    const real_t r_one  = 1;
     const scalar_t zero = 0;
     const scalar_t one  = 1;
     const real_t pi = 3.1415926535897932385;
@@ -73,13 +79,13 @@ void generate_matrix(
         case TestMatrixType::zeros:
             set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
-                d_zero, d_zero, Sigma.data(), Sigma.size() );
+                           r_zero, r_zero, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::ones:
             set(one, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
-                d_zero, d_one, Sigma.data(), Sigma.size() );
+                           r_zero, r_one, Sigma.data(), Sigma.size() );
             if (Sigma.size() >= 1) {
                 Sigma[0] = sqrt(m*n);
             }
@@ -88,7 +94,7 @@ void generate_matrix(
         case TestMatrixType::identity:
             set(zero, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
-                d_one, d_one, Sigma.data(), Sigma.size() );
+                           r_one, r_one, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::ij: {
@@ -115,14 +121,14 @@ void generate_matrix(
                 scalar_t x_i = std::cos( pi * ( i + 1 ) / max_mn );
                 scalar_t x_j = std::cos( pi * ( j + 1 ) / max_mn );
 
-                if ( j != i ) {
+                if (j != i) {
                     scalar_t c_i = i == max_mn - 1 ? 2 : 1;
                     scalar_t c_j = j == max_mn - 1 ? 2 : 1;
                     scalar_t sgn = ( j + i ) % 2 == 0 ? 1 : -1; // (-1)^(i+j)
-		
+
                     return sgn * c_i / ( c_j * (x_j - x_i ) );
                 }
-                else if ( j + 1 == max_mn) {
+                else if (j + 1 == max_mn) {
                     return scalar_t( 2 * max_mn * max_mn + 1 ) / scalar_t(-6.0);
                 }
                 else {
@@ -136,17 +142,17 @@ void generate_matrix(
         // circulant matrix for the vector 1:n
         case TestMatrixType::circul: {
             const int64_t max_mn = std::max(n, m);
-            entry_type circul_entry = [max_mn]( int64_t i , int64_t j ) {
+            entry_type circul_entry = [max_mn]( int64_t i, int64_t j ) {
                 auto diff = j - i;
                 return diff + (diff < 0 ? max_mn : 0) + 1;
             };
             set( circul_entry, A, opts );
             break;
         }
-    
+
         case TestMatrixType::fiedler: {
             entry_type fiedler_entry=[]( int64_t i, int64_t j ) {
-	       return std::abs(j - i); 
+                return std::abs(j - i);
             };
             set( fiedler_entry, A, opts );
             break;
@@ -155,7 +161,7 @@ void generate_matrix(
         case TestMatrixType::gfpp: {
             set(zero, one, A);
             int64_t n_1 = A.n() - 1;
-	    entry_type gfpp_entry = [n_1](  int64_t i, int64_t j) {
+            entry_type gfpp_entry = [n_1](  int64_t i, int64_t j) {
                 if (j == n_1) { // last column
                     return 1.0;
                 }
@@ -175,10 +181,10 @@ void generate_matrix(
 
         case TestMatrixType::kms: {
             const double rho = 0.5;
-	    entry_type kms_entry = [rho]( int64_t i, int64_t j ) {
+            entry_type kms_entry = [rho]( int64_t i, int64_t j ) {
                 return std::pow( rho, std::abs(j - i));
             };
-            set( kms_entry, A, opts ); 
+            set( kms_entry, A, opts );
             break;
         }
 
@@ -199,15 +205,15 @@ void generate_matrix(
             entry_type riemann_entry = []( int64_t i, int64_t j ) {
                 auto B_i = i + 2;
                 auto B_j = j + 2;
-                if ( B_j % B_i == 0 ) {
-		    return B_j - 1;
+                if (B_j % B_i == 0) {
+                    return B_j - 1;
                 }
-		else {
-		    return int64_t(-1);
+                else {
+                    return int64_t( -1 );
                 }
             };
             set( riemann_entry, A, opts );
-	    break;
+            break;
         }
 
         case TestMatrixType::ris: {
@@ -222,7 +228,7 @@ void generate_matrix(
         case TestMatrixType::zielkeNS: {
             const int64_t max_mn = std::max(n, m);
             const scalar_t a = 0.0;
-	    entry_type zielkeNS_entry = [ max_mn, a, one ]( int64_t i, int64_t j ) {
+            entry_type zielkeNS_entry = [ max_mn, a, one ]( int64_t i, int64_t j ) {
                 if (j < i) {
                     return a + one;
                 }
@@ -233,7 +239,7 @@ void generate_matrix(
                     return a;
                 }
             };
-	    set( zielkeNS_entry, A, opts );
+            set( zielkeNS_entry, A, opts );
             break;
         }
 
@@ -264,7 +270,7 @@ void generate_matrix(
             generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma, seed, opts );
             break;
         }
-      
+
         case TestMatrixType::geev: {
             generate_geev( params, dist, cond, sigma_max, A, Sigma, seed, opts );
             break;
@@ -276,18 +282,20 @@ void generate_matrix(
         }
     }
 
-    if (! (type == TestMatrixType::rand  ||
-           type == TestMatrixType::rands ||
-           type == TestMatrixType::randn ||
-           type == TestMatrixType::randb) && dominant) {
+    // rand types have already been made diagonally dominant.
+    if (dominant
+        && ! (type == TestMatrixType::rand
+              || type == TestMatrixType::rands
+              || type == TestMatrixType::randn
+              || type == TestMatrixType::randb)) {
         // make diagonally dominant; strict unless diagonal has zeros
         snprintf( msg, sizeof( msg ), "in '%s': dominant not yet implemented",
                   params.kind.c_str() );
         throw std::runtime_error( msg );
     }
 
-    // Set col A( :, zero_col ) = 0.
     if (zero_col >= 0) {
+        // Set col A( :, zero_col ) = 0.
         #pragma omp parallel
         #pragma omp master
         {
@@ -317,7 +325,8 @@ void generate_matrix(
 
     A.tileUpdateAllOrigin();
 }
-//----------------------------------------
+
+//------------------------------------------------------------------------------
 /// Overload without Sigma.
 /// @see generate_matrix()
 /// @ingroup generate_matrix
@@ -332,9 +341,8 @@ void generate_matrix(
     std::vector<real_t> dummy;
     generate_matrix( params, A, dummy, opts );
 }
-//----------------------------------------
 
-//----------------------------------------
+//------------------------------------------------------------------------------
 // Explicit instantiations.
 template
 void generate_matrix(
@@ -360,5 +368,4 @@ void generate_matrix(
     slate::Matrix< std::complex<double> >& A,
     slate::Options const& opts);
 
-//----------------------------------------
 } // namespace slate

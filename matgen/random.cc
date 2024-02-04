@@ -1,11 +1,14 @@
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "random.hh"
-
-#include <array>
-#include <complex>
 #include "blas.hh"
 #include "blas/util.hh"
 
+#include <array>
+#include <complex>
 
 namespace slate {
 namespace random {
@@ -158,9 +161,9 @@ scalar_t generate_float(int64_t seed, int64_t i, int64_t j)
 //------------------------------------------------------------------------------
 /// Helper function to convert the distribution to a template parameter.
 template<Dist dist, typename scalar_t>
-void generate_helper(int64_t seed,
-                          int64_t m, int64_t n, int64_t ioffset, int64_t joffset,
-                          scalar_t* A, int64_t lda)
+void generate_helper( int64_t seed,
+                      int64_t m, int64_t n, int64_t ioffset, int64_t joffset,
+                      scalar_t* A, int64_t lda )
 {
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
@@ -238,6 +241,7 @@ void generate(
     int64_t joffset,
     float* A,
     int64_t lda);
+
 template
 void generate(
     Dist dist,
@@ -248,6 +252,7 @@ void generate(
     int64_t joffset,
     double* A,
     int64_t lda);
+
 template
 void generate(
     Dist dist,
@@ -258,6 +263,7 @@ void generate(
     int64_t joffset,
     std::complex<float>* A,
     int64_t lda);
+
 template
 void generate(
     Dist dist,

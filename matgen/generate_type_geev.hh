@@ -24,7 +24,7 @@
 
 namespace slate {
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Generates matrix using general eigenvalue decomposition, $A = V T V^H$,
 /// with orthogonal eigenvectors.
 /// Not yet implemented.
@@ -46,7 +46,7 @@ void generate_geev(
     throw std::exception();  // not implemented
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Generates matrix using general eigenvalue decomposition, $A = X T X^{-1}$,
 /// with random eigenvectors.
 /// Not yet implemented.

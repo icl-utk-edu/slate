@@ -24,7 +24,7 @@
 
 namespace slate {
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Generates an m-by-n trapezoid-storage test matrix.
 /// Handles Trapezoid, Triangular, Symmetric, and Hermitian matrices.
 /// @see generate_matrix
@@ -42,8 +42,8 @@ void generate_matrix(
 
     // Constants
     const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
-    const real_t d_zero = 0;
-    const real_t d_one  = 1;
+    const real_t r_zero = 0;
+    const real_t r_one  = 1;
     const scalar_t zero = 0;
     const scalar_t one  = 1;
 
@@ -74,13 +74,13 @@ void generate_matrix(
         case TestMatrixType::zeros:
             set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
-                d_zero, d_zero, Sigma.data(), Sigma.size() );
+                           r_zero, r_zero, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::ones:
             set(one, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
-                d_zero, d_one, Sigma.data(), Sigma.size() );
+                           r_zero, r_one, Sigma.data(), Sigma.size() );
             if (Sigma.size() >= 1) {
                 Sigma[0] = n;
             }
@@ -89,17 +89,17 @@ void generate_matrix(
         case TestMatrixType::identity:
             set(zero, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
-                d_one, d_one, Sigma.data(), Sigma.size() );
+                           r_one, r_one, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::jordan: {
-	    entry_type jordan_entry = [A]( int64_t i, int64_t j  ) {
-                if (A.uplo() == Uplo::Lower) {	
+            entry_type jordan_entry = [A]( int64_t i, int64_t j  ) {
+                if (A.uplo() == Uplo::Lower) {
                     return ( i == j || i + 1 == j ? 1.0 : 0.0 );
                 }
-		else { // upper
+                else { // upper
                     return ( i == j || i + 1 == j ? 1.0 : 0.0 );
-                } 
+                }
             };
             set( jordan_entry, A, opts );
             break;
@@ -126,12 +126,14 @@ void generate_matrix(
             throw std::runtime_error( msg );
     }
 
-    if (! (type == TestMatrixType::rand  ||
-           type == TestMatrixType::rands ||
-           type == TestMatrixType::randn ||
-           type == TestMatrixType::randb) && dominant) {
+    // rand types have already been made diagonally dominant.
+    if (dominant
+        && ! (type == TestMatrixType::rand
+              || type == TestMatrixType::rands
+              || type == TestMatrixType::randn
+              || type == TestMatrixType::randb)) {
         // make diagonally dominant; strict unless diagonal has zeros
-        snprintf( msg, sizeof( msg ), "in '%s', dominant not yet implemented",
+        snprintf( msg, sizeof( msg ), "in '%s': dominant not yet implemented",
                   params.kind.c_str() );
         throw std::runtime_error( msg );
     }
@@ -208,7 +210,7 @@ void generate_matrix(
     A.tileUpdateAllOrigin();
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Generates an m-by-n Hermitian-storage test matrix.
 /// Handles Hermitian matrices.
 /// Diagonal elements of a Hermitian matrix must be real;
@@ -241,7 +243,7 @@ void generate_matrix(
     A.tileUpdateAllOrigin();
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Overload without Sigma.
 /// @see generate_matrix()
 /// @ingroup generate_matrix
@@ -269,7 +271,7 @@ void generate_matrix(
 }
 
 //------------------------------------------------------------------------------
-// Explicit instantiations - hermitian matrix.
+// Explicit instantiations - Hermitian matrix.
 template
 void generate_matrix(
     MatgenParams& params,

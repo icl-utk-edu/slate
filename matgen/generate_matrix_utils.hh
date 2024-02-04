@@ -72,7 +72,7 @@ enum class TestMatrixDist {
 };
 
 //------------------------------------------------------------------------------
-// Function forward declarations. 
+// Function forward declarations.
 template <typename scalar_t>
 void decode_matrix(
     MatgenParams& params,
@@ -87,7 +87,7 @@ void decode_matrix(
 
 void generate_matrix_usage();
 
-std::vector< std::string > split( const std::string& str, 
+std::vector< std::string > split( const std::string& str,
                                   const std::string& delims );
 
 int64_t configure_seed(MPI_Comm comm, int64_t user_seed);

@@ -23,7 +23,8 @@
 #include <utility>
 
 namespace slate {
-// -----------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 /// Generates matrix using Hermitian eigenvalue decomposition, $A = U Sigma U^H$.
 ///
 /// Internal function, called from generate_matrix().

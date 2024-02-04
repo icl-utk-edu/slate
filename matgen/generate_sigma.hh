@@ -25,7 +25,7 @@
 
 namespace slate {
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Generates Sigma vector of singular or eigenvalues, according to distribution.
 ///
 /// Internal function, called from generate_matrix().

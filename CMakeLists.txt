@@ -377,6 +377,7 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         # routines. (the compiler uses fast floating point mode by
         # default).
         target_compile_options( slate PRIVATE "-fp-model=precise" )
+        target_compile_options( slate_matgen PRIVATE "-fp-model=precise" )
 
         # -Wno-unused-command-line-argument avoids
         # icpx warning: -Wl,-rpath,...: 'linker' input unused.
@@ -395,7 +396,6 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
 
         # Intel icpx options for OpenMP offload.
         target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
-	target_compile_options( slate_matgen PRIVATE "-fp-model=precise" )
         target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
 
         # Source files are set below after CUDA and HIP.

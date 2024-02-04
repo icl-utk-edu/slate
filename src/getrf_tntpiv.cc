@@ -39,11 +39,11 @@ int64_t getrf_tntpiv(
     const int queue_2 = 2;
 
     // Options
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    int64_t lookahead = get_option<Option::Lookahead>( opts, 1 );
+    int64_t ib = get_option<Option::InnerBlocking>( opts, 16 );
     int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
-                                             max_panel_threads );
+    max_panel_threads = get_option<Option::MaxPanelThreads>(
+                                                      opts, max_panel_threads );
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.

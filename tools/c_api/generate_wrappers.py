@@ -36,7 +36,7 @@ for line in file:
     if re.search(r'^void', line) or re.search(r'^double\s*slate_(.*?)(?:norm|rcondest)_', line):
         header_is_found = True
 
-    if re.search(r'\s*int\s*num_opts\s*,\s*slate_Options\s*opts\s*\[\s*\]\s*\)', line):
+    if re.search(r'slate_Options\s*opts\s*\)', line):
         header_is_found = False
         container2 += line.replace('\n', ';\n')
         headers.append(container2)
@@ -89,7 +89,7 @@ file_hh.write('\n')
 
 file_cc.write(copyright + '\n')
 file_cc.write('#include "slate/c_api/wrappers.h"\n')
-file_cc.write('#include "slate/c_api/util.hh"\n')
+file_cc.write('#include "c_api/util.hh"\n')
 file_cc.write('#include "slate/slate.hh"\n\n')
 
 file_hh.write('''\

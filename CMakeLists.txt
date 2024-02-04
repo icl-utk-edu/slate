@@ -150,13 +150,14 @@ if (c_api)
     set( cmd ${Python_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_util.py
         ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/types.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/util.hh
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/util.hh
         ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/util.cc )
     execute_process( COMMAND ${cmd} )
 
     set( cmd ${Python_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_matrix.py
         ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/Tile.hh
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/types.hh
         ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/matrix.h
         ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/matrix.cc )
     execute_process( COMMAND ${cmd} )

@@ -36,13 +36,12 @@ int64_t getrf(
     const int queue_1 = 1;
 
     // Options
-    real_t pivot_threshold
-        = get_option<double>( opts, Option::PivotThreshold, 1.0 );
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    real_t pivot_threshold = get_option<Option::PivotThreshold>( opts, 1.0 );
+    int64_t lookahead = get_option<Option::Lookahead>( opts, 1 );
+    int64_t ib = get_option<Option::InnerBlocking>( opts, 16 );
     int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
-                                             max_panel_threads );
+    max_panel_threads = get_option<Option::MaxPanelThreads>(
+                                                      opts, max_panel_threads );
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -323,7 +322,7 @@ int64_t getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
-    Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
+    Method method = get_option<Option::MethodLU>( opts, MethodLU::PartialPiv );
 
     // todo: info for tntpiv, nopiv
     if (method == MethodLU::CALU) {
@@ -334,7 +333,7 @@ int64_t getrf(
         return getrf_nopiv( A, opts );
     }
     else if (method == MethodLU::PartialPiv) {
-        Target target = get_option( opts, Option::Target, Target::HostTask );
+        Target target = get_option<Option::Target>( opts, Target::HostTask );
 
         switch (target) {
             case Target::Host:

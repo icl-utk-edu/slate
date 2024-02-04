@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/c_api/wrappers.h"
-#include "slate/c_api/util.hh"
+#include "c_api/util.hh"
 
 //--------------------
 // begin/end markup used by generate_wrappers.py script;
@@ -12,15 +12,14 @@
 // @begin function
 double slate_norm_c64(
     slate_Norm norm, slate_Matrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::norm(slate::norm2cpp(norm), *A_, opts_);
 }
@@ -33,15 +32,14 @@ double slate_norm_c64(
 // @begin function
 double slate_band_norm_c64(
     slate_Norm norm, slate_BandMatrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::BandMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::norm(slate::norm2cpp(norm), *A_, opts_);
 }
@@ -54,15 +52,14 @@ double slate_band_norm_c64(
 // @begin function
 double slate_hermitian_norm_c64(
     slate_Norm norm, slate_HermitianMatrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::norm(slate::norm2cpp(norm), *A_, opts_);
 }
@@ -75,15 +72,14 @@ double slate_hermitian_norm_c64(
 // @begin function
 double slate_hermitian_band_norm_c64(
     slate_Norm norm, slate_HermitianBandMatrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianBandMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::norm(slate::norm2cpp(norm), *A_, opts_);
 }
@@ -96,15 +92,14 @@ double slate_hermitian_band_norm_c64(
 // @begin function
 double slate_symmetric_norm_c64(
     slate_Norm norm, slate_SymmetricMatrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::SymmetricMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::norm(slate::norm2cpp(norm), *A_, opts_);
 }
@@ -117,15 +112,14 @@ double slate_symmetric_norm_c64(
 // @begin function
 double slate_trapezoid_norm_c64(
     slate_Norm norm, slate_TrapezoidMatrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::TrapezoidMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::norm(slate::norm2cpp(norm), *A_, opts_);
 }
@@ -139,7 +133,7 @@ double slate_trapezoid_norm_c64(
 void slate_copy_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -148,8 +142,7 @@ void slate_copy_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::copy(*A_, *B_, opts_);
 }
@@ -163,7 +156,7 @@ void slate_copy_c64(
 void slate_hermitian_copy_c64(
     slate_HermitianMatrix_c64 A,
     slate_HermitianMatrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -172,8 +165,7 @@ void slate_hermitian_copy_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::copy(*A_, *B_, opts_);
 }
@@ -187,7 +179,7 @@ void slate_hermitian_copy_c64(
 void slate_symmetric_copy_c64(
     slate_SymmetricMatrix_c64 A,
     slate_SymmetricMatrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::SymmetricMatrix<scalar_t>;
@@ -196,8 +188,7 @@ void slate_symmetric_copy_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::copy(*A_, *B_, opts_);
 }
@@ -211,7 +202,7 @@ void slate_symmetric_copy_c64(
 void slate_trapezoid_copy_c64(
     slate_TrapezoidMatrix_c64 A,
     slate_TrapezoidMatrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::TrapezoidMatrix<scalar_t>;
@@ -220,8 +211,7 @@ void slate_trapezoid_copy_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::copy(*A_, *B_, opts_);
 }
@@ -236,7 +226,7 @@ void slate_band_multiply_c64(
     double _Complex alpha, slate_BandMatrix_c64 A,
                                slate_Matrix_c64 B,
     double _Complex beta,      slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::BandMatrix<scalar_t>;
@@ -247,8 +237,7 @@ void slate_band_multiply_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -263,7 +252,7 @@ void slate_multiply_c64(
     double _Complex alpha, slate_Matrix_c64 A,
                            slate_Matrix_c64 B,
     double _Complex beta,  slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -274,8 +263,7 @@ void slate_multiply_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -290,7 +278,7 @@ void slate_hermitian_band_left_multiply_c64(
     double _Complex alpha, slate_HermitianBandMatrix_c64 A,
                                         slate_Matrix_c64 B,
     double _Complex beta,               slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianBandMatrix<scalar_t>;
@@ -301,8 +289,7 @@ void slate_hermitian_band_left_multiply_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -317,7 +304,7 @@ void slate_hermitian_band_right_multiply_c64(
     double _Complex alpha,              slate_Matrix_c64 A,
                            slate_HermitianBandMatrix_c64 B,
     double _Complex beta,               slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::             Matrix<scalar_t>;
@@ -328,8 +315,7 @@ void slate_hermitian_band_right_multiply_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -344,7 +330,7 @@ void slate_hermitian_left_multiply_c64(
     double _Complex alpha, slate_HermitianMatrix_c64 A,
                                     slate_Matrix_c64 B,
     double _Complex beta,           slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -355,8 +341,7 @@ void slate_hermitian_left_multiply_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -371,7 +356,7 @@ void slate_hermitian_right_multiply_c64(
     double _Complex alpha,          slate_Matrix_c64 A,
                            slate_HermitianMatrix_c64 B,
     double _Complex beta,           slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::         Matrix<scalar_t>;
@@ -382,8 +367,7 @@ void slate_hermitian_right_multiply_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -398,7 +382,7 @@ void slate_symmetric_left_multiply_c64(
     double _Complex alpha, slate_SymmetricMatrix_c64 A,
                                     slate_Matrix_c64 B,
     double _Complex beta,           slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::SymmetricMatrix<scalar_t>;
@@ -409,8 +393,7 @@ void slate_symmetric_left_multiply_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -425,7 +408,7 @@ void slate_symmetric_right_multiply_c64(
     double _Complex alpha,          slate_Matrix_c64 A,
                            slate_SymmetricMatrix_c64 B,
     double _Complex beta,           slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::         Matrix<scalar_t>;
@@ -436,8 +419,7 @@ void slate_symmetric_right_multiply_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::multiply<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -451,7 +433,7 @@ void slate_symmetric_right_multiply_c64(
 void slate_triangular_left_multiply_c64(
     double _Complex alpha, slate_TriangularMatrix_c64 A,
                                      slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::TriangularMatrix<scalar_t>;
@@ -460,8 +442,7 @@ void slate_triangular_left_multiply_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::triangular_multiply<scalar_t>(alpha, *A_, *B_, opts_);
 }
@@ -475,7 +456,7 @@ void slate_triangular_left_multiply_c64(
 void slate_triangular_right_multiply_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
                            slate_TriangularMatrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::          Matrix<scalar_t>;
@@ -484,8 +465,7 @@ void slate_triangular_right_multiply_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::triangular_multiply<scalar_t>(alpha, *A_, *B_, opts_);
 }
@@ -499,7 +479,7 @@ void slate_triangular_right_multiply_c64(
 void slate_triangular_band_left_solve_c64(
     double _Complex alpha, slate_TriangularBandMatrix_c64 A,
                                          slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::TriangularBandMatrix<scalar_t>;
@@ -508,8 +488,7 @@ void slate_triangular_band_left_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::triangular_solve<scalar_t>(alpha, *A_, *B_, opts_);
 }
@@ -523,7 +502,7 @@ void slate_triangular_band_left_solve_c64(
 void slate_triangular_band_right_solve_c64(
     double _Complex alpha,               slate_Matrix_c64 A,
                            slate_TriangularBandMatrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::              Matrix<scalar_t>;
@@ -532,8 +511,7 @@ void slate_triangular_band_right_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::triangular_solve<scalar_t>(alpha, *A_, *B_, opts_);
 }
@@ -547,7 +525,7 @@ void slate_triangular_band_right_solve_c64(
 void slate_triangular_left_solve_c64(
     double _Complex alpha, slate_TriangularMatrix_c64 A,
                                      slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::TriangularMatrix<scalar_t>;
@@ -556,8 +534,7 @@ void slate_triangular_left_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::triangular_solve<scalar_t>(alpha, *A_, *B_, opts_);
 }
@@ -571,7 +548,7 @@ void slate_triangular_left_solve_c64(
 void slate_triangular_right_solve_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
                            slate_TriangularMatrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::          Matrix<scalar_t>;
@@ -580,8 +557,7 @@ void slate_triangular_right_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::triangular_solve<scalar_t>(alpha, *A_, *B_, opts_);
 }
@@ -595,7 +571,7 @@ void slate_triangular_right_solve_c64(
 void slate_hermitian_rank_k_update_c64(
     double alpha,          slate_Matrix_c64 A,
     double beta,  slate_HermitianMatrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::         Matrix<scalar_t>;
@@ -604,8 +580,7 @@ void slate_hermitian_rank_k_update_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::rank_k_update<scalar_t>(alpha, *A_, beta, *C_, opts_);
 }
@@ -619,7 +594,7 @@ void slate_hermitian_rank_k_update_c64(
 void slate_symmetric_rank_k_update_c64(
     double _Complex alpha,           slate_Matrix_c64 A,
     double _Complex beta,   slate_SymmetricMatrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::         Matrix<scalar_t>;
@@ -628,8 +603,7 @@ void slate_symmetric_rank_k_update_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::rank_k_update<scalar_t>(alpha, *A_, beta, *C_, opts_);
 }
@@ -644,7 +618,7 @@ void slate_hermitian_rank_2k_update_c64(
     double _Complex alpha,  slate_Matrix_c64 A,
                             slate_Matrix_c64 B,
     double beta,   slate_HermitianMatrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::         Matrix<scalar_t>;
@@ -655,8 +629,7 @@ void slate_hermitian_rank_2k_update_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::rank_2k_update<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -671,7 +644,7 @@ void slate_symmetric_rank_2k_update_c64(
     double _Complex alpha,            slate_Matrix_c64 A,
                                       slate_Matrix_c64 B,
     double _Complex beta,    slate_SymmetricMatrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::         Matrix<scalar_t>;
@@ -682,8 +655,7 @@ void slate_symmetric_rank_2k_update_c64(
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::rank_2k_update<scalar_t>(alpha, *A_, *B_, beta, *C_, opts_);
 }
@@ -697,7 +669,7 @@ void slate_symmetric_rank_2k_update_c64(
 void slate_band_lu_solve_c64(
     slate_BandMatrix_c64 A,
         slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::BandMatrix<scalar_t>;
@@ -706,8 +678,7 @@ void slate_band_lu_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lu_solve<scalar_t>(*A_, *B_, opts_);
 }
@@ -721,7 +692,7 @@ void slate_band_lu_solve_c64(
 void slate_lu_solve_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -730,8 +701,7 @@ void slate_lu_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lu_solve<scalar_t>(*A_, *B_, opts_);
 }
@@ -745,7 +715,7 @@ void slate_lu_solve_c64(
 void slate_lu_solve_nopiv_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -754,8 +724,7 @@ void slate_lu_solve_nopiv_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     // Use options to avoid calling deprecated version
     opts_[ slate::Option::MethodLU ] = slate::MethodLU::NoPiv;
@@ -771,7 +740,7 @@ void slate_lu_solve_nopiv_c64(
 // @begin function
 void slate_band_lu_factor_c64(
     slate_BandMatrix_c64 A, slate_Pivots pivots,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::BandMatrix<scalar_t>;
@@ -779,8 +748,7 @@ void slate_band_lu_factor_c64(
     auto* A_     = reinterpret_cast<matrix_A_t*>(A);
     auto* pivots_= reinterpret_cast<slate::Pivots*>(pivots);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lu_factor<scalar_t>(*A_, *pivots_, opts_);
 }
@@ -793,7 +761,7 @@ void slate_band_lu_factor_c64(
 // @begin function
 void slate_lu_factor_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -801,8 +769,7 @@ void slate_lu_factor_c64(
     auto* A_     = reinterpret_cast<matrix_A_t*>(A);
     auto* pivots_= reinterpret_cast<slate::Pivots*>(pivots);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lu_factor<scalar_t>(*A_, *pivots_, opts_);
 }
@@ -815,15 +782,14 @@ void slate_lu_factor_c64(
 // @begin function
 void slate_lu_factor_nopiv_c64(
     slate_Matrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     // Use options to avoid calling deprecated version
     opts_[ slate::Option::MethodLU ] = slate::MethodLU::NoPiv;
@@ -841,7 +807,7 @@ void slate_lu_factor_nopiv_c64(
 void slate_band_lu_solve_using_factor_c64(
     slate_BandMatrix_c64 A, slate_Pivots pivots,
         slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::BandMatrix<scalar_t>;
@@ -851,8 +817,7 @@ void slate_band_lu_solve_using_factor_c64(
     auto* B_     = reinterpret_cast<matrix_B_t*>(B);
     auto* pivots_= reinterpret_cast<slate::Pivots*>(pivots);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lu_solve_using_factor<scalar_t>(*A_, *pivots_, *B_, opts_);
 }
@@ -866,7 +831,7 @@ void slate_band_lu_solve_using_factor_c64(
 void slate_lu_solve_using_factor_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
     slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -876,8 +841,7 @@ void slate_lu_solve_using_factor_c64(
     auto* B_     = reinterpret_cast<matrix_B_t*>(B);
     auto* pivots_= reinterpret_cast<slate::Pivots*>(pivots);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lu_solve_using_factor<scalar_t>(*A_, *pivots_, *B_, opts_);
 }
@@ -891,7 +855,7 @@ void slate_lu_solve_using_factor_c64(
 void slate_lu_solve_using_factor_nopiv_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -900,8 +864,7 @@ void slate_lu_solve_using_factor_nopiv_c64(
     auto* A_     = reinterpret_cast<matrix_A_t*>(A);
     auto* B_     = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     // Use options to avoid calling deprecated version
     opts_[ slate::Option::MethodLU ] = slate::MethodLU::NoPiv;
@@ -918,7 +881,7 @@ void slate_lu_solve_using_factor_nopiv_c64(
 // @begin function
 void slate_lu_inverse_using_factor_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -926,8 +889,7 @@ void slate_lu_inverse_using_factor_c64(
     auto* A_     = reinterpret_cast<matrix_A_t*>(A);
     auto* pivots_= reinterpret_cast<slate::Pivots*>(pivots);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lu_inverse_using_factor<scalar_t>(*A_, *pivots_, opts_);
 }
@@ -941,7 +903,7 @@ void slate_lu_inverse_using_factor_c64(
 void slate_lu_inverse_using_factor_out_of_place_c64(
     slate_Matrix_c64 A, slate_Pivots pivots,
     slate_Matrix_c64 A_inverse,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t           = std::complex<double>;
     using matrix_A_t         = slate::Matrix<scalar_t>;
@@ -951,8 +913,7 @@ void slate_lu_inverse_using_factor_out_of_place_c64(
     auto* A_inverse_ = reinterpret_cast<matrix_A_inverse_t*>(A_inverse);
     auto* pivots_    = reinterpret_cast<slate::Pivots*>(pivots);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lu_inverse_using_factor_out_of_place<scalar_t>(
         *A_, *pivots_, *A_inverse_, opts_);
@@ -968,15 +929,14 @@ double slate_lu_rcondest_using_factor_c64(
     slate_Norm norm,
     slate_Matrix_c64 A,
     double Anorm,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::lu_rcondest_using_factor<scalar_t>( slate::norm2cpp(norm),
                                                       *A_, Anorm, opts_ );
@@ -991,7 +951,7 @@ double slate_lu_rcondest_using_factor_c64(
 void slate_band_chol_solve_c64(
     slate_HermitianBandMatrix_c64 A,
                  slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianBandMatrix<scalar_t>;
@@ -1000,8 +960,7 @@ void slate_band_chol_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::chol_solve<scalar_t>(*A_, *B_, opts_);
 }
@@ -1015,7 +974,7 @@ void slate_band_chol_solve_c64(
 void slate_chol_solve_c64(
     slate_HermitianMatrix_c64 A,
              slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1024,8 +983,7 @@ void slate_chol_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::chol_solve<scalar_t>(*A_, *B_, opts_);
 }
@@ -1038,15 +996,14 @@ void slate_chol_solve_c64(
 // @begin function
 void slate_band_chol_factor_c64(
     slate_HermitianBandMatrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianBandMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::chol_factor<scalar_t>(*A_, opts_);
 }
@@ -1059,15 +1016,14 @@ void slate_band_chol_factor_c64(
 // @begin function
 void slate_chol_factor_c64(
     slate_HermitianMatrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::chol_factor<scalar_t>(*A_, opts_);
 }
@@ -1081,7 +1037,7 @@ void slate_chol_factor_c64(
 void slate_band_chol_solve_using_factor_c64(
     slate_HermitianBandMatrix_c64 A,
                  slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianBandMatrix<scalar_t>;
@@ -1090,8 +1046,7 @@ void slate_band_chol_solve_using_factor_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::chol_solve_using_factor<scalar_t>(*A_, *B_, opts_);
 }
@@ -1105,7 +1060,7 @@ void slate_band_chol_solve_using_factor_c64(
 void slate_chol_solve_using_factor_c64(
     slate_HermitianMatrix_c64 A,
              slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1114,8 +1069,7 @@ void slate_chol_solve_using_factor_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::chol_solve_using_factor<scalar_t>(*A_, *B_, opts_);
 }
@@ -1128,15 +1082,14 @@ void slate_chol_solve_using_factor_c64(
 // @begin function
 void slate_chol_inverse_using_factor_c64(
     slate_HermitianMatrix_c64 A,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::chol_inverse_using_factor<scalar_t>(*A_, opts_);
 }
@@ -1151,15 +1104,14 @@ double slate_chol_rcondest_using_factor_c64(
     slate_Norm norm,
     slate_HermitianMatrix_c64 A,
     double Anorm,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::chol_rcondest_using_factor<scalar_t>( slate::norm2cpp(norm),
                                                         *A_, Anorm, opts_ );
@@ -1174,7 +1126,7 @@ double slate_chol_rcondest_using_factor_c64(
 void slate_indefinite_solve_c64(
     slate_HermitianMatrix_c64 A,
              slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1183,8 +1135,7 @@ void slate_indefinite_solve_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* B_ = reinterpret_cast<matrix_B_t*>(B);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::indefinite_solve<scalar_t>(*A_, *B_, opts_);
 }
@@ -1199,7 +1150,7 @@ void slate_indefinite_factor_c64(
     slate_HermitianMatrix_c64 A, slate_Pivots pivots,
          slate_BandMatrix_c64 T, slate_Pivots pivots2,
              slate_Matrix_c64 H,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1212,8 +1163,7 @@ void slate_indefinite_factor_c64(
     auto* pivots_  = reinterpret_cast<slate::Pivots*>(pivots);
     auto* pivots2_ = reinterpret_cast<slate::Pivots*>(pivots2);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::indefinite_factor<scalar_t>(
         *A_, *pivots_, *T_, *pivots2_, *H_, opts_);
@@ -1229,7 +1179,7 @@ void slate_indefinite_solve_using_factor_c64(
     slate_HermitianMatrix_c64 A, slate_Pivots pivots,
          slate_BandMatrix_c64 T, slate_Pivots pivots2,
              slate_Matrix_c64 B,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1242,8 +1192,7 @@ void slate_indefinite_solve_using_factor_c64(
     auto* pivots_  = reinterpret_cast<slate::Pivots*>(pivots);
     auto* pivots2_ = reinterpret_cast<slate::Pivots*>(pivots2);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::indefinite_solve_using_factor<scalar_t>(
         *A_, *pivots_, *T_, *pivots2_, *B_, opts_);
@@ -1258,7 +1207,7 @@ void slate_indefinite_solve_using_factor_c64(
 void slate_least_squares_solve_c64(
     slate_Matrix_c64 A,
     slate_Matrix_c64 BX,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t    = std::complex<double>;
     using matrix_A_t  = slate::Matrix<scalar_t>;
@@ -1267,8 +1216,7 @@ void slate_least_squares_solve_c64(
     auto* A_  = reinterpret_cast<matrix_A_t*>(A);
     auto* BX_ = reinterpret_cast<matrix_BX_t*>(BX);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::least_squares_solve<scalar_t>(*A_, *BX_, opts_);
 }
@@ -1281,7 +1229,7 @@ void slate_least_squares_solve_c64(
 // @begin function
 void slate_qr_factor_c64(
     slate_Matrix_c64 A, slate_TriangularFactors_c64 T,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t               = std::complex<double>;
     using matrix_A_t             = slate::Matrix<scalar_t>;
@@ -1290,8 +1238,7 @@ void slate_qr_factor_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* T_ = reinterpret_cast<triangular_factors_T_t*>(T);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::qr_factor<scalar_t>(*A_, *T_, opts_);
 }
@@ -1306,7 +1253,7 @@ void slate_qr_multiply_by_q_c64(
     slate_Side side, slate_Op op,
     slate_Matrix_c64 A, slate_TriangularFactors_c64 T,
     slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t               = std::complex<double>;
     using matrix_A_t             = slate::Matrix<scalar_t>;
@@ -1317,8 +1264,7 @@ void slate_qr_multiply_by_q_c64(
     auto* T_ = reinterpret_cast<triangular_factors_T_t*>(T);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::qr_multiply_by_q<scalar_t>(
         slate::side2cpp(side), slate::op2cpp(op), *A_, *T_, *C_, opts_);
@@ -1332,7 +1278,7 @@ void slate_qr_multiply_by_q_c64(
 // @begin function
 void slate_lq_factor_c64(
     slate_Matrix_c64 A, slate_TriangularFactors_c64 T,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t               = std::complex<double>;
     using matrix_A_t             = slate::Matrix<scalar_t>;
@@ -1341,8 +1287,7 @@ void slate_lq_factor_c64(
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
     auto* T_ = reinterpret_cast<triangular_factors_T_t*>(T);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lq_factor<scalar_t>(*A_, *T_, opts_);
 }
@@ -1357,7 +1302,7 @@ void slate_lq_multiply_by_q_c64(
     slate_Side side, slate_Op op,
     slate_Matrix_c64 A, slate_TriangularFactors_c64 T,
     slate_Matrix_c64 C,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t               = std::complex<double>;
     using matrix_A_t             = slate::Matrix<scalar_t>;
@@ -1368,8 +1313,7 @@ void slate_lq_multiply_by_q_c64(
     auto* T_ = reinterpret_cast<triangular_factors_T_t*>(T);
     auto* C_ = reinterpret_cast<matrix_C_t*>(C);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::lq_multiply_by_q<scalar_t>(
         slate::side2cpp(side), slate::op2cpp(op), *A_, *T_, *C_, opts_);
@@ -1385,15 +1329,14 @@ double slate_triangular_rcondest_c64(
     slate_Norm norm,
     slate_TriangularMatrix_c64 A,
     double Anorm,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::TriangularMatrix<scalar_t>;
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     return slate::triangular_rcondest<scalar_t>( slate::norm2cpp(norm),
                                                  *A_, Anorm, opts_ );
@@ -1408,7 +1351,7 @@ double slate_triangular_rcondest_c64(
 void slate_svd_vals_c64(
     slate_Matrix_c64 A,
     double* Sigma,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -1418,8 +1361,7 @@ void slate_svd_vals_c64(
     int64_t min_mn = std::min( A_->m(), A_->n() );
     std::vector< blas::real_type<scalar_t> > Sigma_( min_mn );
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::svd_vals<scalar_t>(*A_, Sigma_, opts_);
 
@@ -1437,7 +1379,7 @@ void slate_svd_c64(
     double* Sigma,
     slate_Matrix_c64 U,
     slate_Matrix_c64 VT,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::Matrix<scalar_t>;
@@ -1451,8 +1393,7 @@ void slate_svd_c64(
     int64_t min_mn = std::min( A_->m(), A_->n() );
     std::vector< blas::real_type<scalar_t> > Sigma_( min_mn );
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::svd<scalar_t>(*A_, Sigma_, *U_, *VT_, opts_);
 
@@ -1468,7 +1409,7 @@ void slate_svd_c64(
 void slate_hermitian_eig_vals_c64(
     slate_HermitianMatrix_c64 A,
     double* Lambda,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1477,8 +1418,7 @@ void slate_hermitian_eig_vals_c64(
 
     std::vector< blas::real_type<scalar_t> > Lambda_(A_->n());
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::eig_vals<scalar_t>(*A_, Lambda_, opts_);
 
@@ -1495,7 +1435,7 @@ void slate_hermitian_eig_c64(
     slate_HermitianMatrix_c64 A,
     double* Lambda,
     slate_Matrix_c64 Z,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1506,8 +1446,7 @@ void slate_hermitian_eig_c64(
 
     std::vector< blas::real_type<scalar_t> > Lambda_(A_->n());
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::eig<scalar_t>(*A_, Lambda_, *Z_, opts_);
 
@@ -1525,7 +1464,7 @@ void slate_generalized_hermitian_eig_vals_c64(
     slate_HermitianMatrix_c64 A,
     slate_HermitianMatrix_c64 B,
     double* Lambda,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1536,8 +1475,7 @@ void slate_generalized_hermitian_eig_vals_c64(
 
     std::vector< blas::real_type<scalar_t> > Lambda_(A_->n());
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::eig_vals<scalar_t>(itype, *A_, *B_, Lambda_, opts_);
 
@@ -1556,7 +1494,7 @@ void slate_generalized_hermitian_eig_c64(
     slate_HermitianMatrix_c64 B,
     double* Lambda,
     slate_Matrix_c64 Z,
-    int num_opts, slate_Options opts[])
+    slate_Options opts)
 {
     using scalar_t   = std::complex<double>;
     using matrix_A_t = slate::HermitianMatrix<scalar_t>;
@@ -1569,8 +1507,7 @@ void slate_generalized_hermitian_eig_c64(
 
     std::vector< blas::real_type<scalar_t> > Lambda_(A_->n());
 
-    slate::Options opts_;
-    slate::options2cpp(num_opts, opts, opts_);
+    slate::Options opts_ = slate::options2cpp( opts );
 
     slate::eig<scalar_t>(itype, *A_, *B_, Lambda_, *Z_, opts_);
 

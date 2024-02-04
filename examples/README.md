@@ -19,7 +19,7 @@ This installs it into a sub-directory of the SLATE source.
 
     slate>  make
     slate>  make install prefix=install
-    slate>  export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:`pwd`/install
+    slate>  export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:`pwd`/install/lib/pkgconfig
 
 Build examples:
 

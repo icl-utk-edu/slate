@@ -69,21 +69,7 @@ typedef short slate_MOSI_State;
 //------------------------------------------------------------------------------
 // slate/include/slate/types.hh
 
-// todo: should this be just i_ and d_, with cast from enums to int64_t?
-typedef union slate_OptionValue {
-    int64_t       chunk_size;
-    int64_t       lookahead;
-    int64_t       block_size;
-    int64_t       inner_blocking;
-    int64_t       max_panel_threads;
-    double        tolerance;
-    slate_Target  target;
-} slate_OptionValue;                  ///< slate::OptionValue
-
-typedef struct slate_Options {
-    slate_Option      option;
-    slate_OptionValue value;
-} slate_Options;                      ///< slate::Options
+typedef int slate_Method;
 
 //------------------------------------------------------------------------------
 // blaspp/include/blas_util.hh

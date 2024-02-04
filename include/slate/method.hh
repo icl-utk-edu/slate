@@ -9,9 +9,9 @@
 #ifndef SLATE_METHOD_HH
 #define SLATE_METHOD_HH
 
-namespace slate {
+#include "slate/types.hh"
 
-typedef int Method;
+namespace slate {
 
 // This defines default values that MUST be considered in the inner namespaces
 constexpr char baseMethodError_str[]  = "error";

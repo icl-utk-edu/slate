@@ -37,8 +37,8 @@ int64_t getrf_nopiv(
     const Layout layout = Layout::ColMajor;
 
     // Options
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    int64_t lookahead = get_option<Option::Lookahead>( opts, 1 );
+    int64_t ib = get_option<Option::InnerBlocking>( opts, 16 );
 
     if (target == Target::Devices) {
         // two batch arrays plus one for each lookahead

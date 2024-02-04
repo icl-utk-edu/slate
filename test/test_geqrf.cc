@@ -97,7 +97,7 @@ void test_geqrf_work(Params& params, bool run)
 
     slate::TriangularFactors<scalar_t> T;
 
-        print_matrix("A", A, params);
+    print_matrix( "A", A, params );
 
     // For checks, keep copy of original matrix A.
     slate::Matrix<scalar_t> Aref;

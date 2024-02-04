@@ -247,7 +247,7 @@ void test_stedc_deflate_work( Params& params, bool run )
         printf( "%%-------------------- SLATE input\n" );
         printf( "n = %lld; n1 = %lld; n2 = %lld;\n", llong( n ), llong( n1 ), llong( n2 ) );
     }
-    if (verbose >= 1 && mpi_rank == 0) {
+    if (mpi_rank == 0) {
         print_vector( "D", D, params );
         print_vector( "z", z, params );
     }
@@ -312,7 +312,7 @@ void test_stedc_deflate_work( Params& params, bool run )
             if (verbose >= 1 && mpi_rank == 0)
                 printf( "%%-------------------- ScaLAPACK input\n" );
             print_matrix( "Qref", Qref, params );
-            if (verbose >= 1 && mpi_rank == 0) {
+            if (mpi_rank == 0) {
                 print_vector( "Dref", Dref, params );
                 print_vector( "zref", zref, params );
             }
@@ -401,7 +401,7 @@ void test_stedc_deflate_work( Params& params, bool run )
     if (verbose >= 1 && mpi_rank == 0)
         printf( "%%-------------------- SLATE and ScaLAPACK (ref) output\n" );
 
-    print_matrix(     "Qout", Q,    params );
+    print_matrix(     "Q_out", Q,    params );
     if (ref)
         print_matrix( "Qref", Qref, params );
 
@@ -443,7 +443,7 @@ void test_stedc_deflate_work( Params& params, bool run )
         print_vector(     "% zout = Dorig", z,             params );
         if (ref)
             print_vector( "% zref = Dorig", zref,          params );
-        print_vector(     "Dout          ", D,             params );
+        print_vector(     "D_out         ", D,             params );
         if (ref)
             print_vector( "Dref          ", Dref,          params );
         print_vector(     "Dsecular      ", Dsecular,      params );

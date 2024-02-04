@@ -164,7 +164,6 @@ void test_hegv_work(Params& params, bool run)
 
     print_matrix("A", A, params);
     print_matrix("B", B, params);
-    print_matrix("Z", Z, params);
 
     std::vector<scalar_t> Aref_data, Bref_data, Zref_data;
     std::vector<real_t> Lambda_ref;
@@ -245,9 +244,10 @@ void test_hegv_work(Params& params, bool run)
 
     }
 
-    print_matrix("A", A, params);
-    print_matrix("B", B, params);
-    print_matrix("Z", Z, params);
+    if (mpi_rank == 0) {
+        print_vector( "Lambda", Lambda, params );
+    }
+    print_matrix( "Z_out", Z, params );
 
     if (check && jobz == slate::Job::Vec) {
         // do error checks for the operations

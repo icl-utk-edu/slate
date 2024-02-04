@@ -118,7 +118,9 @@ void test_stedc_sort_work( Params& params, bool run )
     Zout.insertLocalTiles();
     set( nan_, Zout );
 
-    //print_vector( "D", D, params );
+    if (mpi_rank == 0) {
+        print_vector( "D", D, params );
+    }
     print_matrix( "Z", Z, params );
 
     if (trace)
@@ -136,8 +138,10 @@ void test_stedc_sort_work( Params& params, bool run )
     if (trace)
         slate::trace::Trace::finish();
 
-    //print_vector( "Dout", D,    params );
-    print_matrix( "Zout", Zout, params );
+    if (mpi_rank == 0) {
+        print_vector( "D_out", D, params );
+    }
+    print_matrix( "Z_out", Zout, params );
 
     // todo: check that D & Z are sorted.
 
@@ -176,10 +180,10 @@ void test_stedc_sort_work( Params& params, bool run )
 
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
-            //print_vector( "Dout", D,    params );
-            //print_vector( "Dref", Dref, params );
-            print_matrix( "Zout", Zout, params );
-            print_matrix( "Zref", Zref, params );
+            if (mpi_rank == 0) {
+                print_vector( "Dref_out", Dref, params );
+            }
+            print_matrix( "Zref_out", Zref, params );
 
             // || D - Dref || should be exactly 0.
             blas::axpy( n, -one, &D[0], 1, &Dref[0], 1 );

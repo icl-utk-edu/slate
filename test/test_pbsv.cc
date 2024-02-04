@@ -134,7 +134,6 @@ void test_pbsv_work(Params& params, bool run)
     print_matrix("A", A, params);
     print_matrix("B", B, params);
 
-
     // if check is required, copy test data and create a descriptor for it
     slate::Matrix<scalar_t> Bref;
     if (check || ref) {
@@ -202,8 +201,8 @@ void test_pbsv_work(Params& params, bool run)
             //       A.mpiRank(), llong( A.bandwidth( )));
             //printf( "nb = %lld;\n", llong( nb ) );
         }
-        print_matrix("A2", A, params);
-        print_matrix("B2", B, params);
+        print_matrix( "A_out", A, params );
+        print_matrix( "B_out", B, params );
     }
     if (check) {
         //==================================================
@@ -249,7 +248,7 @@ void test_pbsv_work(Params& params, bool run)
             printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
                    A_norm, X_norm, R_norm, residual);
         }
-        print_matrix("Residual", Bref, params);
+        print_matrix( "Residual", Bref, params );
     }
     // todo: reference solution requires setting up band matrix in ScaLAPACK's
     // band storage format.

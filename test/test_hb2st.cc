@@ -207,27 +207,18 @@ void test_hb2st_work(Params& params, bool run)
                 }
             }
 
-            print_matrix("D", 1, n,   &Lambda2[0], 1, params);
-            print_matrix("E", 1, n-1, &E[0],  1, params);
+            if (mpi_rank == 0) {
+                print_vector( "D", Lambda2, params );
+                print_vector( "E", E,       params );
+            }
 
             info = lapack::steqr(lapack::Job::NoVec, n, &Lambda2[0], &E[0],
                                  dummy, 1);
             assert(info == 0);
 
-            if (verbose) {
-                printf( "%% first and last 20 rows of Lambda1 and Lambda2\n" );
-                printf( "%9s  %9s\n", "Lambda1", "Lambda2" );
-                for (int64_t i = 0; i < n; ++i) {
-                    if (i < 20 || i >= n-20) {
-                        bool okay = std::abs( Lambda1[i] - Lambda2[i] ) < tol;
-                        printf( "%9.6f  %9.6f%s\n",
-                                Lambda1[i], Lambda2[i], (okay ? "" : " !!") );
-                    }
-                    else if (i == 20) {
-                        printf( "--------------------\n" );
-                    }
-                }
-                printf( "\n" );
+            if (mpi_rank == 0) {
+                print_vector( "Lambda1", Lambda1, params );
+                print_vector( "Lambda2", Lambda2, params );
             }
 
             // Relative forward error: || L - Lref || / || Lref ||.

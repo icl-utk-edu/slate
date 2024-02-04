@@ -51,7 +51,6 @@ void test_gemm_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
     slate::MethodGemm method_gemm = params.method_gemm();
@@ -183,14 +182,11 @@ void test_gemm_work(Params& params, bool run)
 
         if (trace) slate::trace::Trace::finish();
 
-        if (verbose >= 2) {
-            C.tileGetAllForReading( slate::HostNum, slate::LayoutConvert::None );
-            print_matrix( "C_out", C, params );
-        }
-
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
+
+        print_matrix( "C_out", C, params );
     }
 
     if (check && ! ref) {

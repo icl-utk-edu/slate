@@ -242,27 +242,16 @@ void test_tb2bd_work(Params& params, bool run)
                 }
             }
 
-            print_matrix("D", 1, n,   &Sigma[0], 1, params);
-            print_matrix("E", 1, n-1, &E[0],  1, params);
+            print_vector( "D", Sigma, params );
+            print_vector( "E", E,     params );
 
             info = lapack::bdsqr(lapack::Uplo::Upper, n, 0, 0, 0,
                                  &Sigma[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
             assert(info == 0);
 
-            if (verbose) {
-                printf( "%% first and last 20 rows of Sigma_ref and Sigma\n" );
-                printf( "%9s  %9s\n", "Sigma_ref", "Sigma" );
-                for (int64_t i = 0; i < std::min(n, n); ++i) {
-                    if (i < 20 || i >= std::min(n, n)-20) {
-                        bool okay = std::abs( Sigma_ref[i] - Sigma[i] ) < tol;
-                        printf( "%9.6f  %9.6f%s\n",
-                                Sigma_ref[i], Sigma[i], (okay ? "" : " !!") );
-                    }
-                    else if (i == 20) {
-                        printf( "--------------------\n" );
-                    }
-                }
-                printf( "\n" );
+            if (mpi_rank == 0) {
+                print_vector( "Sigma    ", Sigma,     params );
+                print_vector( "Sigma_ref", Sigma_ref, params );
             }
 
             // Relative forward error: || Sigma - Sigma_ref || / || Sigma_ref ||.

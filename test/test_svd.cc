@@ -98,6 +98,10 @@ void test_svd_work( Params& params, bool run )
         params.msg() = "job = NoVec requires --ref y to check singular values";
     }
 
+    // MPI variables
+    int mpi_rank;
+    MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
@@ -194,7 +198,9 @@ void test_svd_work( Params& params, bool run )
             params.time12() = slate::timers[ "svd::unmlq" ];
         }
 
-        print_matrix("D", 1, min_mn,   &Sigma[0], 1, params);
+        if (mpi_rank == 0) {
+            print_vector( "Sigma", Sigma, params );
+        }
         if (wantu) {
             print_matrix( "U",  U, params );
         }

@@ -233,8 +233,8 @@ void test_gbsv_work(Params& params, bool run)
             }
             printf( "] + 1;\n" );
         }
-        print_matrix("A2", A, params);
-        print_matrix("B2", B, params);
+        print_matrix( "A_out", A, params );
+        print_matrix( "B_out", B, params );
     }
 
     if (check) {

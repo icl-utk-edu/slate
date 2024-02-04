@@ -37,7 +37,6 @@ void test_steqr2_work(Params& params, bool run)
     lapack::Job jobz = params.jobz();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
 
     // mark non-standard output values
@@ -72,6 +71,11 @@ void test_steqr2_work(Params& params, bool run)
     lapack::larnv(idist, iseed, E.size(), E.data());
     std::vector<real_t> Dref = D;
     std::vector<real_t> Eref = E;
+
+    if (mpi_rank == 0) {
+        print_vector( "D", D, params );
+        print_vector( "E", E, params );
+    }
 
     slate::Matrix<scalar_t> A; // To check the orth of the eigenvectors
     if (check) {
@@ -110,6 +114,11 @@ void test_steqr2_work(Params& params, bool run)
     if (trace)
         slate::trace::Trace::finish();
 
+    if (mpi_rank == 0) {
+        print_vector( "D_out   ", D, params );
+    }
+    print_matrix( "Z_out", Z, params );
+
     if (check) {
         //==================================================
         // Test results
@@ -125,17 +134,8 @@ void test_steqr2_work(Params& params, bool run)
 
         params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-        if (verbose) {
-            // Print first 20 and last 20 rows.
-            printf( "%9s  %9s\n", "D", "Dref" );
-            for (int64_t i = 0; i < n; ++i) {
-                if (i < 20 || i > n-20) {
-                    bool okay = std::abs( D[i] - Dref[i] ) < tol;
-                    printf( "%9.6f  %9.6f%s\n",
-                            D[i], Dref[i], (okay ? "" : " !!") );
-                }
-            }
-            printf( "\n" );
+        if (mpi_rank == 0) {
+            print_vector( "Dref_out", Dref, params );
         }
 
         // Relative forward error: || D - Dref || / || Dref ||.

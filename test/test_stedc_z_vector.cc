@@ -39,7 +39,6 @@ void test_stedc_z_vector_work( Params& params, bool run )
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
 
     // mark non-standard output values
@@ -117,8 +116,8 @@ void test_stedc_z_vector_work( Params& params, bool run )
     if (trace)
         slate::trace::Trace::finish();
 
-    if (verbose >= 2 && mpi_rank == 0) {
-        print_vector( "zout", z.size(), &z[0], 1, params );
+    if (mpi_rank == 0) {
+        print_vector( "z_out", z, params );
     }
 
     if (check || ref) {
@@ -160,9 +159,9 @@ void test_stedc_z_vector_work( Params& params, bool run )
 
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
-            if (verbose >= 2 && mpi_rank == 0) {
-                print_vector( "zref", zref.size(), &zref[0], 1, params );
-                print_vector( "work", work.size(), &work[0], 1, params );
+            if (mpi_rank == 0) {
+                print_vector( "zref_out", zref, params );
+                print_vector( "work", work, params );
             }
 
             // Forward error || z - zref || should be zero.

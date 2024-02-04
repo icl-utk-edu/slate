@@ -192,7 +192,7 @@ void test_gbmm_work(Params& params, bool run)
         else if (transA == slate::Op::ConjTrans)
             A = conj_transpose( A );
 
-        print_matrix( "Cref_in", Cref, params );
+        print_matrix( "Cref", Cref, params );
 
         // Get norms of the original data.
         real_t A_norm = slate::norm( norm, A );
@@ -208,7 +208,7 @@ void test_gbmm_work(Params& params, bool run)
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-        print_matrix( "Cref", Cref, params );
+        print_matrix( "Cref_out", Cref, params );
 
         // get differences Cref = Cref - C
         slate::add( -one, C, one, Cref );

@@ -30,7 +30,6 @@ void test_sterf_work(Params& params, bool run)
     int q = params.grid.n();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
 
     // mark non-standard output values
     params.time();
@@ -56,6 +55,11 @@ void test_sterf_work(Params& params, bool run)
 
     real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
+    if (mpi_rank == 0) {
+        print_vector( "D", D, params );
+        print_vector( "E", E, params );
+    }
+
     //---------
     // run test
     if (trace) slate::trace::Trace::on();
@@ -73,6 +77,10 @@ void test_sterf_work(Params& params, bool run)
     if (trace)
         slate::trace::Trace::finish();
 
+    if (mpi_rank == 0) {
+        print_vector( "D_out   ", D, params );
+    }
+
     if (check) {
         //==================================================
         // Test results
@@ -82,31 +90,19 @@ void test_sterf_work(Params& params, bool run)
         //==================================================
         // Run LAPACK reference routine.
         //==================================================
-
         lapack::sterf(n, &Dref[0], &Eref[0]);
 
         params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (mpi_rank == 0) {
-            if (verbose) {
-                // Print first 20 and last 20 rows.
-                printf( "%9s  %9s\n", "D", "Dref" );
-                for (int64_t i = 0; i < n; ++i) {
-                    if (i < 20 || i > n-20) {
-                        bool okay = std::abs( D[i] - Dref[i] ) < tol;
-                        printf( "%9.6f  %9.6f%s\n",
-                                D[i], Dref[i], (okay ? "" : " !!") );
-                    }
-                }
-                printf( "\n" );
-            }
-
-            // Relative forward error: || D - Dref || / || Dref ||.
-            blas::axpy(D.size(), -1.0, &Dref[0], 1, &D[0], 1);
-            params.error() = blas::nrm2(D.size(), &D[0], 1)
-                           / blas::nrm2(Dref.size(), &Dref[0], 1);
-            params.okay() = (params.error() <= tol);
+            print_vector( "Dref_out", Dref, params );
         }
+
+        // Relative forward error: || D - Dref || / || Dref ||.
+        blas::axpy(D.size(), -1.0, &Dref[0], 1, &D[0], 1);
+        params.error() = blas::nrm2(D.size(), &D[0], 1)
+                       / blas::nrm2(Dref.size(), &Dref[0], 1);
+        params.okay() = (params.error() <= tol);
     }
 }
 

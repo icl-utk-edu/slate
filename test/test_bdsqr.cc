@@ -38,7 +38,6 @@ void test_bdsqr_work(Params& params, bool run)
     lapack::Job jobvt = params.jobvt();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
 
     // mark non-standard output values
@@ -113,6 +112,11 @@ void test_bdsqr_work(Params& params, bool run)
         }
     }
 
+    if (mpi_rank == 0) {
+        print_vector( "D", D, params );
+        print_vector( "E", E, params );
+    }
+
     //---------
     // run test
     if (trace) slate::trace::Trace::on();
@@ -129,6 +133,17 @@ void test_bdsqr_work(Params& params, bool run)
 
     if (trace)
         slate::trace::Trace::finish();
+
+    if (mpi_rank == 0) {
+        print_vector( "D_out   ", D, params );
+    }
+    // todo: print crashes if U or VT is empty.
+    if (jobu != slate::Job::NoVec) {
+        print_matrix( "U_out",  U,  params );
+    }
+    if (jobvt != slate::Job::NoVec) {
+        print_matrix( "VT_out", VT, params );
+    }
 
     if (check) {
         //==================================================
@@ -147,17 +162,8 @@ void test_bdsqr_work(Params& params, bool run)
 
         params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-        if (verbose) {
-            // Print first 20 and last 20 rows.
-            printf( "%9s  %9s\n", "D", "Dref" );
-            for (int64_t i = 0; i < n; ++i) {
-                if (i < 20 || i > n-20) {
-                    bool okay = std::abs( D[i] - Dref[i] ) < tol;
-                    printf( "%9.6f  %9.6f%s\n",
-                            D[i], Dref[i], (okay ? "" : " !!") );
-                }
-            }
-            printf( "\n" );
+        if (mpi_rank == 0) {
+            print_vector( "Dref_out", Dref, params );
         }
 
         // Relative forward error: || D - Dref || / || Dref ||.

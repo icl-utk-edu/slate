@@ -195,8 +195,8 @@ void test_hesv_work(Params& params, bool run)
         params.msg() = buf;
     }
 
-    print_matrix( "Aout", A, params );
-    print_matrix( "Bout", B, params );
+    print_matrix( "A_out", A, params );
+    print_matrix( "B_out", B, params );
 
     //---------------------
     // compute and save timing/performance

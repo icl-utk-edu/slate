@@ -118,6 +118,8 @@ void test_potri_work(Params& params, bool run)
     gflop = lapack::Gflop<scalar_t>::potrf(n)
           + lapack::Gflop<scalar_t>::potri(n);
 
+    print_matrix( "A", A, params );
+
     if (! ref_only) {
 
         if (trace) slate::trace::Trace::on();
@@ -143,6 +145,8 @@ void test_potri_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
     }
+
+    print_matrix( "A_inv", A, params );
 
     // Test using only SLATE routines for a residual check.
     if (check) {

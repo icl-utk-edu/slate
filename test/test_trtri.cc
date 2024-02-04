@@ -144,7 +144,7 @@ void test_trtri_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        print_matrix( "Ainv", A, params );
+        print_matrix( "A_inv", A, params );
     }
 
     if (check) {

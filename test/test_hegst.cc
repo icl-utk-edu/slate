@@ -134,7 +134,7 @@ void test_hegst_work(Params& params, bool run)
         params.time() = time;
         //params.gflops() = gflop / time;
 
-        print_matrix("A_hegst", A, params);
+        print_matrix( "A_out", A, params );
     }
 
     if (check || ref) {
@@ -175,7 +175,7 @@ void test_hegst_work(Params& params, bool run)
             params.ref_time() = time;
             // params.ref_gflops() = gflop / time;
 
-            print_matrix("Aref_hegst", Aref, params);
+            print_matrix( "Aref_out", Aref, params );
 
             if (! ref_only) {
                 // Local operation: error = Aref - A

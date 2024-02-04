@@ -30,6 +30,8 @@ void test_symm_work(Params& params, bool run)
     // Constants
     const scalar_t zero = 0.0, one = 1.0;
 
+    // todo: method
+
     // get & mark input values
     slate::Side side = params.side();
     slate::Uplo uplo = params.uplo();
@@ -98,6 +100,10 @@ void test_symm_work(Params& params, bool run)
     slate::generate_matrix( params.matrixB, B);
     slate::generate_matrix( params.matrixC, C);
 
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
+    print_matrix( "C", C, params );
+
     // If reference run is required, record norms to be used in the check/ref.
     real_t A_norm=0, B_norm=0, C_orig_norm=0;
     if (ref) {
@@ -149,6 +155,7 @@ void test_symm_work(Params& params, bool run)
         slate_assert(A.mt() == C.mt());
     else
         slate_assert(A.mt() == C.nt());
+
     slate_assert(B.mt() == C.mt());
     slate_assert(B.nt() == C.nt());
 
@@ -180,6 +187,8 @@ void test_symm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
+    print_matrix( "C_out", C, params );
+
     if (check && ! ref) {
         auto& X = X_alloc.A;
         auto& Y = Y_alloc.A;
@@ -188,7 +197,7 @@ void test_symm_work(Params& params, bool run)
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
         // Y = C * X - Y
-        slate::multiply( one, C, X, -one, Y );
+        slate::multiply( one, C, X, -one, Y, opts );
         // error = norm( Y ) / y_norm
         real_t error = slate::norm( slate::Norm::One, Y, opts )/y_norm;
         params.error() = error;
@@ -235,7 +244,6 @@ void test_symm_work(Params& params, bool run)
                             &A_data[0], 1, 1, A_desc,
                             &B_data[0], 1, 1, B_desc, beta,
                             &Cref_data[0], 1, 1, Cref_desc);
-            MPI_Barrier(MPI_COMM_WORLD);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             // get differences C = C - Cref
@@ -256,6 +264,7 @@ void test_symm_work(Params& params, bool run)
 
             real_t eps = std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= 3*eps);
+
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK

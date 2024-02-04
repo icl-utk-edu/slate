@@ -6,6 +6,7 @@
 #include "slate/slate.hh"
 #include "test.hh"
 #include "blas/flops.hh"
+#include "print_matrix.hh"
 
 #include "matrix_utils.hh"
 #include "test_utils.hh"
@@ -95,6 +96,9 @@ void test_trmm_work(Params& params, bool run)
     generate_matrix( params.matrix, A );
     generate_matrix( params.matrixB, B );
 
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
+
     // If reference run is required, record norms to be used in the check/ref.
     real_t A_norm=0, B_orig_norm=0;
     if (ref) {
@@ -177,6 +181,8 @@ void test_trmm_work(Params& params, bool run)
     double gflop = blas::Gflop<scalar_t>::trmm(side, m, n);
     params.time() = time;
     params.gflops() = gflop / time;
+
+    print_matrix( "B_out", B, params );
 
     if (check && ! ref) {
         auto& X = X_alloc.A;

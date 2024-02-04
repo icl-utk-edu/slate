@@ -192,7 +192,7 @@ void test_tbsm_work(Params& params, bool run)
     params.time() = time;
     //params.gflops() = gflop / time;
 
-    print_matrix("B2", B, params);
+    print_matrix( "B_out", B, params );
 
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
@@ -247,7 +247,7 @@ void test_tbsm_work(Params& params, bool run)
                             &Bref_data[0], 1, 1, Bref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            print_matrix("B2ref", Bref, params);
+            print_matrix( "Bref_out", Bref, params );
 
             // local operation: error = Bref_data - B_data
             blas::axpy(Bref_data.size(), -1.0, &B_data[0], 1, &Bref_data[0], 1);

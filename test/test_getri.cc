@@ -8,6 +8,7 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "grid_utils.hh"
+#include "print_matrix.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_copy.hh"
@@ -96,6 +97,8 @@ void test_getri_work(Params& params, bool run)
     }
     slate::generate_matrix(params.matrix, A);
 
+    print_matrix( "A", A, params );
+
     // Create pivot structure to store pivots after factoring
     slate::Pivots pivots;
 
@@ -183,6 +186,13 @@ void test_getri_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
+
+        if (params.routine == "getriOOP") {
+            print_matrix( "A_inv = C_out", C, params );
+        }
+        else {
+            print_matrix( "A_inv = A_out", A, params );
+        }
     }
 
     if (info != 0 || std::isinf( params.matrix.cond_actual() )) {

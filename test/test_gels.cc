@@ -262,8 +262,8 @@ void test_gels_work(Params& params, bool run)
             params.time4() = slate::timers[ "gels_cholqr::trsm" ];
         }
 
-        print_matrix( "A2", A, params );
-        print_matrix( "BX2", BX, params );
+        print_matrix( "A_out", A, params );
+        print_matrix( "BX_out", BX, params );
     }
 
     if (check) {

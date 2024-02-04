@@ -77,6 +77,10 @@ void test_scale_row_col_work( Params& params, bool run )
         {slate::Option::Target, target}
     };
 
+    // MPI variables
+    int mpi_rank;
+    MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
+
     auto A_alloc = allocate_test_Matrix<scalar_t>( check || ref, false, m, n, params );
 
     auto& Afull     = A_alloc.A;
@@ -109,8 +113,10 @@ void test_scale_row_col_work( Params& params, bool run )
     lapack::larnv( idist, iseed, m, &R[ 0 ] );
     lapack::larnv( idist, iseed, n, &C[ 0 ] );
 
-    print_vector( "R", R, params );
-    print_vector( "C", C, params );
+    if (mpi_rank == 0) {
+        print_vector( "R", R, params );
+        print_vector( "C", C, params );
+    }
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();

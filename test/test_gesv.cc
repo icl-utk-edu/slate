@@ -317,8 +317,10 @@ void test_gesv_work(Params& params, bool run)
                       llong( info ), params.matrix.cond_actual() );
             params.msg() = buf;
         }
+
+        print_matrix( "B_out", B, params );
+        print_matrix( "X_out", X, params );
     }
-    print_matrix( "X_out", X, params );
 
     if (info != 0 || std::isinf( params.matrix.cond_actual() )) {
         // info != 0 if and only if cond == inf (singular matrix).

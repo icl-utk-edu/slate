@@ -170,7 +170,7 @@ void test_hbmm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    print_matrix("C2", C, params);
+    print_matrix( "C_out", C, params );
 
     if (check || ref) {
         //==================================================

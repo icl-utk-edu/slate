@@ -128,9 +128,9 @@ void test_her2k_work(Params& params, bool run)
     slate_assert( opB.mt() == C.mt() );
     slate_assert( opA.nt() == opB.nt() );
 
-    print_matrix("A", A, params);
-    print_matrix("B", B, params);
-    print_matrix("Initial C", C, params);
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
+    print_matrix( "C", C, params );
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -177,7 +177,7 @@ void test_her2k_work(Params& params, bool run)
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-    print_matrix("Cslate", C, params);
+    print_matrix( "C_out", C, params );
 
     if (trace) slate::trace::Trace::finish();
 
@@ -243,7 +243,7 @@ void test_her2k_work(Params& params, bool run)
                              &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            print_matrix("Cref", Cref, params);
+            print_matrix( "Cref_out", Cref, params );
 
             // get differences C = C - Cref
             slate::add(-one, Cref, one, C);

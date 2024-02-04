@@ -92,7 +92,7 @@ void test_unmqr_work(Params& params, bool run)
 
     slate::TriangularFactors<scalar_t> T;
 
-        print_matrix("A", A, params);
+    print_matrix( "A", A, params );
 
     // Keep copy of original matrix A.
     slate::Matrix<scalar_t> Aref;

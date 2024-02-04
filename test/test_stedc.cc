@@ -124,9 +124,10 @@ void test_stedc_work( Params& params, bool run )
         set( zero, one, Zref );
     }
 
-    //print_matrix( "Z", Z, params );
-    //print_vector( "D", D, params );
-    //print_vector( "E", E, params );
+    if (mpi_rank == 0) {
+        print_vector( "D", D, params );
+        print_vector( "E", E, params );
+    }
 
     if (trace)
         slate::trace::Trace::on();
@@ -142,6 +143,11 @@ void test_stedc_work( Params& params, bool run )
 
     if (trace)
         slate::trace::Trace::finish();
+
+    if (mpi_rank == 0) {
+        print_vector( "D_out   ", D, params );
+    }
+    print_matrix( "Z_out", Z, params );
 
     if (check) {
         //==================================================
@@ -272,10 +278,10 @@ void test_stedc_work( Params& params, bool run )
 
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
-            print_matrix( "Zout", Z,    params );
-            print_matrix( "Zref", Zref, params );
-            //print_vector( "Dout", D,    params );
-            //print_vector( "Dref", Dref, params );
+            if (mpi_rank == 0) {
+                print_vector( "Dref_out", Dref, params );
+            }
+            print_matrix( "Zref_out", Zref, params );
 
             // Relative forward error: || D - Dref || / || Dref || .
             real_t D_norm = blas::nrm2( n, &Dref[0], 1 );

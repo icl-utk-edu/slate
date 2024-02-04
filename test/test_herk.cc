@@ -6,6 +6,7 @@
 #include "slate/slate.hh"
 #include "test.hh"
 #include "blas/flops.hh"
+#include "print_matrix.hh"
 
 #include "matrix_utils.hh"
 #include "test_utils.hh"
@@ -93,6 +94,9 @@ void test_herk_work(Params& params, bool run)
     slate::generate_matrix( params.matrix, A );
     slate::generate_matrix( params.matrixC, C );
 
+    print_matrix( "A", A, params );
+    print_matrix( "C", C, params );
+
     // If reference run is required, record norms to be used in the check/ref.
     real_t A_norm=0, C_orig_norm=0;
     if (ref) {
@@ -157,6 +161,8 @@ void test_herk_work(Params& params, bool run)
     double gflop = blas::Gflop<scalar_t>::herk(n, k);
     params.time() = time;
     params.gflops() = gflop / time;
+
+    print_matrix( "C_out", C, params );
 
     if (check && ! ref) {
         auto& X = X_alloc.A;

@@ -49,7 +49,6 @@ void test_hemm_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::MethodHemm method_hemm = params.method_hemm();
@@ -108,6 +107,10 @@ void test_hemm_work(Params& params, bool run)
     slate::generate_matrix( params.matrix, A);
     slate::generate_matrix( params.matrixB, B);
     slate::generate_matrix( params.matrixC, C);
+
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
+    print_matrix( "C", C, params );
 
     // If reference run is required, record norms to be used in the check/ref.
     real_t A_norm=0, B_norm=0, C_orig_norm=0;
@@ -185,17 +188,14 @@ void test_hemm_work(Params& params, bool run)
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-    if (verbose >= 2) {
-        C.tileGetAllForReading( slate::HostNum, slate::LayoutConvert::None );
-        print_matrix( "C_out", C, params );
-    }
-
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
     double gflop = blas::Gflop<scalar_t>::hemm(side, m, n);
     params.time() = time;
     params.gflops() = gflop / time;
+
+    print_matrix( "C_out", C, params );
 
     if (check && ! ref) {
         auto& X = X_alloc.A;

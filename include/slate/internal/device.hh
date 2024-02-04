@@ -249,6 +249,26 @@ void trnorm(
     int64_t batch_count, blas::Queue& queue);
 
 //------------------------------------------------------------------------------
+template <typename scalar_t>
+void batch_trsm_addmod(
+    BlockFactor factorType,
+    blas::Layout layout,
+    blas::Side   side,
+    blas::Uplo   uplo,
+    int64_t      mb,
+    int64_t      nb,
+    int64_t      ib,
+    scalar_t     alpha,
+    std::vector<scalar_t*>   Aarray, int64_t ldda,
+    std::vector<scalar_t*>   Uarray, int64_t lddu,
+    std::vector<scalar_t*>  VTarray, int64_t lddvt,
+    std::vector<blas::real_type<scalar_t>*>   Sarray,
+    std::vector<scalar_t*>   Barray, int64_t lddb,
+    std::vector<scalar_t*>   dwork,
+    const size_t batch,
+    blas::Queue &queue );
+
+//------------------------------------------------------------------------------
 // In-place, square.
 template <typename scalar_t>
 void transpose(

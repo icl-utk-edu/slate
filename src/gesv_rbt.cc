@@ -159,6 +159,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
     std::vector<real_t> colnorms_X( X.n() );
     std::vector<real_t> colnorms_R( R.n() );
 
+    // stopping criteria
     real_t cte = Anorm*tol;
     bool converged = false;
 

@@ -538,7 +538,29 @@ operator /= (cuDoubleComplex& a, const double s)
     return a;
 }
 
-//==============================================================================
+// ---------- equality
+__host__ __device__  inline bool
+operator == (const cuDoubleComplex a, const cuDoubleComplex b)
+{
+    return ( real(a) == real(b) &&
+             imag(a) == imag(b) );
+}
+
+__host__ __device__  inline bool
+operator == (const cuDoubleComplex a, const double s)
+{
+    return ( real(a) == s &&
+             imag(a) == 0. );
+}
+
+__host__ __device__  inline bool
+operator == (const double s, const cuDoubleComplex a)
+{
+    return ( real(a) == s &&
+             imag(a) == 0. );
+}
+
+// =============================================================================
 // complex-float
 
 // ---------- negate

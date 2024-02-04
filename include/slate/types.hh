@@ -46,6 +46,9 @@ public:
     OptionValue(Target t) : i_(int(t))
     {}
 
+    OptionValue(BlockFactor f) : i_(int(f))
+    {}
+
     OptionValue(MethodEig m) : i_(int(m))
     {}
 

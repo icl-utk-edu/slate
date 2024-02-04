@@ -21,6 +21,8 @@
 #include "slate/types.hh"
 #include "slate/print.hh"
 
+#include "slate/addmod.hh"
+
 //------------------------------------------------------------------------------
 /// @namespace slate
 /// SLATE's top-level namespace.
@@ -643,6 +645,9 @@ void getri(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
     Options const& opts = Options());
+
+//-----------------------------------------
+// LU with additive modifications
 
 //-----------------------------------------
 // Cholesky

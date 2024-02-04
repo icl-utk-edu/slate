@@ -133,7 +133,7 @@ void trsmA(
                              Matrix<scalar_t>& B,
     Options const& opts )
 {
-    Target target = get_option<Target>(opts, Option::Target, Target::HostTask);
+    Target target = Target::HostTask; //get_option<Target>(opts, Option::Target, Target::HostTask);
 
     switch (target) {
         case Target::Host:

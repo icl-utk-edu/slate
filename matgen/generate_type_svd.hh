@@ -196,7 +196,6 @@ void generate_svd(
             J_index += A.tileNb(j);
         }
     }
-    A.tileUpdateAllOrigin();
 }
 
 } // namespace slate

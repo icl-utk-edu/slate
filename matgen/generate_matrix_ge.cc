@@ -169,7 +169,6 @@ void generate_matrix(
         }
 
         case TestMatrixType::gfpp: {
-            set(zero, one, A);
             int64_t n_1 = A.n() - 1;
             entry_type gfpp_entry = [n_1](  int64_t i, int64_t j) {
                 if (j == n_1) { // last column

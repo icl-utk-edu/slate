@@ -146,7 +146,6 @@ void generate_heev(
             J_index += A.tileMb(j);
         }
     }
-    A.tileUpdateAllOrigin();
 }
 
 } // namespace slate

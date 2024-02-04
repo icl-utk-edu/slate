@@ -7,11 +7,12 @@
 #include "test.hh"
 #include "blas/flops.hh"
 #include "print_matrix.hh"
+
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -44,19 +45,15 @@ void test_gemm_work(Params& params, bool run)
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
     int64_t k = params.dim.k();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';
     slate::Norm norm = params.norm();
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    bool nonuniform_nb = params.nonuniform_nb() == 'y';
     int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
-    slate::GridOrder grid_order = params.grid_order();
     slate::Method method_gemm = params.method_gemm();
     params.matrix.mark();
     params.matrixB.mark();
@@ -77,14 +74,10 @@ void test_gemm_work(Params& params, bool run)
     if (! run)
         return;
 
-    #ifndef SLATE_HAVE_SCALAPACK
-        // Can run ref only when we have ScaLAPACK.
-        if (ref) {
-            if (mpi_rank == 0)
-                printf( "ScaLAPACK not available\n" );
-            ref = false;
-        }
-    #endif
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
@@ -116,9 +109,14 @@ void test_gemm_work(Params& params, bool run)
     slate::generate_matrix(params.matrixB, B);
     slate::generate_matrix(params.matrixC, C);
 
-    // if reference run is required, copy test data.
+    // If reference run is required, record norms to be used in the check/ref.
+    real_t A_norm=0, B_norm=0, C_orig_norm=0;
     if (ref) {
         slate::copy( C, Cref );
+
+        A_norm = slate::norm(norm, A);
+        B_norm = slate::norm(norm, B);
+        C_orig_norm = slate::norm(norm, Cref);
     }
 
     if (transA == slate::Op::Trans)
@@ -134,14 +132,6 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(A.mt() == C.mt());
     slate_assert(B.nt() == C.nt());
     slate_assert(A.nt() == B.mt());
-
-    // If reference run is required, record norms to be used in the check/ref.
-    real_t A_norm=0, B_norm=0, C_orig_norm=0;
-    if (ref) {
-        A_norm = slate::norm(norm, A);
-        B_norm = slate::norm(norm, B);
-        C_orig_norm = slate::norm(norm, Cref);
-    }
 
     // If check run, perform first half of SLATE residual check.
     TestMatrix<slate::Matrix<scalar_t>> X_alloc, Y_alloc, Z_alloc;
@@ -224,14 +214,10 @@ void test_gemm_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
-            if (nonuniform_nb) {
-                params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
-                return;
-            }
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
-            create_ScaLAPACK_context( grid_order, p, q, &ictxt );
+            A_alloc.create_ScaLAPACK_context( &ictxt );
 
             A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
             B_alloc.ScaLAPACK_descriptor( ictxt, B_desc );

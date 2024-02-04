@@ -21,15 +21,10 @@
 // -----------------------------------------------------------------------------
 namespace slate {
 
-enum class Origin {
-    Host,
-    ScaLAPACK,
-    Devices,
-};
-
-enum class Dist {
-    Row,
-    Col,
+enum class Origin : char {
+    Host = 'H',
+    ScaLAPACK = 'S',
+    Devices = 'D',
 };
 
 } // namespace slate
@@ -88,7 +83,7 @@ public:
     testsweeper::ParamEnum< slate::Method >         method_trsm;
 
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
-    testsweeper::ParamEnum< slate::Dist >           dev_dist;
+    testsweeper::ParamEnum< slate::GridOrder >      dev_order;
 
     // ----- test matrix parameters
     MatrixParams matrix;
@@ -283,32 +278,6 @@ void test_copy   (Params& params, bool run);
 void test_scale  (Params& params, bool run);
 void test_scale_row_col(Params& params, bool run);
 void test_set    (Params& params, bool run);
-
-// -----------------------------------------------------------------------------
-inline slate::Dist str2dist(const char* dist)
-{
-    std::string distribution_ = dist;
-    std::transform(
-        distribution_.begin(),
-        distribution_.end(),
-        distribution_.begin(), ::tolower);
-    if (distribution_ == "row" || distribution_ == "r")
-        return slate::Dist::Row;
-    else if (distribution_ == "col" || distribution_ == "c"
-                                    || distribution_ == "column")
-        return slate::Dist::Col;
-    else
-        throw slate::Exception("unknown distribution");
-}
-
-inline const char* dist2str(slate::Dist dist)
-{
-    switch (dist) {
-        case slate::Dist::Row: return "row";
-        case slate::Dist::Col: return "col";
-    }
-    return "?";
-}
 
 // -----------------------------------------------------------------------------
 inline slate::Origin str2origin(const char* origin)

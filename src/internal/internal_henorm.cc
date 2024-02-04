@@ -196,12 +196,14 @@ void norm(
         // Sum tile results into local results.
         // Summing up local contributions only.
         std::fill_n(values, A.n(), 0.0);
-        int64_t nb0 = A.tileNb(0);
-        int64_t mb0 = A.tileMb(0);
-        // off-diagonal blocks
+
+        jj = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t nb = A.tileNb( j );
+
+            // off-diagonal blocks
+            int64_t ii = 0;
             for (int64_t i = 0; i < A.mt(); ++i) {
-                int64_t nb = A.tileNb(j);
                 int64_t mb = A.tileMb(i);
                 if (A.tileIsLocal(i, j) &&
                     ( (  lower && i > j) ||
@@ -210,27 +212,26 @@ void norm(
                     // col sums
                     blas::axpy(
                         nb, 1.0,
-                        &tiles_sums[A.n()*i + j*nb0 ], 1,
-                        &values[j*nb0], 1);
+                        &tiles_sums[A.n()*i + jj ], 1,
+                        &values[jj], 1);
                     // row sums
                     blas::axpy(
                         mb, 1.0,
-                        &tiles_sums[A.m()*j + i*nb0 ], 1,
-                        &values[i*mb0], 1);
+                        &tiles_sums[A.m()*j + ii ], 1,
+                        &values[ii], 1);
                 }
+                ii += mb;
             }
-        }
 
-        // diagonal blocks
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t nb = A.tileNb(j);
+            // diagonal blocks
             if (A.tileIsLocal(j, j) ) {
                 // col sums
                 blas::axpy(
                     nb, 1.0,
-                    &tiles_sums[A.n()*j + j*nb0 ], 1,
-                    &values[j*nb0], 1);
+                    &tiles_sums[A.n()*j + jj ], 1,
+                    &values[jj], 1);
             }
+            jj += nb;
         }
     }
     //---------
@@ -345,8 +346,6 @@ void norm(
 
     std::vector<std::vector<real_t> > vals_host_arrays(A.num_devices());
 
-    std::vector<real_t*> vals_dev_arrays(A.num_devices());
-
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values;
 
@@ -374,7 +373,7 @@ void norm(
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, devices_values ) \
-            shared( vals_host_arrays, vals_dev_arrays, ijrange ) \
+            shared( vals_host_arrays, ijrange ) \
             firstprivate(device, layout, lower, queue_index, in_norm, ldv) \
             priority(priority)
         {

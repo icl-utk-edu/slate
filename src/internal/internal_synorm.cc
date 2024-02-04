@@ -143,7 +143,7 @@ void norm(
         int64_t jj = 0;
         #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
-            // diagonal tile
+            // diagonal tiles
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, tiles_sums ) \
@@ -190,17 +190,19 @@ void norm(
             }
             jj += A.tileNb(j);
         }
-        //end omp taskgroup
+        // end omp taskgroup
 
         // Sum tile results into local results.
         // Summing up local contributions only.
         std::fill_n(values, A.n(), 0.0);
-        int64_t nb0 = A.tileNb(0);
-        int64_t mb0 = A.tileMb(0);
-        // off-diagonal blocks
+
+        jj = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t nb = A.tileNb( j );
+
+            // off-diagonal blocks
+            int64_t ii = 0;
             for (int64_t i = 0; i < A.mt(); ++i) {
-                int64_t nb = A.tileNb(j);
                 int64_t mb = A.tileMb(i);
                 if (A.tileIsLocal(i, j) &&
                     ( (  lower && i > j) ||
@@ -209,27 +211,26 @@ void norm(
                     // col sums
                     blas::axpy(
                         nb, 1.0,
-                        &tiles_sums[A.n()*i + j*nb0 ], 1,
-                        &values[j*nb0], 1);
+                        &tiles_sums[A.n()*i + jj ], 1,
+                        &values[jj], 1);
                     // row sums
                     blas::axpy(
                         mb, 1.0,
-                        &tiles_sums[A.m()*j + i*nb0 ], 1,
-                        &values[i*mb0], 1);
+                        &tiles_sums[A.m()*j + ii ], 1,
+                        &values[ii], 1);
                 }
+                ii += mb;
             }
-        }
 
-        // diagonal blocks
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t nb = A.tileNb(j);
+            // diagonal blocks
             if (A.tileIsLocal(j, j) ) {
                 // col sums
                 blas::axpy(
                     nb, 1.0,
-                    &tiles_sums[A.n()*j + j*nb0 ], 1,
-                    &values[j*nb0], 1);
+                    &tiles_sums[A.n()*j + jj ], 1,
+                    &values[jj], 1);
             }
+            jj += nb;
         }
     }
     //---------
@@ -301,6 +302,7 @@ void norm(
                 }
             }
         }
+        // end omp taskgroup
     }
 }
 
@@ -325,7 +327,8 @@ void norm(
 /// @ingroup norm_internal
 ///
 template <typename scalar_t>
-void norm(internal::TargetType<Target::Devices>,
+void norm(
+    internal::TargetType<Target::Devices>,
     Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
     int priority, int queue_index)
@@ -346,8 +349,6 @@ void norm(internal::TargetType<Target::Devices>,
     assert(A.num_devices() > 0);
 
     std::vector<std::vector<real_t> > vals_host_arrays(A.num_devices());
-
-    std::vector<real_t*> vals_dev_arrays(A.num_devices());
 
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values;
@@ -376,7 +377,7 @@ void norm(internal::TargetType<Target::Devices>,
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, devices_values ) \
-            shared( vals_host_arrays, vals_dev_arrays, ijrange ) \
+            shared( vals_host_arrays, ijrange ) \
             firstprivate(device, lower, queue_index, in_norm, ldv, layout) \
             priority(priority)
         {
@@ -492,11 +493,6 @@ void norm(internal::TargetType<Target::Devices>,
         }
     }
     // end omp taskgroup
-
-    for (int device = 0; device < A.num_devices(); ++device) {
-        blas::Queue* queue = A.compute_queue(device, queue_index);
-        blas::device_free(vals_dev_arrays[device], *queue);
-    }
 
     // Reduction over devices to local result.
     if (in_norm == Norm::Max) {

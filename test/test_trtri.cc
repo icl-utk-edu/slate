@@ -9,7 +9,6 @@
 #include "lapack/flops.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"

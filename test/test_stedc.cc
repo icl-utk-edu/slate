@@ -8,7 +8,6 @@
 #include "test.hh"
 #include "print_matrix.hh"
 
-#include "scalapack_support_routines.hh"
 #include "band_utils.hh"
 #include "grid_utils.hh"
 #include "matrix_generator.hh"

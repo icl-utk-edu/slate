@@ -8,11 +8,11 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
-#include "grid_utils.hh"
+
 #include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -59,8 +59,6 @@ void test_gesv_work(Params& params, bool run)
 
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
     int64_t ib = params.ib();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
@@ -68,13 +66,10 @@ void test_gesv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    bool nonuniform_nb = params.nonuniform_nb() == 'y';
     int verbose = params.verbose();
     int timer_level = params.timer_level();
     SLATE_UNUSED(verbose);
-    slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::GridOrder grid_order = params.grid_order();
     params.matrix.mark();
     params.matrixB.mark();
 
@@ -156,8 +151,8 @@ void test_gesv_work(Params& params, bool run)
     if (! run)
         return;
 
-    if (nonuniform_nb && origin == slate::Origin::ScaLAPACK) {
-        params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
         return;
     }
 
@@ -385,14 +380,10 @@ void test_gesv_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
-            if (nonuniform_nb) {
-                params.msg() = "skipping reference: nonuniform tile not supported with ScaLAPACK";
-                return;
-            }
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, Aref_desc[9], Bref_desc[9];
-            create_ScaLAPACK_context( grid_order, p, q, &ictxt );
+            A_alloc.create_ScaLAPACK_context( &ictxt );
             A_alloc.ScaLAPACK_descriptor( ictxt, Aref_desc );
             B_alloc.ScaLAPACK_descriptor( ictxt, Bref_desc );
 
@@ -433,7 +424,7 @@ void test_gesv_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
-            if (mpi_rank == 0)
+            if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }

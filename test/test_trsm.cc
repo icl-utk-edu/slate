@@ -6,12 +6,13 @@
 #include "slate/slate.hh"
 #include "test.hh"
 #include "blas/flops.hh"
+#include "print_matrix.hh"
+
+#include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
-#include "print_matrix.hh"
-#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -44,9 +45,6 @@ void test_trsm_work(Params& params, bool run)
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     scalar_t alpha = params.alpha.get<scalar_t>();
-    int p = params.grid.m();
-    int q = params.grid.n();
-    int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
@@ -57,6 +55,9 @@ void test_trsm_work(Params& params, bool run)
     slate::Method method_trsm = params.method_trsm();
     params.matrix.mark();
     params.matrixB.mark();
+
+    mark_params_for_test_TriangularMatrix( params );
+    mark_params_for_test_Matrix( params );
 
     // mark non-standard output values
     params.time();
@@ -69,6 +70,11 @@ void test_trsm_work(Params& params, bool run)
 
     if (! run) {
         params.matrix.kind.set_default( "rand_dominant" );
+        return;
+    }
+
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
         return;
     }
 
@@ -87,49 +93,12 @@ void test_trsm_work(Params& params, bool run)
     int64_t Bm  = m;
     int64_t Bn  = n;
 
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
+    auto A_alloc = allocate_test_TriangularMatrix<scalar_t>( false, true, An, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, true, Bm, Bn, params );
 
-    // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
-    int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
-    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-
-    // Matrix B: figure out local size.
-    int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
-    int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
-    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-
-    // Allocate ScaLAPACK data if needed.
-    std::vector<scalar_t> A_data, B_data;
-    if (ref || origin == slate::Origin::ScaLAPACK) {
-        A_data.resize( lldA * nlocA );
-    }
-
-    slate::TriangularMatrix<scalar_t> A;
-    slate::Matrix<scalar_t> B;
-    if (origin != slate::Origin::ScaLAPACK) {
-        // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
-        A = slate::TriangularMatrix<scalar_t>(
-                uplo, diag, An, nb, p, q, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin_target);
-
-        B = slate::Matrix<scalar_t>(
-                Bm, Bn, nb, p, q, MPI_COMM_WORLD);
-        B.insertLocalTiles(origin_target);
-    }
-    else {
-        // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                uplo, diag, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-
-        B_data.resize( lldB * nlocB );
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-    }
+    auto& A         = A_alloc.A;
+    auto& B         = B_alloc.A;
+    auto& Bref      = B_alloc.Aref;
 
     slate::generate_matrix( params.matrix, A );
     slate::generate_matrix( params.matrixB, B );
@@ -140,13 +109,8 @@ void test_trsm_work(Params& params, bool run)
     auto AH = slate::HermitianMatrix<scalar_t>( A );
     slate::potrf( AH, opts );
 
-    // if check is required, copy test data
-    std::vector< scalar_t > Bref_data;
-    slate::Matrix<scalar_t> Bref;
+    // If reference run is required, record norms to be used in the check/ref.
     if (check || ref) {
-        Bref_data.resize( lldB * nlocB );
-        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         slate::copy( B, Bref );
     }
 
@@ -220,34 +184,22 @@ void test_trsm_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK for timing only
 
-            // BLACS/MPI variables
-            blas_int ictxt, p_, q_, myrow_, mycol_;
-            blas_int A_desc[9], B_desc[9], Bref_desc[9];
-            blas_int mpi_rank_ = 0, nprocs = 1;
-
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank_ == mpi_rank );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
+            blas_int ictxt, A_desc[9], Bref_desc[9];
+            A_alloc.create_ScaLAPACK_context( &ictxt );
 
-            int64_t info;
-            scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
+            B_alloc.ScaLAPACK_descriptor( ictxt, Bref_desc );
 
-            scalapack_descinit(B_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+            auto& A_data = A_alloc.A_data;
+            auto& Bref_data = B_alloc.Aref_data;
 
-            scalapack_descinit(Bref_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+            if (origin != slate::Origin::ScaLAPACK) {
+                A_data.resize( A_alloc.lld * A_alloc.nloc );
 
-            copy( A, &A_data[0], A_desc );
+                // Copy SLATE matrix into ScaLAPACK matrix
+                copy(A, &A_data[0], A_desc);
+            }
 
             //==================================================
             // Run ScaLAPACK reference routine.

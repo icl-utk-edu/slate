@@ -7,10 +7,9 @@
 #include "test.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "print_matrix.hh"
-#include "grid_utils.hh"
+
 #include "matrix_utils.hh"
 #include "test_utils.hh"
 
@@ -49,8 +48,6 @@ void test_set_work(Params& params, bool run)
     else {
         n = params.dim.n();
     }
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
     bool ref_only = params.ref() == 'o';
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
@@ -66,6 +63,11 @@ void test_set_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
 
     slate::Options const opts =  {
         {slate::Option::Target, target}
@@ -124,7 +126,7 @@ void test_set_work(Params& params, bool run)
 
             // initialize BLACS and ScaLAPACK
             blas_int ictxt, A_desc[9];
-            create_ScaLAPACK_context( slate::GridOrder::Col, p, q, &ictxt );
+            A_alloc.create_ScaLAPACK_context( &ictxt );
             A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
 
             real_t A_norm = slate::norm( slate::Norm::One, A );
@@ -160,7 +162,7 @@ void test_set_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
-            if (mpi_rank == 0)
+            if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }

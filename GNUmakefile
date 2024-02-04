@@ -704,8 +704,8 @@ libmatgen_src += \
         matgen/generate_matrix_ge.cc \
         matgen/generate_matrix_he_and_tz.cc \
         matgen/generate_matrix_utils.cc \
-        matgen/matgen_label.cc \
         matgen/random.cc \
+        # End. Add alphabetically.
 
 # main tester
 tester_src += \

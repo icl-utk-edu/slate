@@ -11,7 +11,7 @@
 #include <map>
 #include <string>
 
-//extern std::map< std::string, int > matrix_labels;
+extern std::map< std::string, int > matrix_labels;
 
 // =============================================================================
 class MatrixParams
@@ -26,7 +26,7 @@ public:
         return marked_;
     }
 
-    //void generate_label();
+    void generate_label();
 
     int64_t verbose;
 

@@ -10,8 +10,6 @@
 #include "lapack.hh"
 #include "slate/slate.hh"
 
-extern std::map< std::string, int > matrix_labels;
-
 namespace slate {
 
 //------------------------------------------------------------------------------
@@ -24,10 +22,8 @@ public:
     double cond_actual;
     double condD;
     int64_t seed;
-    int64_t label;
-    void generate_label();
-    bool marked;
 };
+
 //------------------------------------------------------------------------------
 // Overload with sigma.
 template <typename scalar_t>
@@ -50,6 +46,7 @@ void generate_matrix(
     slate::HermitianMatrix< scalar_t >& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
     slate::Options const& opts = slate::Options() );
+
 //------------------------------------------------------------------------------
 // Overload without sigma.
 template <typename scalar_t>

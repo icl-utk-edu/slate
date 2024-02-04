@@ -17,16 +17,17 @@ void generate_matrix(
     slate::Options const& opts = slate::Options() )
 {
     MatgenParams mg_params;
-    mg_params.kind = params.kind();
+    mg_params.kind         = params.kind();
     mg_params.cond_request = params.cond_request();
-    mg_params.condD = params.condD();
-    mg_params.seed = params.seed();
-    mg_params.marked = params.marked();
+    mg_params.condD        = params.condD();
+    mg_params.seed         = params.seed();
 
     generate_matrix( mg_params, A, opts);
 
     params.cond_actual() = mg_params.cond_actual;
-    params.label() = mg_params.label;
+
+    if (params.marked_)
+        params.generate_label();
 }
 
 } // namespace slate

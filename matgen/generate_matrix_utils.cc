@@ -73,7 +73,8 @@ void generate_matrix_usage()
     "ones      |  all one\n"
     "identity  |  ones on diagonal, rest zero\n"
     "ij        |  Aij = i + j / 10^ceil( log10( max( m, n ) ) )\n"
-    "jordan    |  ones on diagonal and first subdiagonal, rest zero\n"
+    "jordan    |  ones on diagonal and first superdiagonal, rest zero\n"
+    "jordanT   |  ones on diagonal and first subdiagonal, rest zero\n"
     "chebspec  |  non-singular Chebyshev spectral differentiation matrix\n"
     "circul    |  circulant matrix where the first column is [1, 2, ..., n]^T\n"
     "fiedler   |  matrix entry i,j equal to |i - j|\n"
@@ -206,6 +207,7 @@ void decode_matrix(
     else if (base == "identity") { type = TestMatrixType::identity; }
     else if (base == "ij"      ) { type = TestMatrixType::ij;       }
     else if (base == "jordan"  ) { type = TestMatrixType::jordan;   }
+    else if (base == "jordanT" ) { type = TestMatrixType::jordanT;  }
     else if (base == "chebspec") { type = TestMatrixType::chebspec; }
     else if (base == "circul"  ) { type = TestMatrixType::circul;   }
     else if (base == "fiedler" ) { type = TestMatrixType::fiedler;  }
@@ -361,8 +363,7 @@ void decode_matrix(
 
     // ----- check compatability of options
     if (A.m() != A.n()
-        && (type == TestMatrixType::jordan
-            || type == TestMatrixType::poev
+        && (type == TestMatrixType::poev
             || type == TestMatrixType::heev
             || type == TestMatrixType::geev
             || type == TestMatrixType::geevx))

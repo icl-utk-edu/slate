@@ -108,8 +108,18 @@ void generate_matrix(
         }
 
         case TestMatrixType::jordan: {
+            // Jordan matrix: diag and superdiag are ones.
             entry_type jordan_entry = []( int64_t i, int64_t j ) {
-                return (i == j || i+1 == j ? 1.0 : 0.0);
+                return (i == j || i + 1 == j ? 1.0 : 0.0);
+            };
+            set( jordan_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::jordanT: {
+            // transposed Jordan matrix: diag and subdiag are ones.
+            entry_type jordan_entry = []( int64_t i, int64_t j ) {
+                return (i == j || i - 1 == j ? 1.0 : 0.0);
             };
             set( jordan_entry, A, opts );
             break;

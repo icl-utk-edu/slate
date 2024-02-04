@@ -93,13 +93,26 @@ void generate_matrix(
             break;
 
         case TestMatrixType::jordan: {
-            entry_type jordan_entry = [A]( int64_t i, int64_t j  ) {
-                if (A.uplo() == Uplo::Lower) {
-                    return ( i == j || i + 1 == j ? 1.0 : 0.0 );
-                }
-                else { // upper
-                    return ( i == j || i + 1 == j ? 1.0 : 0.0 );
-                }
+            // Jordan matrix: diag and superdiag are ones.
+            if (A.uplo() == Uplo::Lower) {
+                throw std::runtime_error(
+                    "jordan matrix is upper triangular; use jordanT for lower" );
+            }
+            entry_type jordan_entry = []( int64_t i, int64_t j ) {
+                return (i == j || i + 1 == j ? 1.0 : 0.0);
+            };
+            set( jordan_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::jordanT: {
+            // transposed Jordan matrix: diag and subdiag are ones.
+            if (A.uplo() == Uplo::Upper) {
+                throw std::runtime_error(
+                    "jordanT matrix is lower triangular; use jordan for upper" );
+            }
+            entry_type jordan_entry = []( int64_t i, int64_t j ) {
+                return (i == j || i - 1 == j ? 1.0 : 0.0);
             };
             set( jordan_entry, A, opts );
             break;

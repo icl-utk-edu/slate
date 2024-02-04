@@ -37,6 +37,7 @@ enum class TestMatrixType {
     identity,
     ij,
     jordan,
+    jordanT,
     chebspec,
     circul,
     fiedler,

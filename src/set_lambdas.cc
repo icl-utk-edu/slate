@@ -124,6 +124,7 @@ void set(
 {
     int64_t mt = A.mt();
     int64_t nt = A.nt();
+    bool upper = A.uplo() == Uplo::Upper;
 
     #pragma omp parallel
     #pragma omp master
@@ -132,9 +133,11 @@ void set(
         for (int64_t i = 0; i < mt; ++i) {
             const int64_t mb = A.tileMb( i );
             int64_t j_global = 0;
+            int64_t jstart = upper ? i : 0;
+            int64_t jend   = upper ? nt : std::min( i+1, nt );
             for (int64_t j = 0; j < nt; ++j) {
                 const int64_t nb = A.tileNb( j );
-                if (A.tileIsLocal( i, j )) {
+                if (jstart <= j && j < jend && A.tileIsLocal( i, j )) {
                     #pragma omp task slate_omp_default_none shared( A ) \
                         firstprivate( i, j, mb, nb, i_global, j_global, value )
                     {

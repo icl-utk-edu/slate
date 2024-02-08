@@ -18,9 +18,12 @@ const ParamType Output = ParamType::Output;
 
 const double inf = std::numeric_limits<double>::infinity();
 
+//------------------------------------------------------------------------------
+// globals
+
 std::map< std::string, int > matrix_labels;
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Construct MatrixParams
 MatrixParams::MatrixParams():
     verbose( 0 ),
@@ -45,7 +48,7 @@ MatrixParams::MatrixParams():
 {
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// Marks matrix params as used.
 void MatrixParams::mark()
 {

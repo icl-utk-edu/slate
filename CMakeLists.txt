@@ -198,6 +198,17 @@ add_library(
 )
 
 #--------------------
+# matgen
+add_library(
+    slate_matgen
+    matgen/generate_matrix_ge.cc
+    matgen/generate_matrix_he_and_tz.cc
+    matgen/generate_matrix_utils.cc
+    matgen/random.cc
+)
+target_link_libraries( slate_matgen PUBLIC slate )
+
+#--------------------
 # lapack_api
 file(
     GLOB lapack_api_src
@@ -366,6 +377,7 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         # routines. (the compiler uses fast floating point mode by
         # default).
         target_compile_options( slate PRIVATE "-fp-model=precise" )
+        target_compile_options( slate_matgen PRIVATE "-fp-model=precise" )
 
         # -Wno-unused-command-line-argument avoids
         # icpx warning: -Wl,-rpath,...: 'linker' input unused.

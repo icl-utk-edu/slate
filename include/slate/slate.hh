@@ -149,6 +149,18 @@ void set(
     set(value, value, A, opts);
 }
 
+template <typename scalar_t>
+void set(
+    std::function< scalar_t (int64_t i, int64_t j) > const& value,
+    Matrix<scalar_t>& A,
+    Options const& opts);
+
+template <typename scalar_t>
+void set(
+    std::function< scalar_t (int64_t i, int64_t j) > const& value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts);
+
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
 

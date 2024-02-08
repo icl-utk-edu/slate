@@ -6,17 +6,17 @@
 #ifndef SLATE_TEST_HH
 #define SLATE_TEST_HH
 
-#include <exception>
-#include <complex>
-#include <ctype.h>
-
 #include "testsweeper.hh"
 #include "blas.hh"
 #include "lapack.hh"
 #include "slate/slate.hh"
-
 #include "matrix_params.hh"
-#include "matrix_generator.hh"
+#include "slate/generate_matrix.hh"
+#include "matgen.hh"
+
+#include <exception>
+#include <complex>
+#include <ctype.h>
 
 // -----------------------------------------------------------------------------
 namespace slate {

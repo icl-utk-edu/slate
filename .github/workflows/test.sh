@@ -45,7 +45,7 @@ if [ "$maker" = "cmake" ]; then
    tests="potrf"
 fi
 
-./run_tests.py ${args} --xml ${top}/report-${maker}.xml ${tests}
+./run_tests.py --test 'mpirun -np 4 ./gpu_bind.sh ./tester' ${args} ${tests}
 (( err += $? ))
 
 print "======================================== Smoke tests"

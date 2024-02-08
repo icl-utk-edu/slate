@@ -110,7 +110,7 @@ mpif90 --version
 #----------------------------------------------------------------- GPU
 # Find idle GPUs. gpu_bind.sh also uses ${idle_gpus}.
 # Arrays can't be exported, effectively.
-export idle_gpus=$(./tools/idle_gpus.py)
+export idle_gpus=$(./test/idle_gpus.py)
 idle_gpus_array=(${idle_gpus})  # convert to array
 gpu_kind=${idle_gpus_array[0]}  # element 0 is gpu_kind: cuda or rocm
 idle_gpus_array=(${idle_gpus_array[@]:1})  # slice elements 1:end

@@ -544,7 +544,8 @@ if (opts.syev):
         # Requires ref to check. Only QR.
         cmds += [[ 'heev', gen + dtype + la + n + ' --jobz n --ref y --method-eig qr' ]]
     if ('v' in jobz):
-        cmds += [[ 'heev', gen + dtype + la + n + ' --jobz v --method-eig qr,dc' ]]
+        cmds += [[ 'heev', gen + dtype + la + n + ' --jobz v --method-eig dc' ]]
+        cmds += [[ 'heev', gen + dtype + la + n + ' --jobz v --method-eig qr' ]]
 
     cmds += [
     # heev uses only side=l, no-trans. side=r and trans don't yet work

@@ -124,7 +124,9 @@ add_custom_command(
     TARGET ${tester} POST_BUILD
     COMMAND
         cp ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.py
-           ${CMAKE_CURRENT_BINARY_DIR}/run_tests.py
+           ${CMAKE_CURRENT_SOURCE_DIR}/gpu_bind.sh
+           ${CMAKE_CURRENT_SOURCE_DIR}/idle_gpus.py
+           ${CMAKE_CURRENT_BINARY_DIR}/
 )
 
 if (slate_is_project)

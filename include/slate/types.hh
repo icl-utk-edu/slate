@@ -46,7 +46,29 @@ public:
     OptionValue(Target t) : i_(int(t))
     {}
 
-    OptionValue(MethodEig m) : i_(int(m))
+    //----- Methods, alphabetical
+    OptionValue( MethodCholQR m ) : i_( int( m ) )
+    {}
+
+    OptionValue( MethodEig m ) : i_( int( m ) )
+    {}
+
+    OptionValue( MethodGels m ) : i_( int( m ) )
+    {}
+
+    OptionValue( MethodGemm m ) : i_( int( m ) )
+    {}
+
+    OptionValue( MethodHemm m ) : i_( int( m ) )
+    {}
+
+    OptionValue( MethodLU m ) : i_( int( m ) )
+    {}
+
+    OptionValue( MethodTrsm m ) : i_( int( m ) )
+    {}
+
+    OptionValue( MethodSVD m ) : i_( int( m ) )
     {}
 
     union {
@@ -57,9 +79,6 @@ public:
 
 using Options = std::map<Option, OptionValue>;
 using Value   = OptionValue; ///< @deprecated
-
-//------------------------------------------------------------------------------
-typedef int Method;
 
 //------------------------------------------------------------------------------
 class Pivot {
@@ -236,13 +255,14 @@ template<> struct OptValueType<Option::PrintVerbose>       { using T = int; };
 template<> struct OptValueType<Option::PrintEdgeItems>     { using T = int; };
 template<> struct OptValueType<Option::PrintWidth>         { using T = int; };
 template<> struct OptValueType<Option::PrintPrecision>     { using T = int; };
-template<> struct OptValueType<Option::MethodCholQR>       { using T = Method; };
+template<> struct OptValueType<Option::MethodCholQR>       { using T = MethodCholQR; };
 template<> struct OptValueType<Option::MethodEig>          { using T = MethodEig; };
-template<> struct OptValueType<Option::MethodGels>         { using T = Method; };
-template<> struct OptValueType<Option::MethodGemm>         { using T = Method; };
-template<> struct OptValueType<Option::MethodHemm>         { using T = Method; };
-template<> struct OptValueType<Option::MethodLU>           { using T = Method; };
-template<> struct OptValueType<Option::MethodTrsm>         { using T = Method; };
+template<> struct OptValueType<Option::MethodGels>         { using T = MethodGels; };
+template<> struct OptValueType<Option::MethodGemm>         { using T = MethodGemm; };
+template<> struct OptValueType<Option::MethodHemm>         { using T = MethodHemm; };
+template<> struct OptValueType<Option::MethodLU>           { using T = MethodLU; };
+template<> struct OptValueType<Option::MethodTrsm>         { using T = MethodTrsm; };
+template<> struct OptValueType<Option::MethodSVD>          { using T = MethodSVD; };
 
 template <slate::Option option>
 auto get_option( Options opts, typename OptValueType<option>::T defval )

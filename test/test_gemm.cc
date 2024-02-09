@@ -54,7 +54,7 @@ void test_gemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
-    slate::Method method_gemm = params.method_gemm();
+    slate::MethodGemm method_gemm = params.method_gemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();

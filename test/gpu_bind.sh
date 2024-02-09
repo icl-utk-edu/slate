@@ -33,8 +33,8 @@ fi
 # Ignore GPUs that are already have processes.
 # Use cached ${idle_gpus} if it was already set in setup_env.sh
 if [ -z "${idle_gpus+x}" ]; then
-    echo "${local_rank} ../tools/idle_gpus.py"
-    export idle_gpus=$(../tools/idle_gpus.py)
+    echo "${local_rank} ./idle_gpus.py"
+    export idle_gpus=$(./idle_gpus.py)
 fi
 
 # Arrays can't be exported, effectively.

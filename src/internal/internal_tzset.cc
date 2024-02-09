@@ -8,7 +8,6 @@
 #include "internal/internal.hh"
 #include "slate/internal/util.hh"
 #include "slate/Matrix.hh"
-#include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
 
 namespace slate {

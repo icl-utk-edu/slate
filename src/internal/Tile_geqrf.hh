@@ -8,8 +8,6 @@
 
 #include "internal/internal_util.hh"
 #include "slate/Tile.hh"
-#include "slate/Tile_blas.hh"
-#include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
 #include "slate/internal/util.hh"
 

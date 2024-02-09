@@ -5,8 +5,6 @@
 
 #include "slate/Tile.hh"
 #include "internal/internal.hh"
-#include "slate/Tile_blas.hh"
-#include "internal/Tile_lapack.hh"
 #include "slate/internal/device.hh"
 #include "slate/internal/util.hh"
 

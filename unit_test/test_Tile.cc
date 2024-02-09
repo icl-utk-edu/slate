@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/Tile.hh"
-#include "slate/Tile_blas.hh"
 #include "slate/internal/util.hh"
 #include "slate/print.hh"
 

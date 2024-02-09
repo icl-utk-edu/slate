@@ -7,7 +7,6 @@
 #include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
-#include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
 #include "internal/internal.hh"
 

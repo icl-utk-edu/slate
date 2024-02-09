@@ -6,7 +6,6 @@
 #include "slate/Matrix.hh"
 #include "slate/HermitianBandMatrix.hh"
 #include "slate/types.hh"
-#include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 
 namespace slate {

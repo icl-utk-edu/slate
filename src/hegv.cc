@@ -6,7 +6,6 @@
 #include "slate/slate.hh"
 #include "auxiliary/Debug.hh"
 #include "slate/HermitianMatrix.hh"
-#include "slate/Tile_blas.hh"
 #include "slate/HermitianBandMatrix.hh"
 #include "internal/internal.hh"
 

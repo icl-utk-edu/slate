@@ -5,7 +5,6 @@
 
 #include "slate/slate.hh"
 // #include "auxiliary/Debug.hh"
-#include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
 

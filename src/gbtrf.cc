@@ -6,7 +6,6 @@
 #include "slate/slate.hh"
 #include "auxiliary/Debug.hh"
 #include "slate/BandMatrix.hh"
-#include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
 #include "internal/internal.hh"
 

@@ -78,6 +78,8 @@ void geqrf(
 {
     trace::Block trace_block("lapack::geqrf");
 
+    using std::real;
+    using std::imag;
     using blas::conj;
     using real_t = blas::real_type<scalar_t>;
 
@@ -221,7 +223,8 @@ void geqrf(
                 }
 
                 // todo: Use overflow-safe division (see CLADIV/ZLADIV)
-                scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
+                scalar_t tau = blas::make_scalar<scalar_t>(
+                                   (beta - alphr) / beta, -alphi / beta );
                 scalar_t scal_alpha = one / (alpha-beta);
                 scalar_t ger_alpha = -conj(tau);
                 betas.at(j) = beta;

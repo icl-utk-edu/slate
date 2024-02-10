@@ -134,7 +134,8 @@ void householder_reflection_generator(
             -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
 
         scalar_t scal_alpha = one / (alpha-beta);
-        scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
+        scalar_t tau = blas::make_scalar<scalar_t>(
+                           (beta - alphr) / beta, -alphi / beta );
         betas.at(k) = beta; // only need beta for correct QR-factorization
         taus.at(k) = tau;
 

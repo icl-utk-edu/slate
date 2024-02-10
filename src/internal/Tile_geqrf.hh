@@ -21,7 +21,7 @@
 #include <lapack.hh>
 
 namespace slate {
-namespace internal {
+namespace tile {
 
 //------------------------------------------------------------------------------
 /// Compute the QR factorization of a panel.
@@ -487,7 +487,7 @@ void geqrf(
     }
 }
 
-} // namespace internal
+} // namespace tile
 } // namespace slate
 
 #endif // SLATE_TILE_GEQRF_HH

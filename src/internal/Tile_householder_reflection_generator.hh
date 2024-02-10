@@ -21,7 +21,7 @@
 #include <lapack.hh>
 
 namespace slate {
-namespace internal {
+namespace tile {
 
 //--------------------------------------------------------------------------------
 /// Compute at the qr2 level, Householder reflections of a panel, with tau scalars.
@@ -308,7 +308,8 @@ void householder_reflection_generator(
         }
     }
 }
-} // namespace internal
+
+} // namespace tile
 } // namespace slate
 
 #endif // SLATE_TILE_HOUSEHOLDER_REFLECTION_GENERATOR

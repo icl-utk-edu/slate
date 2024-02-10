@@ -77,7 +77,7 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
-                            genorm(in_norm, scope, A(i, j), &tile_max);
+                            tile::genorm( in_norm, scope, A( i, j ), &tile_max );
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -110,7 +110,8 @@ void norm(
                             firstprivate(i, j, layout, in_norm, scope, jj) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            genorm(in_norm, scope, A(i, j), &tiles_sums[A.n()*i+jj]);
+                            tile::genorm( in_norm, scope, A( i, j ),
+                                          &tiles_sums[ A.n()*i + jj ] );
                         }
                     }
                     jj += A.tileNb(j);
@@ -156,7 +157,8 @@ void norm(
                             firstprivate(i, j, layout, in_norm, scope, ii) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            genorm(in_norm, scope, A(i, j), &tiles_sums[A.m()*j + ii]);
+                            tile::genorm( in_norm, scope, A( i, j ),
+                                          &tiles_sums[ A.m()*j + ii ] );
                         }
                     }
                 ii += A.tileMb(i);
@@ -202,7 +204,7 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
-                            genorm(in_norm, scope, A(i, j), tile_values);
+                            tile::genorm( in_norm, scope, A( i, j ), tile_values );
                             #pragma omp critical
                             {
                                 combine_sumsq(values[0], values[1],
@@ -229,7 +231,8 @@ void norm(
                             firstprivate(i, j, layout, in_norm, scope, jj) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            genorm(in_norm, scope, A(i, j), &cols_maxima[A.n()*i+jj]);
+                            tile::genorm( in_norm, scope, A( i, j ),
+                                          &cols_maxima[ A.n()*i + jj ] );
                         }
                     }
                     jj += A.tileNb(j);
@@ -298,7 +301,7 @@ void norm(
                 if (A.tileIsLocal(i, j)) {
                     A.tileGetForReading(i, j, LayoutConvert(layout));
                     real_t tile_max;
-                    genorm(in_norm, scope, A(i, j), &tile_max);
+                    tile::genorm( in_norm, scope, A( i, j ), &tile_max );
                     #pragma omp critical
                     {
                         tiles_maxima.push_back(tile_max);
@@ -326,7 +329,8 @@ void norm(
             for (int64_t j = 0; j < A_nt; ++j) {
                 if (A.tileIsLocal(i, j)) {
                     A.tileGetForReading(i, j, LayoutConvert(layout));
-                    genorm(in_norm, scope, A(i, j), &cols_maxima[A.n()*i+jj]);
+                    tile::genorm( in_norm, scope, A( i, j ),
+                                  &cols_maxima[ A.n()*i + jj ] );
                 }
                 jj += A.tileNb(j);
             }

@@ -21,6 +21,8 @@
 
 namespace slate {
 
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// Compute the triangular-pentagonal QR factorization of 2 tiles, A1 and A2.
 /// On exit, the pentagonal tile A2 has been eliminated.
@@ -169,6 +171,8 @@ void tpqrt(
     slate_not_implemented( "In geqrf: tpqrt requires LAPACK >= 3.4" );
 #endif
 }
+
+} // namespace tile
 
 } // namespace slate
 

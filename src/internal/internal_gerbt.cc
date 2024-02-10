@@ -156,7 +156,7 @@ void gerbt(Matrix<scalar_t> A11,
                         a22 = Tile<scalar_t>(a21.mb(), a12.nb(), &dummy, a21.mb(), HostNum,
                                              TileKind::SlateOwned, Layout::ColMajor);
                     }
-                    gerbt( a11, a12, a21, a22, u1, u2, v1, v2 );
+                    tile::gerbt( a11, a12, a21, a22, u1, u2, v1, v2 );
                 }
             }
         }
@@ -324,30 +324,30 @@ void gerbt(Side side,
 
                     if (leftp) {
                         if (transp) {
-                            gerbt_left_trans( B1(ii, jj),
-                                              B2(ii, jj),
-                                              U1(ii, 0),
-                                              U2(ii, 0) );
+                            tile::gerbt_left_trans( B1( ii, jj ),
+                                                    B2( ii, jj ),
+                                                    U1( ii, 0  ),
+                                                    U2( ii, 0  ) );
                         }
                         else {
-                            gerbt_left_notrans( B1(ii, jj),
-                                                B2(ii, jj),
-                                                U1(ii, 0),
-                                                U2(ii, 0) );
+                            tile::gerbt_left_notrans( B1( ii, jj ),
+                                                      B2( ii, jj ),
+                                                      U1( ii, 0  ),
+                                                      U2( ii, 0  ) );
                         }
                     }
                     else {
                         if (transp) {
-                            gerbt_right_trans( B1(ii, jj),
-                                               B2(ii, jj),
-                                               U1(jj, 0),
-                                               U2(jj, 0) );
+                            tile::gerbt_right_trans( B1( ii, jj ),
+                                                     B2( ii, jj ),
+                                                     U1( jj, 0  ),
+                                                     U2( jj, 0  ) );
                         }
                         else {
-                            gerbt_right_notrans( B1(ii, jj),
-                                                 B2(ii, jj),
-                                                 U1(jj, 0),
-                                                 U2(jj, 0) );
+                            tile::gerbt_right_notrans( B1( ii, jj ),
+                                                       B2( ii, jj ),
+                                                       U1( jj, 0  ),
+                                                       U2( jj, 0  ) );
                         }
                     }
                 }
@@ -374,10 +374,10 @@ void gerbt(Side side,
                                             TileKind::SlateOwned, Layout::ColMajor);
 
                         if (transp) {
-                            gerbt_left_trans( b1, b2, u1, u2 );
+                            tile::gerbt_left_trans( b1, b2, u1, u2 );
                         }
                         else {
-                            gerbt_left_notrans( b1, b2, u1, u2 );
+                            tile::gerbt_left_notrans( b1, b2, u1, u2 );
                         }
                     }
                 }
@@ -404,10 +404,10 @@ void gerbt(Side side,
                                             TileKind::SlateOwned, Layout::ColMajor);
 
                         if (transp) {
-                            gerbt_right_trans( b1, b2, u1, u2 );
+                            tile::gerbt_right_trans( b1, b2, u1, u2 );
                         }
                         else {
-                            gerbt_right_notrans( b1, b2, u1, u2 );
+                            tile::gerbt_right_notrans( b1, b2, u1, u2 );
                         }
                     }
                 }

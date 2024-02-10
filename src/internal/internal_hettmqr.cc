@@ -185,19 +185,28 @@ void hettmqr(
                     tile::deepConjTranspose( C(i2, i1), C(i1, i2) );
 
                     int64_t nb = std::min(V.tileMb(i2), V.tileNb(0));
+
                     #pragma omp task shared( C, T, V ) firstprivate( i1, i2, op, nb )
-                    tpmqrt(Side::Left, op, nb,
-                           V(i2, 0), T(i2, 0), C(i1, i1), C(i2, i1));  // 1st col
+                    tile::tpmqrt( Side::Left, op, nb,
+                                  V( i2, 0 ), T( i2, 0 ),
+                                  C( i1, i1 ), C( i2, i1 ) );  // 1st col
+
                     #pragma omp task shared( C, T, V ) firstprivate( i1, i2, op, nb )
-                    tpmqrt(Side::Left, op, nb,
-                           V(i2, 0), T(i2, 0), C(i1, i2), C(i2, i2));  // 2nd col
+                    tile::tpmqrt( Side::Left, op, nb,
+                                  V( i2, 0 ), T( i2, 0 ),
+                                  C( i1, i2 ), C( i2, i2 ) );  // 2nd col
+
                     #pragma omp taskwait
+
                     #pragma omp task shared( C, T, V ) firstprivate( i1, i2, opR, nb )
-                    tpmqrt(Side::Right, opR, nb,
-                           V(i2, 0), T(i2, 0), C(i1, i1), C(i1, i2));  // 1st row
+                    tile::tpmqrt( Side::Right, opR, nb,
+                                  V( i2, 0 ), T( i2, 0 ),
+                                  C( i1, i1 ), C( i1, i2 ) );  // 1st row
+
                     #pragma omp task shared( C, T, V ) firstprivate( i1, i2, opR, nb )
-                    tpmqrt(Side::Right, opR, nb,
-                           V(i2, 0), T(i2, 0), C(i2, i1), C(i2, i2));  // 2nd row
+                    tile::tpmqrt( Side::Right, opR, nb,
+                                  V( i2, 0 ), T( i2, 0 ),
+                                  C( i2, i1 ), C( i2, i2 ) );  // 2nd row
 
                     #pragma omp taskwait
 
@@ -259,8 +268,10 @@ void hettmqr(
 
                         // Multiply op(Q) * [ C(i1, j) ].
                         //                  [ C(i2, j) ]
-                        tpmqrt(Side::Left, op, std::min(V.tileMb(i2), V.tileNb(0)),
-                               V(i2, 0), T(i2, 0), C(i1, j), C(i2, j));
+                        tile::tpmqrt( Side::Left, op,
+                                      std::min( V.tileMb( i2 ), V.tileNb( 0 ) ),
+                                      V( i2, 0 ), T( i2, 0 ),
+                                      C( i1, j ), C( i2, j ) );
 
                         // Sends updated tile back.
                         int src = (i1 >= j
@@ -322,8 +333,10 @@ void hettmqr(
                         C.tileGetForWriting(i, j2, LayoutConvert(layout));
 
                         // Multiply [ C(i, j1) C(i, j2) ] * opR(Q).
-                        tpmqrt(Side::Right, opR, std::min(V.tileMb(j2), V.tileNb(0)),
-                               V(j2, 0), T(j2, 0), C(i, j1), C(i, j2));
+                        tile::tpmqrt( Side::Right, opR,
+                                      std::min( V.tileMb( j2 ), V.tileNb( 0 ) ),
+                                      V( j2, 0 ), T( j2, 0 ),
+                                      C( i, j1 ), C( i, j2 ) );
 
                         C.tileSend(i, j1, src, tag);
                     }

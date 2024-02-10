@@ -716,7 +716,7 @@ void test_potrf()
         //}
 
         // run test
-        int info = potrf( A );
+        int info = slate::tile::potrf( A );
         test_assert( info == 0 );
 
         //if (verbose) {
@@ -805,7 +805,8 @@ void test_genorm()
 
             //---------------------
             // call kernel
-            slate::genorm( norm, slate::NormScope::Matrix, A, values.data() );
+            slate::tile::genorm( norm, slate::NormScope::Matrix, A,
+                                 values.data() );
 
             // post-process result
             if (norm == lapack::Norm::Max) {

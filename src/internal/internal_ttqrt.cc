@@ -116,7 +116,7 @@ void ttqrt(internal::TargetType<Target::HostTask>,
                 T.tileInsert(i, 0);
                 T(i, 0).set(0);
                 int64_t l = std::min(A.tileMb(i), A.tileNb(0));
-                tpqrt(l, A(i_src, 0), A(i, 0), T(i, 0));
+                tile::tpqrt( l, A( i_src, 0 ), A( i, 0 ), T( i, 0 ) );
 
                 T.tileModified(i, 0);
 

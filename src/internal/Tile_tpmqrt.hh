@@ -17,6 +17,8 @@
 
 namespace slate {
 
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// Multiply the matrix C by the unitary matrix Q obtained from a
 /// "triangular-pentagonal" block reflector H.
@@ -147,6 +149,8 @@ void tpmqrt(
     slate_not_implemented( "In geqrf: tpmqrt requires LAPACK >= 3.4" );
 #endif
 }
+
+} // namespace tile
 
 } // namespace slate
 

@@ -83,7 +83,7 @@ void norm(
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
                     real_t tile_max;
-                    henorm(in_norm, A(j, j), &tile_max);
+                    tile::henorm( in_norm, A( j, j ), &tile_max );
                     #pragma omp critical
                     {
                         tiles_maxima.push_back(tile_max);
@@ -100,7 +100,8 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
-                            genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          &tile_max );
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -118,7 +119,8 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
-                            genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          &tile_max );
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -151,7 +153,7 @@ void norm(
                     firstprivate(j, jj, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
-                    henorm(in_norm, A(j, j), &tiles_sums[A.n()*j + jj]);
+                    tile::henorm( in_norm, A( j, j ), &tiles_sums[ A.n()*j + jj ] );
                 }
             }
             // off-diagonal tiles (same as synorm)
@@ -164,9 +166,9 @@ void norm(
                             firstprivate(i, j, ii, jj, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            synormOffdiag(in_norm, A(i, j),
-                                          &tiles_sums[A.n()*i + jj],
-                                          &tiles_sums[A.n()*j + ii]);
+                            tile::synorm_offdiag( in_norm, A( i, j ),
+                                                  &tiles_sums[ A.n()*i + jj ],
+                                                  &tiles_sums[ A.n()*j + ii ] );
                         }
                     }
                     ii += A.tileMb(i);
@@ -181,9 +183,9 @@ void norm(
                             firstprivate(i, j, ii, jj, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            synormOffdiag(in_norm, A(i, j),
-                                          &tiles_sums[A.n()*i + jj],
-                                          &tiles_sums[A.n()*j + ii]);
+                            tile::synorm_offdiag( in_norm, A( i, j ),
+                                                  &tiles_sums[ A.n()*i + jj ],
+                                                  &tiles_sums[ A.n()*j + ii ] );
                         }
                     }
                     ii += A.tileMb(i);
@@ -247,7 +249,7 @@ void norm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 A.tileGetForReading(j, j, LayoutConvert(layout));
                 real_t tile_values[2];
-                henorm(in_norm, A(j, j), tile_values);
+                tile::henorm( in_norm, A( j, j ), tile_values );
                 #pragma omp critical
                 {
                     combine_sumsq(values[0], values[1],
@@ -264,7 +266,8 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
-                            genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          tile_values );
                             // double for symmetric entries
                             tile_values[1] *= 2;
                             #pragma omp critical
@@ -285,7 +288,8 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
-                            genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          tile_values );
                             // double for symmetric entries
                             tile_values[1] *= 2;
                             #pragma omp critical

@@ -12,6 +12,8 @@
 
 namespace slate {
 
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// Symmetric matrix norm.
 /// @ingroup norm_tile
@@ -105,9 +107,10 @@ void synorm(Norm norm, Tile<scalar_t> const&& A,
 /// @ingroup norm_tile
 ///
 template <typename scalar_t>
-void synormOffdiag(Norm norm, Tile<scalar_t> const& A,
-                    blas::real_type<scalar_t>* col_sums,
-                    blas::real_type<scalar_t>* row_sums)
+void synorm_offdiag(
+    Norm norm, Tile<scalar_t> const& A,
+    blas::real_type<scalar_t>* col_sums,
+    blas::real_type<scalar_t>* row_sums )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -142,12 +145,15 @@ void synormOffdiag(Norm norm, Tile<scalar_t> const& A,
 /// @ingroup norm_tile
 ///
 template <typename scalar_t>
-void synormOffdiag(Norm norm, Tile<scalar_t> const&& A,
-                    blas::real_type<scalar_t>* col_sums,
-                    blas::real_type<scalar_t>* row_sums)
+void synorm_offdiag(
+    Norm norm, Tile<scalar_t> const&& A,
+    blas::real_type<scalar_t>* col_sums,
+    blas::real_type<scalar_t>* row_sums )
 {
-    return synormOffdiag(norm, A, col_sums, row_sums);
+    return synorm_offdiag( norm, A, col_sums, row_sums );
 }
+
+} // namespace tile
 
 } // namespace slate
 

@@ -15,6 +15,8 @@
 
 namespace slate {
 
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// General matrix norm.
 /// @ingroup norm_tile
@@ -410,6 +412,8 @@ int64_t scale(scalar_t value, Tile<scalar_t>&& A)
 {
     return scale(value, A);
 }
+
+} // namespace tile
 
 } // namespace slate
 

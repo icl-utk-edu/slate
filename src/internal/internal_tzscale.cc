@@ -53,7 +53,7 @@ void scale(
                         firstprivate(i, j, numer, denom)
                     {
                         A.tileGetForWriting(i, j, LayoutConvert::None);
-                        scale(numer, denom, A(i, j));
+                        tile::scale( numer, denom, A( i, j ) );
                     }
                 }
             }
@@ -68,7 +68,7 @@ void scale(
                         firstprivate(i, j, numer, denom)
                     {
                         A.tileGetForWriting(i, j, LayoutConvert::None);
-                        scale(numer, denom, A(i, j));
+                        tile::scale( numer, denom, A( i, j ) );
                     }
                 }
             }

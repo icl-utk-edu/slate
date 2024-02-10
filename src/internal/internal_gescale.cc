@@ -50,7 +50,7 @@ void scale(
                     firstprivate(i, j, numer, denom) priority(priority)
                 {
                     A.tileGetForWriting(i, j, LayoutConvert::None);
-                    scale(numer, denom, A(i, j));
+                    tile::scale( numer, denom, A( i, j ) );
                 }
             }
         }

@@ -21,6 +21,8 @@
 
 namespace slate {
 
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// Compute the triangular-pentagonal LQ factorization of 2 tiles, A1 and A2.
 /// On exit, the pentagonal tile A2 has been eliminated.
@@ -172,6 +174,8 @@ void tplqt(
     slate_not_implemented( "In gelqf: tplqt requires LAPACK >= 3.7" );
 #endif
 }
+
+} // namespace tile
 
 } // namespace slate
 

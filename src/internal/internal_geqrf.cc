@@ -109,11 +109,11 @@ void geqrf(
             // todo: double check the size of W.
             int thread_rank = omp_get_thread_num();
             W.at(thread_rank).resize(ib*A.tileNb(0));
-            geqrf(ib,
-                  tiles, tile_indices, T00,
-                  thread_rank, thread_size,
-                  thread_barrier,
-                  scale, sumsq, xnorm, W);
+            tile::geqrf( ib,
+                         tiles, tile_indices, T00,
+                         thread_rank, thread_size,
+                         thread_barrier,
+                         scale, sumsq, xnorm, W );
         }
     }
 }

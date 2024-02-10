@@ -41,11 +41,9 @@ void hegst(internal::TargetType<Target::HostTask>,
     assert(B.nt() == 1);
 
     if (A.tileIsLocal(0, 0)) {
-        {
-            A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
-            B.tileGetForReading(0, 0, LayoutConvert::ColMajor);
-            hegst(itype, A(0, 0), B(0, 0));
-        }
+        A.tileGetForWriting( 0, 0, LayoutConvert::ColMajor );
+        B.tileGetForReading( 0, 0, LayoutConvert::ColMajor );
+        tile::hegst( itype, A( 0, 0 ), B( 0, 0 ) );
     }
 }
 

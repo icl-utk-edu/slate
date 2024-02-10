@@ -12,6 +12,8 @@
 
 namespace slate {
 
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// Hermitian matrix norm.
 /// The only difference from symmetric matrix norm is the diagonal is assumed
@@ -105,6 +107,8 @@ void henorm(Norm norm, Tile<scalar_t> const&& A,
 {
     return henorm(norm, A, values);
 }
+
+} // namespace tile
 
 } // namespace slate
 

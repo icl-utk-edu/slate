@@ -91,7 +91,8 @@ void norm(
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         real_t tile_max;
-                        genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
+                        tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                      &tile_max );
                         #pragma omp critical
                         {
                             tiles_maxima.push_back(tile_max);
@@ -126,7 +127,8 @@ void norm(
                         firstprivate(i, j, layout, jj, in_norm) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
-                        genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.n()*i+jj]);
+                        tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                      &tiles_sums[ A.n()*i + jj ] );
                     }
                 }
             }
@@ -165,7 +167,8 @@ void norm(
                         firstprivate(i, j, ii, in_norm, layout) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
-                        genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.m()*j + ii]);
+                        tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                      &tiles_sums[ A.m()*j + ii ] );
                     }
                 }
             }
@@ -206,7 +209,8 @@ void norm(
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         real_t tile_values[2];
-                        genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
+                        tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                      tile_values );
                         #pragma omp critical
                         {
                             combine_sumsq(values[0], values[1],
@@ -265,7 +269,7 @@ void norm(
             if (A.tileIsLocal(i, j)) {
                 A.tileGetForReading(i, j, LayoutConvert(layout));
                 real_t tile_max;
-                genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
+                tile::genorm( in_norm, NormScope::Matrix, A( i, j ), &tile_max );
                 #pragma omp critical
                 {
                     tiles_maxima.push_back(tile_max);

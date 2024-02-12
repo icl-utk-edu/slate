@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         maker: [make]
-        device: [cpu]
+        device: [cpu,gpu_nvidia]
       fail-fast: false
     runs-on: ephemeral-${{ github.run_id }},${{ matrix.device }}
     steps:

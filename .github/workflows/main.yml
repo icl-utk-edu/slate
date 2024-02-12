@@ -18,11 +18,11 @@ jobs:
     strategy:
       matrix:
         maker: [make]
-        device: [cpu,gpu_nvidia]
+        device: [cpu,gpu_amd]
       fail-fast: false
     runs-on: [ "ephemeral-${{ github.run_id }}", "${{ matrix.device }}" ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Configure
         run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.device}}
       - name: Build

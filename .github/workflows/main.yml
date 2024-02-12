@@ -20,7 +20,7 @@ jobs:
         maker: [make]
         device: [cpu,gpu_nvidia]
       fail-fast: false
-    runs-on: ephemeral-${{ github.run_id }},${{ matrix.device }}
+    runs-on: [ "ephemeral-${{ github.run_id }}", "${{ matrix.device }}" ]
     steps:
       - uses: actions/checkout@v3
       - name: Configure

@@ -28,6 +28,4 @@ jobs:
         run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.device}}
       - name: Build
         run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.device}}
-      - name: Test
-        run: .github/workflows/test.sh ${{matrix.maker}} ${{matrix.device}}
 

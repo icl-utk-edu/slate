@@ -23,8 +23,6 @@ jobs:
     runs-on: [ "${{ matrix.device }}" ]
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
-        run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.device}}
-      - name: Build
-        run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.device}}
+      - name: Sleep
+        run: sleep 300
 

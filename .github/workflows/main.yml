@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         maker: [make]
-        device: [cpu,gpu_amd]
+        device: [cpu,gpu_amd,gpu_nvidia]
       fail-fast: false
     runs-on: "slurm:${{ matrix.device }}"
     steps:

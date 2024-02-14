@@ -20,7 +20,7 @@ jobs:
         maker: [make]
         device: [cpu,gpu_amd]
       fail-fast: false
-    runs-on: "slurm+${{ matrix.device }}"
+    runs-on: "slurm:${{ matrix.device }}"
     steps:
       - uses: actions/checkout@v4
       - name: Configure

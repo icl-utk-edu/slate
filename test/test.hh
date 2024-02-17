@@ -74,13 +74,13 @@ public:
     testsweeper::ParamEnum< slate::Origin >         origin;
     testsweeper::ParamEnum< slate::Target >         target;
 
-    testsweeper::ParamEnum< slate::Method >         method_cholQR;
+    testsweeper::ParamEnum< slate::MethodCholQR >   method_cholqr;
     testsweeper::ParamEnum< slate::MethodEig >      method_eig;
-    testsweeper::ParamEnum< slate::Method >         method_gels;
-    testsweeper::ParamEnum< slate::Method >         method_gemm;
-    testsweeper::ParamEnum< slate::Method >         method_hemm;
-    testsweeper::ParamEnum< slate::Method >         method_lu;
-    testsweeper::ParamEnum< slate::Method >         method_trsm;
+    testsweeper::ParamEnum< slate::MethodGels >     method_gels;
+    testsweeper::ParamEnum< slate::MethodGemm >     method_gemm;
+    testsweeper::ParamEnum< slate::MethodHemm >     method_hemm;
+    testsweeper::ParamEnum< slate::MethodLU >       method_lu;
+    testsweeper::ParamEnum< slate::MethodTrsm >     method_trsm;
 
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::GridOrder >      dev_order;
@@ -348,28 +348,6 @@ inline const char* target2str(slate::Target target)
         case slate::Target::HostBatch: return "batch";
         case slate::Target::Devices:   return "dev";
         case slate::Target::Host:      return "host";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
-inline slate::MethodEig str2methodEig(const char* method_eig)
-{
-    std::string method_eig_ = method_eig;
-    std::transform(method_eig_.begin(), method_eig_.end(), method_eig_.begin(), ::tolower);
-    if (method_eig_ == "q" || method_eig_ == "qr")
-        return slate::MethodEig::QR;
-    else if (method_eig_ == "d" || method_eig_ == "dc")
-        return slate::MethodEig::DC;
-    else
-        throw slate::Exception("unknown algorithm");
-}
-
-inline const char* methodEig2str(slate::MethodEig method_eig)
-{
-    switch (method_eig) {
-        case slate::MethodEig::QR:  return "qr";
-        case slate::MethodEig::DC:  return "dc";
     }
     return "?";
 }

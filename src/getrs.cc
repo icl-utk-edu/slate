@@ -72,7 +72,7 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
     const scalar_t one  = 1;
 
     // Options
-    Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
+    MethodLU method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
 
     assert(A.mt() == A.nt());
     assert(B.mt() == A.mt());

@@ -13,6 +13,13 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+template <typename TA, typename TB>
+inline MethodGels select_algo( TA& A, TB& B, Options const& opts )
+{
+    return MethodGels::QR;
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel least squares solve via QR or LQ factorization.
 ///
 /// Solves overdetermined or underdetermined complex linear systems
@@ -93,12 +100,13 @@ void gels(
     Matrix<scalar_t>& BX,
     Options const& opts)
 {
-    Method method = get_option( opts, Option::MethodGels, MethodGels::Auto );
+    MethodGels method = get_option( opts, Option::MethodGels, MethodGels::Auto );
 
     if (method == MethodGels::Auto)
-        method = MethodGels::select_algo( A, BX, opts );
+        method = select_algo( A, BX, opts );
 
     switch (method) {
+        case MethodGels::Auto:
         case MethodGels::Geqrf: {
             TriangularFactors<scalar_t> T;
             gels_qr( A, T, BX, opts );

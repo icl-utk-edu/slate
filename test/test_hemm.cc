@@ -52,7 +52,7 @@ void test_hemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Method method_hemm = params.method_hemm();
+    slate::MethodHemm method_hemm = params.method_hemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();

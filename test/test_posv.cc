@@ -47,8 +47,8 @@ void test_posv_work(Params& params, bool run)
     slate::Target target = params.target();
     params.matrix.mark();
     params.matrixB.mark();
-    slate::Method methodTrsm = params.method_trsm();
-    slate::Method methodHemm = params.method_hemm();
+    slate::MethodTrsm method_trsm = params.method_trsm();
+    slate::MethodHemm method_hemm = params.method_hemm();
 
     mark_params_for_test_HermitianMatrix( params );
     mark_params_for_test_Matrix( params );
@@ -134,8 +134,8 @@ void test_posv_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::HoldLocalWorkspace, hold_local_workspace},
-        {slate::Option::MethodTrsm, methodTrsm},
-        {slate::Option::MethodHemm, methodHemm},
+        {slate::Option::MethodTrsm, method_trsm},
+        {slate::Option::MethodHemm, method_hemm},
         {slate::Option::MaxIterations, itermax},
         {slate::Option::UseFallbackSolver, fallback},
     };

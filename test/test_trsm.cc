@@ -52,7 +52,7 @@ void test_trsm_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Method method_trsm = params.method_trsm();
+    slate::MethodTrsm method_trsm = params.method_trsm();
     params.matrix.mark();
     params.matrixB.mark();
 

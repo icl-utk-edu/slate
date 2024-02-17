@@ -15,8 +15,6 @@
 #include "slate/TriangularBandMatrix.hh"
 #include "slate/HermitianBandMatrix.hh"
 
-#include "slate/method.hh"
-
 #include "slate/func.hh"
 #include "slate/types.hh"
 #include "slate/print.hh"

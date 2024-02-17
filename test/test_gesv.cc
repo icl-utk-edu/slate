@@ -43,8 +43,8 @@ void test_gesv_work(Params& params, bool run)
         params.method_lu() = slate::MethodLU::NoPiv;
     }
     auto method_lu   = params.method_lu();
-    auto methodTrsm = params.method_trsm();
-    auto methodGemm = params.method_gemm();
+    auto method_trsm = params.method_trsm();
+    auto method_gemm = params.method_gemm();
 
     // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
@@ -169,8 +169,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib},
         {slate::Option::PivotThreshold, pivot_threshold},
         {slate::Option::MethodLU, method_lu},
-        {slate::Option::MethodGemm, methodGemm},
-        {slate::Option::MethodTrsm, methodTrsm},
+        {slate::Option::MethodGemm, method_gemm},
+        {slate::Option::MethodTrsm, method_trsm},
         {slate::Option::Depth, depth},
         {slate::Option::MaxIterations, itermax},
         {slate::Option::UseFallbackSolver, fallback},
@@ -406,7 +406,7 @@ void test_gesv_work(Params& params, bool run)
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info);
             }
             else if (params.routine == "getrs") {
-                scalapack_pgetrs(op2str(trans), n, nrhs,
+                scalapack_pgetrs(to_c_string( trans ), n, nrhs,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
                                  &Bref_data[0], 1, 1, Bref_desc, &info);
             }

@@ -77,7 +77,7 @@ inline void create_ScaLAPACK_context( slate::GridOrder grid_order,
     Cblacs_get( -1, 0, ictxt );
 
     slate_assert( p*q <= nprocs );
-    Cblacs_gridinit( ictxt, grid_order2str( grid_order ), p, q );
+    Cblacs_gridinit( ictxt, to_c_string( grid_order ), p, q );
     gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
     Cblacs_gridinfo( *ictxt, &p_, &q_, &myrow_, &mycol_ );
     slate_assert( p == p_ );

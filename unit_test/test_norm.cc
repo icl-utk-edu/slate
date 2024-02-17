@@ -125,7 +125,7 @@ void test_genorm(Norm norm)
 
     if (verbose) {
         printf( "\nnorm %c, result %.2e, ref %.2e, error %.2e ",
-                norm2char(norm),
+                to_char( norm ),
                 result, result_ref, error );
     }
 
@@ -253,7 +253,7 @@ void test_genorm_dev(Norm norm)
 
     if (verbose) {
         printf( "\nnorm %c, result %10.4f, ref %10.4f, error %.2e ",
-                norm2char(norm),
+                to_char( norm ),
                 result, result_ref, error );
     }
 
@@ -336,7 +336,7 @@ void test_synorm(Norm norm, Uplo uplo)
 
     if (verbose) {
         printf( "\nnorm %c, result %.2e, ref %.2e, error %.2e ",
-                norm2char(norm),
+                to_char( norm ),
                 result, result_ref, error );
     }
 
@@ -466,7 +466,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
 
     if (verbose) {
         printf( "\nnorm %c, result %10.4f, ref %10.4f, error %.2e ",
-                norm2char(norm),
+                to_char( norm ),
                 result, result_ref, error );
     }
 
@@ -718,7 +718,7 @@ void test_trnorm(Norm norm, Uplo uplo, Diag diag)
 
     if (verbose) {
         printf( "\nnorm %c, uplo %c, diag %c, result %10.4f, ref %10.4f, error %.2e ",
-                norm2char(norm), uplo2char(uplo), diag2char(diag),
+                to_char( norm ), to_char( uplo ), to_char( diag ),
                 result, result_ref, error );
     }
 
@@ -916,7 +916,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
 
     if (verbose) {
         printf( "\nnorm %c, uplo %c, diag %c, result %10.4f, ref %10.4f, error %.2e, ",
-                norm2char(norm), uplo2char(uplo), diag2char(diag),
+                to_char( norm ), to_char( uplo ), to_char( diag ),
                 result, result_ref, error );
     }
 

@@ -59,10 +59,10 @@ void slate_trmm(const char* sidestr, const char* uplostr, const char* transastr,
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
-    blas::Side side = blas::char2side(sidestr[0]);
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op transA = blas::char2op(transastr[0]);
-    blas::Diag diag = blas::char2diag(diagstr[0]);
+    blas::Side side = from_string( sidestr, blas::Side() );
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
+    blas::Op transA = from_string( transastr, blas::Op() );
+    blas::Diag diag = from_string( diagstr, blas::Diag() );
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;

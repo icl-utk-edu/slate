@@ -18,7 +18,7 @@
 #include <complex>
 #include <ctype.h>
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 namespace slate {
 
 enum class Origin : char {
@@ -27,12 +27,177 @@ enum class Origin : char {
     Devices = 'D',
 };
 
+extern const char* Origin_help;
+
+//------------------------------------------------------------------------------
+inline Origin from_string( std::string const& str, Origin dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "d" || str_ == "dev" || str_ == "device"
+        || str_ == "devices")
+        return Origin::Devices;
+    else if (str_ == "h" || str_ == "host")
+        return Origin::Host;
+    else if (str_ == "s" || str_ == "scalapack" || str_ == "scalpk")
+        return Origin::ScaLAPACK;
+    else
+        throw Exception( "unknown Origin: " + str );
+}
+
+//----------------------------------------
+inline const char* to_c_string( Origin value )
+{
+    switch (value) {
+        case Origin::Devices:   return "dev";
+        case Origin::Host:      return "host";
+        case Origin::ScaLAPACK: return "scalpk";
+    }
+    return "?";
+}
+
+//----------------------------------------
+inline std::string to_string( Origin value )
+{
+    return to_c_string( value );
+}
+
+//----------------------------------------
+/// Convert Origin to Target.
+/// Host, ScaLAPACK => Target Host; Devices => Target Devices.
+inline Target origin2target( Origin origin )
+{
+    switch (origin) {
+        case Origin::Host:
+        case Origin::ScaLAPACK:
+            return Target::Host;
+
+        case Origin::Devices:
+            return Target::Devices;
+    }
+    throw Exception( "unknown origin" );
+}
+
+//------------------------------------------------------------------------------
+extern const char* Target_help;
+
+//----------------------------------------
+inline Target from_string( std::string const& str, Target dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "t" || str_ == "task")
+        return Target::HostTask;
+    else if (str_ == "n" || str_ == "nest")
+        return Target::HostNest;
+    else if (str_ == "b" || str_ == "batch")
+        return Target::HostBatch;
+    else if (str_ == "d" || str_ == "dev" || str_ == "device"
+             || str_ == "devices")
+        return Target::Devices;
+    else if (str_ == "h" || str_ == "host")
+        return Target::Host;
+    else
+        throw Exception( "unknown Target: " + str );
+}
+
+//----------------------------------------
+inline const char* to_c_string( Target value )
+{
+    switch (value) {
+        case Target::HostTask:  return "task";
+        case Target::HostNest:  return "nest";
+        case Target::HostBatch: return "batch";
+        case Target::Devices:   return "dev";
+        case Target::Host:      return "host";
+    }
+    return "?";
+}
+
+//----------------------------------------
+inline std::string to_string( Target value )
+{
+    return to_c_string( value );
+}
+
+//------------------------------------------------------------------------------
+extern const char* GridOrder_help;
+
+//----------------------------------------
+inline GridOrder from_string( std::string const& str, GridOrder dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "c" || str_ == "col")
+        return GridOrder::Col;
+    else if (str_ == "r" || str_ == "row")
+        return GridOrder::Row;
+    else
+        throw Exception( "unknown GridOrder: " + str );
+}
+
+//----------------------------------------
+inline const char* to_c_string( GridOrder value )
+{
+    switch (value) {
+        case GridOrder::Col:     return "col";
+        case GridOrder::Row:     return "row";
+        case GridOrder::Unknown: return "un";
+    }
+    return "?";
+}
+
+//----------------------------------------
+inline std::string to_string( GridOrder value )
+{
+    return to_c_string( value );
+}
+
+//------------------------------------------------------------------------------
+extern const char* NormScope_help;
+
+//----------------------------------------
+inline NormScope from_string( std::string const& str, NormScope dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "m" || str_ == "matrix")
+        return NormScope::Matrix;
+    else if (str_ == "c" || str_ == "cols" || str_ == "columns")
+        return NormScope::Columns;
+    else if (str_ == "r" || str_ == "rows")
+        return NormScope::Rows;
+    else
+        throw Exception( "unknown NormScope: " + str );
+}
+
+//----------------------------------------
+inline const char* to_c_string( NormScope value )
+{
+    switch (value) {
+        case NormScope::Matrix:  return "matrix";
+        case NormScope::Columns: return "columns";
+        case NormScope::Rows:    return "rows";
+    }
+    return "?";
+}
+
+//----------------------------------------
+inline std::string to_string( NormScope value )
+{
+    return to_c_string( value );
+}
+
 } // namespace slate
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 using llong = long long;
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 class Params: public testsweeper::ParamsBase {
 public:
     const double inf = std::numeric_limits<double>::infinity();
@@ -74,13 +239,13 @@ public:
     testsweeper::ParamEnum< slate::Origin >         origin;
     testsweeper::ParamEnum< slate::Target >         target;
 
-    testsweeper::ParamEnum< slate::Method >         method_cholQR;
+    testsweeper::ParamEnum< slate::MethodCholQR >   method_cholqr;
     testsweeper::ParamEnum< slate::MethodEig >      method_eig;
-    testsweeper::ParamEnum< slate::Method >         method_gels;
-    testsweeper::ParamEnum< slate::Method >         method_gemm;
-    testsweeper::ParamEnum< slate::Method >         method_hemm;
-    testsweeper::ParamEnum< slate::Method >         method_lu;
-    testsweeper::ParamEnum< slate::Method >         method_trsm;
+    testsweeper::ParamEnum< slate::MethodGels >     method_gels;
+    testsweeper::ParamEnum< slate::MethodGemm >     method_gemm;
+    testsweeper::ParamEnum< slate::MethodHemm >     method_hemm;
+    testsweeper::ParamEnum< slate::MethodLU >       method_lu;
+    testsweeper::ParamEnum< slate::MethodTrsm >     method_trsm;
 
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::GridOrder >      dev_order;
@@ -180,14 +345,14 @@ public:
 };
 
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template< typename T >
 inline T roundup(T x, T y)
 {
     return T((x + y - 1) / y)*y;
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Level 3 BLAS
 void test_gbmm   (Params& params, bool run);
 void test_gemm   (Params& params, bool run);
@@ -279,151 +444,7 @@ void test_scale  (Params& params, bool run);
 void test_scale_row_col(Params& params, bool run);
 void test_set    (Params& params, bool run);
 
-// -----------------------------------------------------------------------------
-inline slate::Origin str2origin(const char* origin)
-{
-    std::string origin_ = origin;
-    std::transform(origin_.begin(), origin_.end(), origin_.begin(), ::tolower);
-    if (origin_ == "d" || origin_ == "dev" || origin_ == "device"
-        || origin_ == "devices")
-        return slate::Origin::Devices;
-    else if (origin_ == "h" || origin_ == "host")
-        return slate::Origin::Host;
-    else if (origin_ == "s" || origin_ == "scalapack" || origin_ == "scalpk")
-        return slate::Origin::ScaLAPACK;
-    else
-        throw slate::Exception("unknown origin");
-}
-
-inline const char* origin2str(slate::Origin origin)
-{
-    switch (origin) {
-        case slate::Origin::Devices:   return "dev";
-        case slate::Origin::Host:      return "host";
-        case slate::Origin::ScaLAPACK: return "scalpk";
-    }
-    return "?";
-}
-
-inline slate::Target origin2target(slate::Origin origin)
-{
-    switch (origin) {
-        case slate::Origin::Host:
-        case slate::Origin::ScaLAPACK:
-            return slate::Target::Host;
-
-        case slate::Origin::Devices:
-            return slate::Target::Devices;
-
-        default:
-            throw slate::Exception("unknown origin");
-    }
-}
-
-// -----------------------------------------------------------------------------
-inline slate::Target str2target(const char* target)
-{
-    std::string target_ = target;
-    std::transform(target_.begin(), target_.end(), target_.begin(), ::tolower);
-    if (target_ == "t" || target_ == "task")
-        return slate::Target::HostTask;
-    else if (target_ == "n" || target_ == "nest")
-        return slate::Target::HostNest;
-    else if (target_ == "b" || target_ == "batch")
-        return slate::Target::HostBatch;
-    else if (target_ == "d" || target_ == "dev" || target_ == "device" ||
-             target_ == "devices")
-        return slate::Target::Devices;
-    else if (target_ == "h" || target_ == "host")
-        return slate::Target::Host;
-    else
-        throw slate::Exception("unknown target");
-}
-
-inline const char* target2str(slate::Target target)
-{
-    switch (target) {
-        case slate::Target::HostTask:  return "task";
-        case slate::Target::HostNest:  return "nest";
-        case slate::Target::HostBatch: return "batch";
-        case slate::Target::Devices:   return "dev";
-        case slate::Target::Host:      return "host";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
-inline slate::MethodEig str2methodEig(const char* method_eig)
-{
-    std::string method_eig_ = method_eig;
-    std::transform(method_eig_.begin(), method_eig_.end(), method_eig_.begin(), ::tolower);
-    if (method_eig_ == "q" || method_eig_ == "qr")
-        return slate::MethodEig::QR;
-    else if (method_eig_ == "d" || method_eig_ == "dc")
-        return slate::MethodEig::DC;
-    else
-        throw slate::Exception("unknown algorithm");
-}
-
-inline const char* methodEig2str(slate::MethodEig method_eig)
-{
-    switch (method_eig) {
-        case slate::MethodEig::QR:  return "qr";
-        case slate::MethodEig::DC:  return "dc";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
-inline slate::GridOrder str2grid_order( const char* grid_order )
-{
-    std::string grid_order_ = grid_order;
-    std::transform( grid_order_.begin(), grid_order_.end(),
-                    grid_order_.begin(), ::tolower );
-    if (grid_order_ == "c" || grid_order_ == "col")
-        return slate::GridOrder::Col;
-    else if (grid_order_ == "r" || grid_order_ == "row")
-        return slate::GridOrder::Row;
-    else
-        throw slate::Exception("unknown grid_order");
-}
-
-inline const char* grid_order2str( slate::GridOrder grid_order )
-{
-    switch (grid_order) {
-        case slate::GridOrder::Col:     return "col";
-        case slate::GridOrder::Row:     return "row";
-        case slate::GridOrder::Unknown: return "un";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
-inline slate::NormScope str2scope(const char* scope)
-{
-    std::string scope_ = scope;
-    std::transform(scope_.begin(), scope_.end(), scope_.begin(), ::tolower);
-    if (scope_ == "m" || scope_ == "matrix")
-        return slate::NormScope::Matrix;
-    else if (scope_ == "c" || scope_ == "cols" || scope_ == "columns")
-        return slate::NormScope::Columns;
-    else if (scope_ == "r" || scope_ == "rows")
-        return slate::NormScope::Rows;
-    else
-        throw slate::Exception("unknown scope");
-}
-
-inline const char* scope2str(slate::NormScope scope)
-{
-    switch (scope) {
-        case slate::NormScope::Matrix:  return "matrix";
-        case slate::NormScope::Columns: return "columns";
-        case slate::NormScope::Rows:    return "rows";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline double barrier_get_wtime(MPI_Comm comm)
 {
     slate::trace::Block trace_block("MPI_Barrier");

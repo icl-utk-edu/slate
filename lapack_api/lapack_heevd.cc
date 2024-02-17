@@ -107,7 +107,7 @@ void slate_heevd(const char* jobzstr, const char* uplostr, const int n, scalar_t
         int64_t lookahead = 1;
         int64_t p = 1;
         int64_t q = 1;
-        blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+        blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
 
         // create SLATE matrix from the LAPACK data
         auto A = slate::Matrix<scalar_t>::fromLAPACK( n, n, a, lda, nb, p, q, MPI_COMM_WORLD );

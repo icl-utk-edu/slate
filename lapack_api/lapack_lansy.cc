@@ -59,8 +59,8 @@ blas::real_type<scalar_t> slate_lansy(const char* normstr, const char* uplostr, 
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+    lapack::Norm norm = from_string( normstr, lapack::Norm() );
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;

@@ -322,7 +322,7 @@ int64_t getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
-    Method method = get_option<Option::MethodLU>( opts, MethodLU::PartialPiv );
+    MethodLU method = get_option<Option::MethodLU>( opts, MethodLU::PartialPiv );
 
     // todo: info for tntpiv, nopiv
     if (method == MethodLU::CALU) {

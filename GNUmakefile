@@ -446,6 +446,7 @@ libslate_src += \
         src/auxiliary/Trace.cc \
         src/core/Memory.cc \
         src/core/types.cc \
+        src/core/enums.cc \
         src/version.cc \
         # End. Add alphabetically.
 

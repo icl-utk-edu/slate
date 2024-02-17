@@ -101,7 +101,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
         return;
     }
 
-    blas::Op trans = blas::char2op(transstr[0]);
+    blas::Op trans = from_string( transstr, blas::Op() );
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t panel_threads = slate_scalapack_set_panelthreads();

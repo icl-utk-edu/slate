@@ -47,8 +47,8 @@ void slate_hemm(const char* sidestr, const char* uplostr, const int m, const int
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
-    blas::Side side = blas::char2side(sidestr[0]);
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+    blas::Side side = from_string( sidestr, blas::Side() );
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;

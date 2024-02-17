@@ -11,6 +11,18 @@
 
 namespace slate {
 
+//------------------------------------------------------------------------------
+template <typename TA, typename TB>
+inline MethodCholQR select_algo( TA& A, TB& B, Options const& opts )
+{
+    Target target = get_option( opts, Option::Target, Target::HostTask );
+
+    MethodCholQR method = (target == Target::Devices ? MethodCholQR::HerkC
+                                                     : MethodCholQR::GemmA);
+
+    return method;
+}
+
 namespace impl {
 
 //------------------------------------------------------------------------------
@@ -34,7 +46,7 @@ void cholqr(
     HermitianMatrix<scalar_t> R_hermitian( Uplo::Upper, R );
     auto U = TriangularMatrix<scalar_t>( Diag::NonUnit, R_hermitian );
 
-    Method method = get_option(
+    MethodCholQR method = get_option(
         opts, Option::MethodCholQR, MethodCholQR::GemmC );
 
     // No call to select_algo when the method is auto.
@@ -107,11 +119,11 @@ void cholqr(
     Matrix<scalar_t>& R,
     Options const& opts )
 {
-    Method method = get_option(
+    MethodCholQR method = get_option(
         opts, Option::MethodCholQR, MethodCholQR::Auto );
 
     if (method == MethodCholQR::Auto)
-        method = MethodCholQR::select_algo( A, R, opts );
+        method = select_algo( A, R, opts );
 
     switch (method) {
         case MethodCholQR::HerkC: {

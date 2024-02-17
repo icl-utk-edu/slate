@@ -59,8 +59,8 @@ extern "C" void pzherk_(const char* uplo, const char* trans, int* n, int* k, dou
 template< typename scalar_t >
 void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::real_type<scalar_t> alpha, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t> beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op transA = blas::char2op(transstr[0]);
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
+    blas::Op transA = from_string( transstr, blas::Op() );
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

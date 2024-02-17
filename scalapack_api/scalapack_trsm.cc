@@ -96,10 +96,10 @@ extern "C" void pztrsm_(const char* side, const char* uplo, const char* transa, 
 template< typename scalar_t >
 void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr, const char* diagstr, int m, int n, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb)
 {
-    blas::Side side = blas::char2side(sidestr[0]);
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op transA = blas::char2op(transastr[0]);
-    blas::Diag diag = blas::char2diag(diagstr[0]);
+    blas::Side side = from_string( sidestr, blas::Side() );
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
+    blas::Op transA = from_string( transastr, blas::Op() );
+    blas::Diag diag = from_string( diagstr, blas::Diag() );
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

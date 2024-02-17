@@ -8,6 +8,22 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+template <typename TA, typename TB>
+inline MethodHemm select_algo( TA& A, TB& B, Options const& opts )
+{
+    // TODO replace the default value by a unique value located elsewhere
+    Target target = get_option( opts, Option::Target, Target::HostTask );
+
+    MethodHemm method = (B.nt() < 2 ? MethodHemm::A : MethodHemm::C);
+
+    // XXX For now, when target == device, we fallback to HemmC on device
+    if (target == Target::Devices && method == MethodHemm::A)
+        method = MethodHemm::C;
+
+    return method;
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel Hermitian matrix-matrix multiplication.
 /// Performs one of the matrix-matrix operations
 /// \[
@@ -75,17 +91,18 @@ void hemm(Side side,
           scalar_t beta,  Matrix<scalar_t>& C,
           Options const& opts)
 {
-    Method method = get_option(
+    MethodHemm method = get_option(
         opts, Option::MethodHemm, MethodHemm::Auto );
 
     if (method == MethodHemm::Auto)
-        method = MethodHemm::select_algo( A, B, opts );
+        method = select_algo( A, B, opts );
 
     switch (method) {
-        case MethodHemm::HemmA:
+        case MethodHemm::A:
             hemmA( side, alpha, A, B, beta, C, opts );
             break;
-        case MethodHemm::HemmC:
+        case MethodHemm::Auto:
+        case MethodHemm::C:
             hemmC( side, alpha, A, B, beta, C, opts );
             break;
     }

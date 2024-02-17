@@ -54,7 +54,7 @@ void test_gemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
-    slate::Method method_gemm = params.method_gemm();
+    slate::MethodGemm method_gemm = params.method_gemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();
@@ -248,7 +248,7 @@ void test_gemm_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
+            scalapack_pgemm(to_c_string( transA ), to_c_string( transB ), m, n, k, alpha,
                             &A_data[0], 1, 1, A_desc,
                             &B_data[0], 1, 1, B_desc, beta,
                             &Cref_data[0], 1, 1, Cref_desc);

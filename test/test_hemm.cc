@@ -52,7 +52,7 @@ void test_hemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Method method_hemm = params.method_hemm();
+    slate::MethodHemm method_hemm = params.method_hemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();
@@ -248,7 +248,7 @@ void test_hemm_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_phemm(side2str(side), uplo2str(uplo), m, n, alpha,
+            scalapack_phemm(to_c_string( side ), to_c_string( uplo ), m, n, alpha,
                             &A_data[0], 1, 1, A_desc,
                             &B_data[0], 1, 1, B_desc, beta,
                             &Cref_data[0], 1, 1, Cref_desc);

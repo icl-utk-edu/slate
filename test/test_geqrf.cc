@@ -44,7 +44,7 @@ void test_geqrf_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Method methodCholQR = params.method_cholQR();
+    slate::MethodCholQR method_cholqr = params.method_cholqr();
     params.matrix.mark();
 
     // mark non-standard output values
@@ -66,7 +66,7 @@ void test_geqrf_work(Params& params, bool run)
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
-        {slate::Option::MethodCholQR, methodCholQR}
+        {slate::Option::MethodCholQR, method_cholqr}
     };
 
     // MPI variables
@@ -294,7 +294,7 @@ void test_geqrf_work(Params& params, bool run)
                 slate::copy(scala_R, scala_R1);
 
                 // Apply Q to R-factor
-                scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
+                scalapack_punmqr(to_c_string( blas::Side::Left ), to_c_string( slate::Op::NoTrans ), m, n, n,
                                  &Aref_data[0], 1, 1, Aref_desc, tau.data(),
                                  &scala_QR_data[0], 1, 1, Aref_desc,
                                  &dummy, -1, &info);
@@ -302,7 +302,7 @@ void test_geqrf_work(Params& params, bool run)
                 lwork = int64_t( real( dummy ) );
                 work.resize(lwork);
 
-                scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
+                scalapack_punmqr(to_c_string( blas::Side::Left ), to_c_string( slate::Op::NoTrans ), m, n, n,
                                  &Aref_data[0], 1, 1, Aref_desc, tau.data(),
                                  &scala_QR_data[0], 1, 1, Aref_desc,
                                  work.data(), lwork, &info);

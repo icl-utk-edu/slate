@@ -235,7 +235,7 @@ void test_syr2k_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime( MPI_COMM_WORLD );
-            scalapack_psyr2k(uplo2str(uplo), op2str(trans), n, k, alpha,
+            scalapack_psyr2k(to_c_string( uplo ), to_c_string( trans ), n, k, alpha,
                              &A_data[0], 1, 1, A_desc,
                              &B_data[0], 1, 1, B_desc, beta,
                              &Cref_data[0], 1, 1, Cref_desc);

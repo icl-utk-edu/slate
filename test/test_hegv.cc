@@ -399,7 +399,7 @@ void test_hegv_work(Params& params, bool run)
             std::vector<blas_int> ifail(n);
             std::vector<blas_int> iclustr(2*p*q);
             std::vector<real_t> gap(p*q);
-            scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
+            scalapack_phegvx(itype, to_c_string( jobz ), range, to_c_string( uplo ), n,
                              &Aref_data[0], 1, 1, A_desc,
                              &Bref_data[0], 1, 1, B_desc,
                              vl, vu, il, iu, abstol, &nfound, &nzfound,
@@ -427,7 +427,7 @@ void test_hegv_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(mpi_comm);
 
-            scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
+            scalapack_phegvx(itype, to_c_string( jobz ), range, to_c_string( uplo ), n,
                              &Aref_data[0], 1, 1, A_desc,
                              &Bref_data[0], 1, 1, B_desc,
                              vl, vu, il, iu, abstol, &nfound, &nzfound,

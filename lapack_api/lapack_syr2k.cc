@@ -59,8 +59,8 @@ void slate_syr2k(const char* uplostr, const char* transastr, const int n, const 
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op trans = blas::char2op(transastr[0]);
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
+    blas::Op trans = from_string( transastr, blas::Op() );
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;

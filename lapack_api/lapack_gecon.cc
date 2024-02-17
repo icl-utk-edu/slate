@@ -95,7 +95,7 @@ void slate_gecon(const char* normstr, const int n, scalar_t* a, const int lda, b
     static slate::Target target = slate_lapack_set_target();
 
     // sizes
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
+    lapack::Norm norm = from_string( normstr, lapack::Norm() );
     static int64_t nb = slate_lapack_set_nb(target);
 
     // create SLATE matrix from the LAPACK data

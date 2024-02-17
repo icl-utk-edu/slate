@@ -127,7 +127,7 @@ void test_henorm_work(Params& params, bool run)
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
             real_t A_norm_ref = scalapack_planhe(
-                                    norm2str(norm), uplo2str(A.uplo()),
+                                    to_c_string( norm ), to_c_string( A.uplo() ),
                                     n, &A_data[0], 1, 1, A_desc, &worklanhe[0]);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -231,7 +231,7 @@ void test_henorm_work(Params& params, bool run)
                                     A_norm = slate::norm(norm, A, opts);
 
                                     A_norm_ref = scalapack_planhe(
-                                                     norm2str(norm), uplo2str(A.uplo()),
+                                                     to_c_string( norm ), to_c_string( A.uplo() ),
                                                      n, &A_data[0], 1, 1, A_desc, &worklanhe[0]);
 
                                     // difference between norms

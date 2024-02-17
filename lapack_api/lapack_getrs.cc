@@ -64,7 +64,7 @@ void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a,
     static slate::Target target = slate_lapack_set_target();
 
     // sizes
-    blas::Op trans = blas::char2op(transstr[0]);
+    blas::Op trans = from_string( transstr, blas::Op() );
     int64_t Am = n, An = n;
     int64_t Bm = n, Bn = nrhs;
     static int64_t nb = slate_lapack_set_nb(target);

@@ -135,7 +135,7 @@ void test_gbnorm_work(Params& params, bool run)
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
             real_t A_norm_ref = scalapack_plange(
-                                    norm2str(norm),
+                                    to_c_string( norm ),
                                     m, n, &A_data[0], 1, 1, A_desc, &worklange[0]);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

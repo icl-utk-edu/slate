@@ -93,7 +93,7 @@ void slate_pocon(const char* uplostr, const int n, scalar_t* a, const int lda, b
     int64_t p = 1;
     int64_t q = 1;
     static slate::Target target = slate_lapack_set_target();
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
 
     // sizes
     static int64_t nb = slate_lapack_set_nb(target);

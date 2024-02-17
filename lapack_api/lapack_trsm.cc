@@ -64,10 +64,10 @@ void slate_trsm(const char* sidestr, const char* uplostr, const char* transastr,
     int64_t q = 1;
     static slate::Target target = slate_lapack_set_target();
     static int64_t nb = slate_lapack_set_nb(target);
-    blas::Side side = blas::char2side(sidestr[0]);
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op transA = blas::char2op(transastr[0]);
-    blas::Diag diag = blas::char2diag(diagstr[0]);
+    blas::Side side = from_string( sidestr, blas::Side() );
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
+    blas::Op transA = from_string( transastr, blas::Op() );
+    blas::Diag diag = from_string( diagstr, blas::Diag() );
 
     // setup so op(B) is m-by-n
     int64_t An  = (side == blas::Side::Left ? m : n);

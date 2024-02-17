@@ -406,7 +406,7 @@ void test_gesv_work(Params& params, bool run)
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info);
             }
             else if (params.routine == "getrs") {
-                scalapack_pgetrs(op2str(trans), n, nrhs,
+                scalapack_pgetrs(to_c_string( trans ), n, nrhs,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
                                  &Bref_data[0], 1, 1, Bref_desc, &info);
             }

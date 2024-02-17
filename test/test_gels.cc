@@ -447,7 +447,7 @@ void test_gels_work(Params& params, bool run)
 
             // query for workspace size
             scalar_t dummy;
-            scalapack_pgels(op2str(trans), m, n, nrhs,
+            scalapack_pgels(to_c_string( trans ), m, n, nrhs,
                             &Aref_data[0],  1, 1, Aref_desc,
                             &BXref_data[0], 1, 1, BXref_desc,
                             &dummy, -1, &info_ref);
@@ -459,7 +459,7 @@ void test_gels_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgels(op2str(trans), m, n, nrhs,
+            scalapack_pgels(to_c_string( trans ), m, n, nrhs,
                             &Aref_data[0],  1, 1, Aref_desc,
                             &BXref_data[0], 1, 1, BXref_desc,
                             work.data(), lwork, &info_ref);

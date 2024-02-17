@@ -59,8 +59,8 @@ extern "C" double pzlanhe_(const char* norm, const char* uplo, int* n, std::comp
 template< typename scalar_t >
 blas::real_type<scalar_t> slate_planhe(const char* normstr, const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work)
 {
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
+    blas::Uplo uplo = from_string( uplostr, blas::Uplo() );
+    lapack::Norm norm = from_string( normstr, lapack::Norm() );
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

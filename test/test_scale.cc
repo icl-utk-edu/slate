@@ -139,7 +139,7 @@ void test_scale_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
             int64_t info;
-            scalapack_plascl( uplo2str(uplo), alpha, beta, m, n,
+            scalapack_plascl( to_c_string( uplo ), alpha, beta, m, n,
                               &Aref_data[0], 1, 1, A_desc, &info );
             slate_assert(info == 0);
 

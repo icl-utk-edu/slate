@@ -199,28 +199,28 @@ void test_trtri_work(Params& params, bool run)
                                  : slate::Uplo::Lower);
             if (uplo == slate::Uplo::Lower) {
                 if (diag == slate::Diag::Unit) {
-                    scalapack_plaset( uplo2str(lo_up), n, n, zero, one,
+                    scalapack_plaset( to_c_string( lo_up ), n, n, zero, one,
                                       &Aref_data[0], 1, 1, Aref_desc );
                 }
                 else {
-                    scalapack_plaset( uplo2str(lo_up), n-1, n-1, zero, zero,
+                    scalapack_plaset( to_c_string( lo_up ), n-1, n-1, zero, zero,
                                       &Aref_data[0], 1, 2, Aref_desc );
                 }
             }
             else {
                 if (diag == slate::Diag::Unit) {
-                    scalapack_plaset( uplo2str(lo_up), n, n, zero, one,
+                    scalapack_plaset( to_c_string( lo_up ), n, n, zero, one,
                                       &Aref_data[0], 1, 1, Aref_desc );
                 }
                 else {
-                    scalapack_plaset( uplo2str(lo_up), n-1, n-1, zero, zero,
+                    scalapack_plaset( to_c_string( lo_up ), n-1, n-1, zero, zero,
                                       &Aref_data[0], 2, 1, Aref_desc );
                 }
             }
             print_matrix( "Aref", Aref, params );
 
             // Aref_data = inv(A) * Aref_data
-            scalapack_ptrmm("left", uplo2str(uplo), "notrans", diag2str(diag),
+            scalapack_ptrmm("left", to_c_string( uplo ), "notrans", to_c_string( diag ),
                             n, n, one,
                             &A_data[0], 1, 1, A_desc,
                             &Aref_data[0], 1, 1, Aref_desc);

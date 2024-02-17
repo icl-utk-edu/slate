@@ -193,11 +193,11 @@ void print(
         + to_string( mb ) + "-by-" + to_string( nb )
         + ", stride = "    + to_string( A.stride() )
         + ", device = "    + to_string( A.device() )
-        + ", uplo = "      + uplo2str( A.uplo() )
-        + ", op = "        + op2str( A.op() )
+        + ", uplo = "      + to_string( A.uplo() )
+        + ", op = "        + to_string( A.op() )
         + ", origin = "    + to_string( A.origin() )
         + ", workspace = " + to_string( A.workspace() )
-        + ", layout = "    + layout2str( A.layout() )
+        + ", layout = "    + to_string( A.layout() )
         + "\n" + label + " = [\n";
 
     // RowMajor not yet implemented

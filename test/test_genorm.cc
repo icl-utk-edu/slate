@@ -162,13 +162,13 @@ void test_genorm_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (scope == slate::NormScope::Matrix) {
                 A_norm_ref = scalapack_plange(
-                                 norm2str(op_norm),
+                                 to_c_string( op_norm ),
                                  m, n, &A_data[0], 1, 1, A_desc, &worklange[0]);
             }
             else if (scope == slate::NormScope::Columns) {
                 for (int64_t c = 0; c < n; ++c) {
                     A_norm_ref = scalapack_plange(
-                                     norm2str(norm),
+                                     to_c_string( norm ),
                                      m, 1, &A_data[0], 1, c+1, A_desc, &worklange[0]);
                     error += std::abs(values[c] - A_norm_ref) / A_norm_ref;
                 }
@@ -282,7 +282,7 @@ void test_genorm_work(Params& params, bool run)
                                     A_norm = slate::norm(norm, A, opts);
 
                                     A_norm_ref = scalapack_plange(
-                                                     norm2str(norm), m, n,
+                                                     to_c_string( norm ), m, n,
                                                      &A_data[0], 1, 1, A_desc,
                                                      &worklange[0]);
 

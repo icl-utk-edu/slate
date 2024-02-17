@@ -65,8 +65,8 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     static slate::Target target = slate_lapack_set_target();
 
     // sizes
-    blas::Op transA = blas::char2op(transastr[0]);
-    blas::Op transB = blas::char2op(transbstr[0]);
+    blas::Op transA = from_string( transastr, blas::Op() );
+    blas::Op transB = from_string( transbstr, blas::Op() );
     int64_t Am = (transA == blas::Op::NoTrans ? m : k);
     int64_t An = (transA == blas::Op::NoTrans ? k : m);
     int64_t Bm = (transB == blas::Op::NoTrans ? k : n);

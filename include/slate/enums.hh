@@ -66,32 +66,39 @@ enum class MethodTrsm : char {
     TrsmB     = 'B',    // old alias
 };
 
-//-----------------------------------
-inline void from_string( const char* name, MethodTrsm* method )
-{
-    std::string name_ = name;
-    std::transform( name_.begin(), name_.end(), name_.begin(), ::tolower );
-
-    if (name_ == "auto")
-        *method = MethodTrsm::Auto;
-    else if (name_ == "a" || name_ == "trsma")
-        *method = MethodTrsm::A;
-    else if (name_ == "b" || name_ == "trsmb")
-        *method = MethodTrsm::B;
-    else
-        throw slate::Exception( "unknown trsm method" );
-}
+extern const char* MethodTrsm_help;
 
 //-----------------------------------
-inline const char* to_string( MethodTrsm method )
+inline const char* to_c_string( MethodTrsm value )
 {
-    switch (method) {
+    switch (value) {
         case MethodTrsm::Auto: return "auto";
         case MethodTrsm::A:    return "A";
         case MethodTrsm::B:    return "B";
-        default:
-            throw slate::Exception( "unknown trsm method" );
     }
+    return "?";
+}
+
+//-----------------------------------
+inline std::string to_string( MethodTrsm value )
+{
+    return to_c_string( value );
+}
+
+//-----------------------------------
+inline MethodTrsm from_string( std::string const& str, MethodTrsm dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "auto")
+        return MethodTrsm::Auto;
+    else if (str_ == "a" || str_ == "trsma")
+        return MethodTrsm::A;
+    else if (str_ == "b" || str_ == "trsmb")
+        return MethodTrsm::B;
+    else
+        throw Exception( "unknown trsm method: " + str );
 }
 
 //------------------------------------------------------------------------------
@@ -106,32 +113,39 @@ enum class MethodGemm : char {
     GemmC     = 'C',    // old alias
 };
 
-//-----------------------------------
-inline void from_string( const char* name, MethodGemm* method )
-{
-    std::string name_ = name;
-    std::transform( name_.begin(), name_.end(), name_.begin(), ::tolower );
-
-    if (name_ == "auto")
-        *method = MethodGemm::Auto;
-    else if (name_ == "a" || name_ == "gemma")
-        *method = MethodGemm::A;
-    else if (name_ == "c" || name_ == "gemmc")
-        *method = MethodGemm::C;
-    else
-        throw slate::Exception( "unknown gemm method" );
-}
+extern const char* MethodGemm_help;
 
 //-----------------------------------
-inline const char* to_string( MethodGemm method )
+inline const char* to_c_string( MethodGemm value )
 {
-    switch (method) {
+    switch (value) {
         case MethodGemm::Auto: return "auto";
         case MethodGemm::A:    return "A";
         case MethodGemm::C:    return "C";
-        default:
-            throw slate::Exception( "unknown gemm method" );
     }
+    return "?";
+}
+
+//-----------------------------------
+inline std::string to_string( MethodGemm value )
+{
+    return to_c_string( value );
+}
+
+//-----------------------------------
+inline MethodGemm from_string( std::string const& str, MethodGemm dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "auto")
+        return MethodGemm::Auto;
+    else if (str_ == "a" || str_ == "gemma")
+        return MethodGemm::A;
+    else if (str_ == "c" || str_ == "gemmc")
+        return MethodGemm::C;
+    else
+        throw Exception( "unknown gemm method: " + str );
 }
 
 //------------------------------------------------------------------------------
@@ -146,32 +160,39 @@ enum class MethodHemm : char {
     HemmC     = 'C',    /// old alias
 };
 
-//-----------------------------------
-inline void from_string( const char* name, MethodHemm* method )
-{
-    std::string name_ = name;
-    std::transform( name_.begin(), name_.end(), name_.begin(), ::tolower );
-
-    if (name_ == "auto")
-        *method = MethodHemm::Auto;
-    else if (name_ == "a" || name_ == "hemma")
-        *method = MethodHemm::A;
-    else if (name_ == "c" || name_ == "hemmc")
-        *method = MethodHemm::C;
-    else
-        throw slate::Exception( "unknown hemm method" );
-}
+extern const char* MethodHemm_help;
 
 //-----------------------------------
-inline const char* to_string( MethodHemm method )
+inline const char* to_c_string( MethodHemm value )
 {
-    switch (method) {
+    switch (value) {
         case MethodHemm::Auto: return "auto";
         case MethodHemm::A:    return "A";
         case MethodHemm::C:    return "C";
-        default:
-            throw slate::Exception( "unknown hemm method" );
     }
+    return "?";
+}
+
+//-----------------------------------
+inline std::string to_string( MethodHemm value )
+{
+    return to_c_string( value );
+}
+
+//-----------------------------------
+inline MethodHemm from_string( std::string const& str, MethodHemm dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "auto")
+        return MethodHemm::Auto;
+    else if (str_ == "a" || str_ == "hemma")
+        return MethodHemm::A;
+    else if (str_ == "c" || str_ == "hemmc")
+        return MethodHemm::C;
+    else
+        throw Exception( "unknown hemm method: " + str );
 }
 
 //------------------------------------------------------------------------------
@@ -186,38 +207,45 @@ enum class MethodCholQR : char {
     HerkC     = 'K',    ///< Use herk-C algorithm to compute A^H A
 };
 
-//-----------------------------------
-inline void from_string( const char* name, MethodCholQR* method )
-{
-    std::string name_ = name;
-    std::transform( name_.begin(), name_.end(), name_.begin(), ::tolower );
-
-    if (name_ == "auto")
-        *method = MethodCholQR::Auto;
-    else if (name_ == "gemma")
-        *method = MethodCholQR::GemmA;
-    else if (name_ == "gemmc")
-        *method = MethodCholQR::GemmC;
-    else if (name_ == "herka")
-        *method = MethodCholQR::HerkA;
-    else if (name_ == "herkc")
-        *method = MethodCholQR::HerkC;
-    else
-        throw slate::Exception( "unknown Cholesky QR method" );
-}
+extern const char* MethodCholQR_help;
 
 //-----------------------------------
-inline const char* to_string( MethodCholQR method )
+inline const char* to_c_string( MethodCholQR value )
 {
-    switch (method) {
+    switch (value) {
         case MethodCholQR::Auto:  return "auto";
         case MethodCholQR::GemmA: return "gemm-A";
         case MethodCholQR::GemmC: return "gemm-C";
         case MethodCholQR::HerkA: return "herk-A";
         case MethodCholQR::HerkC: return "herk-C";
-        default:
-            throw slate::Exception( "unknown Cholesky QR method" );
     }
+    return "?";
+}
+
+//-----------------------------------
+inline std::string to_string( MethodCholQR value )
+{
+    return to_c_string( value );
+}
+
+//-----------------------------------
+inline MethodCholQR from_string( std::string const& str, MethodCholQR dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "auto")
+        return MethodCholQR::Auto;
+    else if (str_ == "gemma")
+        return MethodCholQR::GemmA;
+    else if (str_ == "gemmc")
+        return MethodCholQR::GemmC;
+    else if (str_ == "herka")
+        return MethodCholQR::HerkA;
+    else if (str_ == "herkc")
+        return MethodCholQR::HerkC;
+    else
+        throw Exception( "unknown Cholesky QR method: " + str );
 }
 
 //------------------------------------------------------------------------------
@@ -232,32 +260,39 @@ enum class MethodGels : char {
     Cholqr    = 'C',    ///< old alias
 };
 
-//-----------------------------------
-inline void from_string( const char* name, MethodGels* method )
-{
-    std::string name_ = name;
-    std::transform( name_.begin(), name_.end(), name_.begin(), ::tolower );
-
-    if (name_ == "auto")
-        *method = MethodGels::Auto;
-    else if (name_ == "qr" || name_ == "geqrf")
-        *method = MethodGels::QR;
-    else if (name_ == "cholqr")
-        *method = MethodGels::CholQR;
-    else
-        throw slate::Exception( "unknown least squares (gels) method" );
-}
+extern const char* MethodGels_help;
 
 //-----------------------------------
-inline const char* to_string( MethodGels method )
+inline const char* to_c_string( MethodGels value )
 {
-    switch (method) {
+    switch (value) {
         case MethodGels::Auto:   return "auto";
         case MethodGels::QR:     return "QR";
         case MethodGels::CholQR: return "CholQR";
-        default:
-            throw slate::Exception( "unknown least squares (gels) method" );
     }
+    return "?";
+}
+
+//-----------------------------------
+inline std::string to_string( MethodGels value )
+{
+    return to_c_string( value );
+}
+
+//-----------------------------------
+inline MethodGels from_string( std::string const& str, MethodGels dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "auto")
+        return MethodGels::Auto;
+    else if (str_ == "qr" || str_ == "geqrf")
+        return MethodGels::QR;
+    else if (str_ == "cholqr")
+        return MethodGels::CholQR;
+    else
+        throw Exception( "unknown least squares (gels) method: " + str );
 }
 
 //------------------------------------------------------------------------------
@@ -273,41 +308,48 @@ enum class MethodLU : char {
     BEAM       = 'B',   ///< Use BEAM LU factorization
 };
 
-//-----------------------------------
-inline void from_string( const char* name, MethodLU* method )
-{
-    std::string name_ = name;
-    std::transform( name_.begin(), name_.end(), name_.begin(), ::tolower );
-
-    if (name_ == "auto")
-        *method = MethodLU::Auto;
-    else if (name_ == "pplu" || name_ == "partialpiv")
-        *method = MethodLU::PartialPiv;
-    else if (name_ == "calu")
-        *method = MethodLU::CALU;
-    else if (name_ == "nopiv")
-        *method = MethodLU::NoPiv;
-    else if (name_ == "rbt")
-        *method = MethodLU::RBT;
-    else if (name_ == "beam")
-        *method = MethodLU::BEAM;
-    else
-        throw slate::Exception( "unknown LU method" );
-}
+extern const char* MethodLU_help;
 
 //-----------------------------------
-inline const char* to_string( MethodLU method )
+inline const char* to_c_string( MethodLU value )
 {
-    switch (method) {
+    switch (value) {
         case MethodLU::Auto:       return "auto";
         case MethodLU::PartialPiv: return "PPLU";
         case MethodLU::CALU:       return "CALU";
         case MethodLU::NoPiv:      return "NoPiv";
         case MethodLU::RBT:        return "RBT";
         case MethodLU::BEAM:       return "BEAM";
-        default:
-            throw slate::Exception( "unknown LU method" );
     }
+    return "?";
+}
+
+//-----------------------------------
+inline std::string to_string( MethodLU value )
+{
+    return to_c_string( value );
+}
+
+//-----------------------------------
+inline MethodLU from_string( std::string const& str, MethodLU dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "auto")
+        return MethodLU::Auto;
+    else if (str_ == "pplu" || str_ == "partialpiv")
+        return MethodLU::PartialPiv;
+    else if (str_ == "calu")
+        return MethodLU::CALU;
+    else if (str_ == "nopiv")
+        return MethodLU::NoPiv;
+    else if (str_ == "rbt")
+        return MethodLU::RBT;
+    else if (str_ == "beam")
+        return MethodLU::BEAM;
+    else
+        throw Exception( "unknown LU method: " + str );
 }
 
 //------------------------------------------------------------------------------
@@ -322,38 +364,45 @@ enum class MethodEig : char {
     MRRR      = 'R',    ///< Multiple Relatively Robust Representations (MRRR); not yet implemented
 };
 
-//-----------------------------------
-inline void from_string( const char* name, MethodEig* method )
-{
-    std::string name_ = name;
-    std::transform( name_.begin(), name_.end(), name_.begin(), ::tolower );
-
-    if (name_ == "auto")
-        *method = MethodEig::Auto;
-    else if (name_ == "qr")
-        *method = MethodEig::QR;
-    else if (name_ == "dc")
-        *method = MethodEig::DC;
-    else if (name_ == "bisection")
-        *method = MethodEig::Bisection;
-    else if (name_ == "mrrr")
-        *method = MethodEig::MRRR;
-    else
-        throw slate::Exception( "unknown eig method" );
-}
+extern const char* MethodEig_help;
 
 //-----------------------------------
-inline const char* to_string( MethodEig method )
+inline const char* to_c_string( MethodEig value )
 {
-    switch (method) {
+    switch (value) {
         case MethodEig::Auto:      return "auto";
         case MethodEig::QR:        return "QR";
         case MethodEig::DC:        return "DC";
         case MethodEig::Bisection: return "Bisection";
         case MethodEig::MRRR:      return "MRRR";
-        default:
-            throw slate::Exception( "unknown eig method" );
     }
+    return "?";
+}
+
+//-----------------------------------
+inline std::string to_string( MethodEig value )
+{
+    return to_c_string( value );
+}
+
+//-----------------------------------
+inline MethodEig from_string( std::string const& str, MethodEig dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "auto")
+        return MethodEig::Auto;
+    else if (str_ == "qr")
+        return MethodEig::QR;
+    else if (str_ == "dc")
+        return MethodEig::DC;
+    else if (str_ == "bisection")
+        return MethodEig::Bisection;
+    else if (str_ == "mrrr")
+        return MethodEig::MRRR;
+    else
+        throw Exception( "unknown eig method: " + str );
 }
 
 //------------------------------------------------------------------------------
@@ -367,35 +416,42 @@ enum class MethodSVD : char {
     Bisection = 'B',    ///< Bisection; not yet implemented
 };
 
-//-----------------------------------
-inline void from_string( const char* name, MethodSVD* method )
-{
-    std::string name_ = name;
-    std::transform( name_.begin(), name_.end(), name_.begin(), ::tolower );
-
-    if (name_ == "auto")
-        *method = MethodSVD::Auto;
-    else if (name_ == "qr")
-        *method = MethodSVD::QR;
-    else if (name_ == "dc")
-        *method = MethodSVD::DC;
-    else if (name_ == "bisection")
-        *method = MethodSVD::Bisection;
-    else
-        throw slate::Exception( "unknown SVD method" );
-}
+extern const char* MethodSVD_help;
 
 //-----------------------------------
-inline const char* to_string( MethodSVD method )
+inline const char* to_c_string( MethodSVD value )
 {
-    switch (method) {
+    switch (value) {
         case MethodSVD::Auto:      return "auto";
         case MethodSVD::QR:        return "QR";
         case MethodSVD::DC:        return "DC";
         case MethodSVD::Bisection: return "Bisection";
-        default:
-            throw slate::Exception( "unknown SVD method" );
     }
+    return "?";
+}
+
+//-----------------------------------
+inline std::string to_string( MethodSVD value )
+{
+    return to_c_string( value );
+}
+
+//-----------------------------------
+inline MethodSVD from_string( std::string const& str, MethodSVD dummy )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "auto")
+        return MethodSVD::Auto;
+    else if (str_ == "qr")
+        return MethodSVD::QR;
+    else if (str_ == "dc")
+        return MethodSVD::DC;
+    else if (str_ == "bisection")
+        return MethodSVD::Bisection;
+    else
+        throw Exception( "unknown SVD method: " + str );
 }
 
 //------------------------------------------------------------------------------

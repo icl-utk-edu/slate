@@ -22,7 +22,7 @@ jobs:
         maker: [make, cmake]
         device: [cpu, gpu_nvidia, gpu_amd, gpu_intel]
       fail-fast: false
-    runs-on: ${{ matrix.device }}
+    runs-on: slurm:${{ matrix.device }}
     steps:
       - uses: actions/checkout@v3
       - name: Configure

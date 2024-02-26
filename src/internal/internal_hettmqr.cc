@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -52,7 +52,7 @@ void hettmqr(
     Matrix<scalar_t>&& V,
     Matrix<scalar_t>&& T,
     HermitianMatrix<scalar_t>&& C,
-    int tag)
+    int tag )
 {
     hettmqr( internal::TargetType<target>(),
              op, V, T, C, tag );
@@ -64,6 +64,9 @@ void hettmqr(
 /// Host implementation.
 /// @ingroup heev_internal
 ///
+/// @param tag_base[in]
+///     This process uses MPI tags from the range [tag_base, tag_base+mt*nt)
+///
 template <typename scalar_t>
 void hettmqr(
     internal::TargetType<Target::HostTask>,
@@ -71,7 +74,7 @@ void hettmqr(
     Matrix<scalar_t>& V,
     Matrix<scalar_t>& T,
     HermitianMatrix<scalar_t>& C,
-    int tag )
+    int tag_base )
 {
     trace::Block trace_block("internal::hettmqr");
     using blas::conj;
@@ -134,6 +137,7 @@ void hettmqr(
     // ^H are temporary conj-transposed copies, and
     // (*) shows where conj-transposed tiles come from.
 
+    std::vector<MPI_Request> requests;
     for (int level = 0; level < nlevels; ++level) {
         // index is first node of each pair.
         for (int index = 0; index + step < nranks; index += 2*step) {
@@ -152,42 +156,55 @@ void hettmqr(
                     C.tileGetForWriting(i, i, LayoutConvert(layout));
                     make_hermitian( C(i, i) );
                     int dst = C.tileRank(i2, i1);
+                    int tag = tag_base + i + i*C.mt();
                     C.tileSend(i, i, dst, tag);
                     C.tileRecv(i, i, dst, layout, tag);
                 }
             }
             if (C.tileIsLocal(i2, i1)) {
-                // Receive tiles from sources, apply Q on both sides,
-                // then send updated tiles back.
-                int src11 = C.tileRank(i1, i1);
-                C.tileRecv(i1, i1, src11, layout, tag);
+                #pragma omp task slate_omp_default_none \
+                    shared( C, T, V ) \
+                    firstprivate( i1, i2, op, opR, tag_base, layout )
+                {
+                    // Receive tiles from sources, apply Q on both sides,
+                    // then send updated tiles back.
+                    int src11 = C.tileRank(i1, i1);
+                    int tag_i1 = tag_base + i1 + i1*C.mt();
+                    C.tileRecv(i1, i1, src11, layout, tag_i1);
 
-                int src22 = C.tileRank(i2, i2);
-                C.tileRecv(i2, i2, src22, layout, tag);
+                    int src22 = C.tileRank(i2, i2);
+                    int tag_i2 = tag_base + i2 + i2*C.mt();
+                    C.tileRecv(i2, i2, src22, layout, tag_i2);
 
-                V.tileGetForReading(i2, 0,  LayoutConvert(layout));
-                T.tileGetForReading(i2, 0,  LayoutConvert(layout));
-                C.tileGetForWriting(i2, i1, LayoutConvert(layout));
+                    V.tileGetForReading(i2, 0,  LayoutConvert(layout));
+                    T.tileGetForReading(i2, 0,  LayoutConvert(layout));
+                    C.tileGetForWriting(i2, i1, LayoutConvert(layout));
 
-                // Workspace C(i1, i2) = C(i2, i1)^H.
-                C.tileInsert(i1, i2);
-                tile::deepConjTranspose( C(i2, i1), C(i1, i2) );
+                    // Workspace C(i1, i2) = C(i2, i1)^H.
+                    C.tileInsert(i1, i2);
+                    tile::deepConjTranspose( C(i2, i1), C(i1, i2) );
 
-                int64_t nb = std::min(V.tileMb(i2), V.tileNb(0));
-                tpmqrt(Side::Left, op, nb,
-                       V(i2, 0), T(i2, 0), C(i1, i1), C(i2, i1));  // 1st col
-                tpmqrt(Side::Left, op, nb,
-                       V(i2, 0), T(i2, 0), C(i1, i2), C(i2, i2));  // 2nd col
-                tpmqrt(Side::Right, opR, nb,
-                       V(i2, 0), T(i2, 0), C(i1, i1), C(i1, i2));  // 1st row
-                tpmqrt(Side::Right, opR, nb,
-                       V(i2, 0), T(i2, 0), C(i2, i1), C(i2, i2));  // 2nd row
+                    int64_t nb = std::min(V.tileMb(i2), V.tileNb(0));
+                    #pragma omp task shared( C, T, V ) firstprivate( i1, i2, op, nb )
+                    tpmqrt(Side::Left, op, nb,
+                           V(i2, 0), T(i2, 0), C(i1, i1), C(i2, i1));  // 1st col
+                    #pragma omp task shared( C, T, V ) firstprivate( i1, i2, op, nb )
+                    tpmqrt(Side::Left, op, nb,
+                           V(i2, 0), T(i2, 0), C(i1, i2), C(i2, i2));  // 2nd col
+                    #pragma omp taskwait
+                    #pragma omp task shared( C, T, V ) firstprivate( i1, i2, opR, nb )
+                    tpmqrt(Side::Right, opR, nb,
+                           V(i2, 0), T(i2, 0), C(i1, i1), C(i1, i2));  // 1st row
+                    #pragma omp task shared( C, T, V ) firstprivate( i1, i2, opR, nb )
+                    tpmqrt(Side::Right, opR, nb,
+                           V(i2, 0), T(i2, 0), C(i2, i1), C(i2, i2));  // 2nd row
 
-                C.tileSend(i1, i1, src11, tag);
-                C.tileSend(i2, i2, src22, tag);
-                C.tileTick(i1, i1);
-                C.tileTick(i2, i2);
-                C.tileErase(i1, i2);  // Discard results; equals C(i2, i1)^H.
+                    #pragma omp taskwait
+
+                    C.tileSend(i1, i1, src11, tag_i1);
+                    C.tileSend(i2, i2, src22, tag_i2);
+                    C.tileErase(i1, i2);  // Discard results; equals C(i2, i1)^H.
+                }
             }
 
             //--------------------
@@ -205,6 +222,7 @@ void hettmqr(
                 if (j == i1)
                     continue;
 
+                int tag = tag_base + i1 + j*C.mt();
                 if ((i1 >= j && C.tileIsLocal(i1, j)) ||
                     (i1 <  j && C.tileIsLocal(j, i1))) {
                     // First node of each pair sends tile to dst.
@@ -244,13 +262,16 @@ void hettmqr(
                         tpmqrt(Side::Left, op, std::min(V.tileMb(i2), V.tileNb(0)),
                                V(i2, 0), T(i2, 0), C(i1, j), C(i2, j));
 
-                        // todo: should tileRelease()?
-                        V.tileTick(i2, 0);
-                        T.tileTick(i2, 0);
+                        // Sends updated tile back.
+                        int src = (i1 >= j
+                                  ? C.tileRank(i1, j)
+                                  : C.tileRank(j, i1));
+                        int tag = tag_base + i1 + j*C.mt();
+                        // Send updated tile back.
+                        C.tileSend(i1, j, src, tag);
                     }
                 }
             } // for j
-            #pragma omp taskwait
 
             for (int64_t j = 0; j < i2; ++j) {
                 if (j == i1)
@@ -259,6 +280,7 @@ void hettmqr(
                 if ((i1 >= j && C.tileIsLocal(i1, j)) ||
                     (i1 <  j && C.tileIsLocal(j, i1))) {
                     // Receives updated tile back ().
+                    int tag = tag_base + i1 + j*C.mt();
                     int dst = C.tileRank(i2, j);
                     if (i1 >= j) {
                         C.tileRecv(i1, j, dst, layout, tag);
@@ -268,23 +290,11 @@ void hettmqr(
                         tile::deepConjTranspose(C(j, i1));
                     }
                 }
-                else if (C.tileIsLocal(i2, j)) {
-                    // Sends updated tile back.
-                    int src = (i1 >= j
-                              ? C.tileRank(i1, j)
-                              : C.tileRank(j, i1));
-                    // Send updated tile back.
-                    C.tileSend(i1, j, src, tag);
-                    C.tileTick(i1, j);
-                }
             } // for j
-        } // for index
+        }
+        #pragma omp taskwait
 
-        //--------------------
-        // Finish updating all rows before updating columns.
-        slate_mpi_call(
-            MPI_Barrier(C.mpiComm()));
-
+        requests.clear();
         for (int index = 0; index + step < nranks; index += 2*step) {
             int64_t j1 = rank_indices[ index ].second;
             int64_t j2 = rank_indices[ index + step ].second;
@@ -292,22 +302,20 @@ void hettmqr(
             //--------------------
             // 3: Multiply [ C(i, j1)  C(i, j2) ] * Q for i = j2+1, ..., mt-1.
             for (int64_t i = j2+1; i < C.mt(); ++i) {
+                int tag = tag_base + i + j1*C.mt();
                 if (C.tileIsLocal(i, j1)) {
                     // First node of each pair sends tile to dst.
                     int dst = C.tileRank(i, j2);
-                    C.tileSend(i, j1, dst, tag);
+                    MPI_Request req;
+                    C.tileIsend( i, j1, dst, tag, &req );
+                    MPI_Request_free( &req );
                 }
                 else if (C.tileIsLocal(i, j2)) {
                     // Second node of each pair receives tile from src.
                     int src = C.tileRank(i, j1);
                     C.tileRecv(i, j1, src, layout, tag);
-                }
-            } // for i
-
-            for (int64_t i = j2+1; i < C.mt(); ++i) {
-                if (C.tileIsLocal(i, j2)) {
                     // Applies Q, then sends updated tile back.
-                    #pragma omp task shared(V, T, C)
+                    #pragma omp task shared( V, T, C ) firstprivate( src, tag )
                     {
                         V.tileGetForReading(j2, 0, LayoutConvert(layout));
                         T.tileGetForReading(j2, 0, LayoutConvert(layout));
@@ -317,29 +325,25 @@ void hettmqr(
                         tpmqrt(Side::Right, opR, std::min(V.tileMb(j2), V.tileNb(0)),
                                V(j2, 0), T(j2, 0), C(i, j1), C(i, j2));
 
-                        // todo: should tileRelease()?
-                        V.tileTick(j2, 0);
-                        T.tileTick(j2, 0);
+                        C.tileSend(i, j1, src, tag);
                     }
                 }
             } // for i
-            #pragma omp taskwait
 
             for (int64_t i = j2+1; i < C.mt(); ++i) {
+                int tag = tag_base + i + j1*C.mt();
                 if (C.tileIsLocal(i, j1)) {
                     // Receives updated tile back.
                     int dst = C.tileRank(i, j2);
-                    C.tileRecv(i, j1, dst, layout, tag);
-                }
-                else if (C.tileIsLocal(i, j2)) {
-                    int src = C.tileRank(i, j1);
-
-                    // Send updated tile back.
-                    C.tileSend(i, j1, src, tag);
-                    C.tileTick(i, j1);
+                    MPI_Request req;
+                    C.tileIrecv( i, j1, dst, layout, tag, &req );
+                    requests.push_back( req );
                 }
             } // for i
         } // for index
+        slate_mpi_call(
+            MPI_Waitall( requests.size(), requests.data(), MPI_STATUSES_IGNORE ) );
+        #pragma omp taskwait
 
         //--------------------
         // Next level.
@@ -359,7 +363,7 @@ void hettmqr<Target::HostTask, float>(
     Matrix<float>&& V,
     Matrix<float>&& T,
     HermitianMatrix<float>&& C,
-    int tag);
+    int tag );
 
 // ----------------------------------------
 template
@@ -368,7 +372,7 @@ void hettmqr<Target::HostTask, double>(
     Matrix<double>&& V,
     Matrix<double>&& T,
     HermitianMatrix<double>&& C,
-    int tag);
+    int tag );
 
 // ----------------------------------------
 template
@@ -377,7 +381,7 @@ void hettmqr< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     HermitianMatrix< std::complex<float> >&& C,
-    int tag);
+    int tag );
 
 // ----------------------------------------
 template
@@ -386,7 +390,7 @@ void hettmqr< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     HermitianMatrix< std::complex<double> >&& C,
-    int tag);
+    int tag );
 
 } // namespace internal
 } // namespace slate

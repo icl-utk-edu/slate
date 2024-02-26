@@ -1,10 +1,11 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/internal/device.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_util.hh"
 #include "internal/internal.hh"
 #include "slate/internal/util.hh"
 #include "slate/Matrix.hh"
@@ -14,83 +15,6 @@
 #include <vector>
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-// On macOS, nvcc using clang++ generates a different C++ name mangling
-// (std::__1::complex) than g++ for std::complex. This solution is to use
-// cu*Complex in .cu files, and cast from std::complex here.
-namespace device {
-
-// CUBLAS/ROCBLAS need complex translation, others do not
-#if ! defined( SLATE_HAVE_OMPTARGET )
-
-template <>
-void genorm(
-    Norm in_norm, NormScope scope,
-    int64_t m, int64_t n,
-    std::complex<float> const* const* Aarray, int64_t lda,
-    float* values, int64_t ldv,
-    int64_t batch_count,
-    blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    genorm(in_norm, scope, m, n, (cuFloatComplex**) Aarray, lda,
-           values, ldv, batch_count, queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    genorm(in_norm, scope, m, n, (hipFloatComplex**) Aarray, lda,
-           values, ldv, batch_count, queue);
-#endif
-}
-
-template <>
-void genorm(
-    Norm in_norm, NormScope scope,
-    int64_t m, int64_t n,
-    std::complex<double> const* const* Aarray, int64_t lda,
-    double* values, int64_t ldv,
-    int64_t batch_count,
-    blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    genorm(in_norm, scope, m, n, (cuDoubleComplex**) Aarray, lda,
-           values, ldv, batch_count, queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    genorm(in_norm, scope, m, n, (hipDoubleComplex**) Aarray, lda,
-           values, ldv, batch_count, queue);
-#endif
-}
-
-#endif // ! defined( SLATE_HAVE_OMPTARGET )
-
-#if ! defined( SLATE_HAVE_DEVICE )
-// Specializations to allow compilation without CUDA or HIP.
-template <>
-void genorm(
-    Norm in_norm, NormScope scope,
-    int64_t m, int64_t n,
-    double const* const* Aarray, int64_t lda,
-    double* values, int64_t ldv,
-    int64_t batch_count,
-    blas::Queue &queue)
-{
-}
-
-template <>
-void genorm(
-    Norm in_norm, NormScope scope,
-    int64_t m, int64_t n,
-    float const* const* Aarray, int64_t lda,
-    float* values, int64_t ldv,
-    int64_t batch_count,
-    blas::Queue &queue)
-{
-}
-#endif // not SLATE_HAVE_DEVICE
-
-} // namespace device
-
 namespace internal {
 
 //------------------------------------------------------------------------------
@@ -451,14 +375,15 @@ void norm(
 
     assert(A.num_devices() > 0);
 
-    std::vector<std::vector<scalar_t*> > a_host_arrays(A.num_devices());
-    std::vector<std::vector<real_t> > vals_host_arrays(A.num_devices());
-
-    std::vector<scalar_t**> a_dev_arrays(A.num_devices());
-    std::vector<real_t*> vals_dev_arrays(A.num_devices());
+    std::vector<std::vector<real_t>> vals_host_arrays( A.num_devices() );
 
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values;
+
+    // Find ranges of matching mb's and ranges of matching nb's to avoid
+    // repeatedly recomputing them
+    auto irange = device_regions_range( RowCol::Row, A );
+    auto jrange = device_regions_range( RowCol::Col, A );
 
     int64_t ldv = 0;
     if (scope == NormScope::Matrix) {
@@ -467,12 +392,14 @@ void norm(
             devices_values.resize(A.num_devices());
         }
         else if (in_norm == Norm::One) {
-            // todo: this assumes all tiles with uniform nb
-            ldv = A.tileNb(0);
+            for (size_t j = 0; j < jrange.size()-1; ++j) {
+                ldv = std::max( ldv, A.tileNb( jrange[j] ) );
+            }
         }
         else if (in_norm == Norm::Inf) {
-            // todo: this assumes all tiles with uniform mb
-            ldv = A.tileMb(0);
+            for (size_t i = 0; i < irange.size()-1; ++i) {
+                ldv = std::max( ldv, A.tileMb( irange[i] ) );
+            }
         }
         else if (in_norm == Norm::Fro) {
             ldv = 2;
@@ -481,8 +408,9 @@ void norm(
     }
     else if (scope == NormScope::Columns) {
         if (in_norm == Norm::Max) {
-            // todo: this assumes all tiles with uniform nb
-            ldv = A.tileNb(0);
+            for (size_t j = 0; j < jrange.size()-1; ++j) {
+                ldv = std::max( ldv, A.tileNb( jrange[j] ) );
+            }
         }
         else {
             slate_not_implemented("The NormScope isn't yet supported.");
@@ -492,41 +420,11 @@ void norm(
         slate_not_implemented("The NormScope isn't yet supported.");
     }
 
-    // TODO: Why are we doing this?
-    // Use the batch arrays in the matrix class.
-    for (int device = 0; device < A.num_devices(); ++device) {
-
-        int64_t num_tiles = A.getMaxDeviceTiles(device);
-
-        a_host_arrays[device].resize(num_tiles);
-        vals_host_arrays[device].resize(num_tiles*ldv);
-
-        blas::Queue* queue = A.compute_queue(device, queue_index);
-        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles, *queue);
-        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv, *queue);
-    }
-
-    // Define index ranges for regions of matrix.
-    // Tiles in each region are all the same size.
-    int64_t irange[4][2] = {
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   },
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   }
-    };
-    int64_t jrange[4][2] = {
-        { 0,        A.nt()-1 },
-        { 0,        A.nt()-1 },
-        { A.nt()-1, A.nt()   },
-        { A.nt()-1, A.nt()   }
-    };
-
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task slate_omp_default_none \
-            priority( priority ) shared( A, devices_values ) \
-            shared(a_host_arrays, a_dev_arrays, vals_host_arrays, vals_dev_arrays) \
-            firstprivate(device, irange, jrange, queue_index, ldv, scope, in_norm, layout)
+        #pragma omp task slate_omp_default_none priority( priority ) \
+            shared( A, devices_values, vals_host_arrays, irange, jrange ) \
+            firstprivate(device, queue_index, ldv, scope, in_norm, layout)
         {
             std::set<ij_tuple> A_tiles_set;
 
@@ -540,62 +438,51 @@ void norm(
             A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
 
             // Setup batched arguments.
-            scalar_t** a_host_array = a_host_arrays[device].data();
-            scalar_t** a_dev_array = a_dev_arrays[device];
+            int64_t batch_size = A_tiles_set.size();
+            scalar_t** a_array_host = A.array_host( device, queue_index );
 
-            int64_t batch_count = 0;
-            int64_t mb[4], nb[4], lda[4], group_count[4];
-            for (int q = 0; q < 4; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb(irange[q][0]);
-                nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (A.tileIsLocal(i, j) &&
-                            device == A.tileDevice(i, j))
-                        {
-                            a_host_array[batch_count] = A(i, j, device).data();
-                            lda[q] = A(i, j, device).stride();
-                            ++group_count[q];
-                            ++batch_count;
-                        }
-                    }
-                }
-            }
+            auto group_params = device_regions_build<false, 1, scalar_t>(
+                    {A},
+                    {a_array_host},
+                    device,
+                    {},
+                    irange, jrange );
 
-            real_t* vals_host_array = vals_host_arrays[device].data();
-            real_t* vals_dev_array = vals_dev_arrays[device];
+            scalar_t** a_array_dev = A.array_device(device, queue_index);
+
+            vals_host_arrays[ device ].resize( batch_size*ldv );
+            real_t* vals_host_array = vals_host_arrays[ device ].data();
+            blas::Queue* queue = A.compute_queue( device, queue_index );
+            real_t* vals_dev_array = blas::device_malloc<real_t>( batch_size*ldv, *queue );
 
             // Batched call to compute partial results for each tile.
             {
                 trace::Block trace_block("slate::device::genorm");
 
-                blas::Queue* queue = A.compute_queue(device, queue_index);
 
-                blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
-                                    batch_count,
-                                    blas::MemcpyKind::HostToDevice,
-                                    *queue);
+                blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
+                                               batch_size,
+                                               blas::MemcpyKind::HostToDevice,
+                                               *queue);
 
-                for (int q = 0; q < 4; ++q) {
-                    if (group_count[q] > 0) {
-                        device::genorm(in_norm, scope,
-                                       mb[q], nb[q],
-                                       a_dev_array, lda[q],
-                                       vals_dev_array, ldv,
-                                       group_count[q], *queue);
-                        a_dev_array += group_count[q];
-                        vals_dev_array += group_count[q] * ldv;
-                    }
+                real_t* vals_dev_array_group = vals_dev_array;
+                for (size_t g = 0; g < group_params.size(); ++g) {
+                    int64_t group_count = group_params[ g ].count;
+
+                    device::genorm(
+                        in_norm, scope,
+                        group_params[ g ].mb, group_params[ g ].nb,
+                        a_array_dev, group_params[ g ].ld[0],
+                        vals_dev_array_group, ldv,
+                        group_count, *queue );
+                    a_array_dev += group_count;
+                    vals_dev_array_group += group_count * ldv;
                 }
 
-                vals_dev_array = vals_dev_arrays[device];
-
                 blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
-                                    batch_count*ldv,
-                                    blas::MemcpyKind::DeviceToHost,
-                                    *queue);
+                                            batch_size*ldv,
+                                            blas::MemcpyKind::DeviceToHost,
+                                            *queue);
 
                 queue->sync();
             }
@@ -604,10 +491,10 @@ void norm(
                 // Reduction over tiles to device result.
                 if (in_norm == Norm::Max) {
                     devices_values[device] =
-                        lapack::lange(in_norm, 1, batch_count, vals_host_array, 1);
+                        lapack::lange(in_norm, 1, batch_size, vals_host_array, 1);
                 }
                 else if (in_norm == Norm::Fro) {
-                    for (int64_t k = 0; k < batch_count; ++k) {
+                    for (int64_t k = 0; k < batch_size; ++k) {
                         combine_sumsq(devices_values[2*device + 0],
                                   devices_values[2*device + 1],
                                   vals_host_array[2*k + 0],
@@ -615,13 +502,9 @@ void norm(
                     }
                 }
             }
+            // Free device workspace
+            blas::device_free(vals_dev_array, *queue);
         }
-    }
-
-    for (int device = 0; device < A.num_devices(); ++device) {
-        blas::Queue* queue = A.compute_queue(device, queue_index);
-        blas::device_free(a_dev_arrays[device], *queue);
-        blas::device_free(vals_dev_arrays[device], *queue);
     }
 
     if (scope == NormScope::Matrix) {
@@ -633,53 +516,51 @@ void norm(
                                     devices_values.data(), 1);
         }
         else if (in_norm == Norm::One) {
+            auto joffsets = tile_offsets( RowCol::Col, A );
 
             for (int device = 0; device < A.num_devices(); ++device) {
 
                 real_t* vals_host_array = vals_host_arrays[device].data();
 
                 int64_t batch_count = 0;
-                for (int q = 0; q < 4; ++q) {
-                    int64_t nb = A.tileNb(jrange[q][0]);
-                    for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                        for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                            if (A.tileIsLocal(i, j) &&
-                                device == A.tileDevice(i, j))
-                            {
-                                blas::axpy(
-                                    nb, 1.0,
-                                    &vals_host_array[batch_count*ldv], 1,
-                                    &values[j*ldv], 1);
-                                ++batch_count;
-                            }
+                for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+                for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                    int64_t nb = A.tileNb( jrange[jj] );
+                    for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                        if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
+                            blas::axpy(
+                                nb, 1.0,
+                                &vals_host_array[batch_count*ldv], 1,
+                                &values[ joffsets[j] ], 1);
+                            ++batch_count;
                         }
-                    }
-                }
+                    }} // for j,i
+                }} // for jj,ii
             }
         }
         else if (in_norm == Norm::Inf) {
+            auto ioffsets = tile_offsets( RowCol::Row, A );
 
             for (int device = 0; device < A.num_devices(); ++device) {
 
                 real_t* vals_host_array = vals_host_arrays[device].data();
 
                 int64_t batch_count = 0;
-                for (int q = 0; q < 4; ++q) {
-                    int64_t mb = A.tileMb(irange[q][0]);
-                    for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                        for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                            if (A.tileIsLocal(i, j) &&
-                                device == A.tileDevice(i, j))
-                            {
-                                blas::axpy(
-                                    mb, 1.0,
-                                    &vals_host_array[batch_count*ldv], 1,
-                                    &values[i*ldv], 1);
-                                ++batch_count;
-                            }
+                for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+                for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                    int64_t mb = A.tileMb( irange[ii] );
+                    for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                        if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
+                            blas::axpy(
+                                mb, 1.0,
+                                &vals_host_array[batch_count*ldv], 1,
+                                &values[ ioffsets[i] ], 1);
+                            ++batch_count;
                         }
-                    }
-                }
+                    }} // for j,i
+                }} // for jj,ii
             }
         }
         else if (in_norm == Norm::Fro) {
@@ -695,6 +576,8 @@ void norm(
     else if (scope == NormScope::Columns) {
 
         if (in_norm == Norm::Max) {
+            auto joffsets = tile_offsets( RowCol::Col, A );
+
             // Reduction over devices to local result.
             // todo: re-arrange loops to be able to issue omp tasks
             for (int device = 0; device < A.num_devices(); ++device) {
@@ -702,27 +585,25 @@ void norm(
                 real_t* vals_host_array = vals_host_arrays[device].data();
 
                 int64_t batch_count = 0;
-                for (int q = 0; q < 4; ++q) {
-                    int64_t nb = A.tileNb(jrange[q][0]);
-                    for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                        for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                            if (A.tileIsLocal(i, j) &&
-                                device == A.tileDevice(i, j))
-                            {
-                                for (int k = 0; k < nb; ++k) {
-                                    values[j*ldv + k] =
-                                        max_nan(vals_host_array[batch_count*ldv + k],
-                                                values[j*ldv + k]);
-                                }
-                                ++batch_count;
+                for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+                for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                    int64_t nb = A.tileNb( jrange[jj] );
+                    for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                        if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
+                            for (int k = 0; k < nb; ++k) {
+                                values[j*ldv + k] =
+                                    max_nan(vals_host_array[batch_count*ldv + k],
+                                            values[ joffsets[j] + k]);
                             }
+                            ++batch_count;
                         }
-                    }
-                }
+                    }} // for j,i
+                }} // for jj,ii
             }
         }
         else {
-            slate_not_implemented("The NormScope isn't yet supported.");
+            slate_not_implemented("The Norm isn't yet supported.");
         }
     }
     else {

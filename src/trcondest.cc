@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -14,8 +14,6 @@ namespace slate {
 /// Distributed parallel estimate of the reciprocal of the condition number
 /// of a triangular matrix A, in either the 1-norm or the infinity-norm.
 /// Generic implementation for any target.
-///
-/// ColMajor layout is assumed
 ///
 /// The reciprocal of the condition number computed as:
 /// \[
@@ -35,9 +33,9 @@ namespace slate {
 /// @param[in] A
 ///     On entry, the n-by-n triangular matrix $A$.
 ///
-/// @param[in,out] rcond
-///     The reciprocal of the condition number of the matrix A,
-///     computed as stated above.
+/// @param[in] Anorm
+///     If Norm::One, the 1-norm of the original matrix A.
+///     If Norm::Inf, the infinity-norm of the original matrix A.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -48,14 +46,19 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
+/// @return rcond
+///     The reciprocal of the condition number of the matrix A,
+///     computed as stated above.
+///     rcond is used instead of cond to handle overflow better.
+///
 /// @ingroup cond_specialization
 ///
 template <typename scalar_t>
-void trcondest(
-           Norm in_norm,
-           TriangularMatrix<scalar_t>& A,
-           blas::real_type<scalar_t> *rcond,
-           Options const& opts)
+blas::real_type<scalar_t> trcondest(
+    Norm in_norm,
+    TriangularMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts)
 {
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
@@ -70,102 +73,98 @@ void trcondest(
     else {
         slate_error("invalid norm.");
     }
+    if (Anorm < 0 || std::isnan( Anorm )) {
+        slate_error( "invalid Anorm" );
+    }
 
     int64_t m = A.m();
-    int64_t nb = A.tileNb(0);
-    int p, q;
-    int myrow, mycol, mpi_size;
-    int izero = 0;
 
     // Quick return
-    *rcond = 0.;
-    if (m == 0) {
-        *rcond = 1.;
+    if (m <= 0) {
+        return 1.;
+    }
+    else if (Anorm == 0.) {
+        return 0.;
     }
 
     scalar_t alpha = 1.;
     real_t Ainvnorm = 0.0;
 
-    GridOrder grid_order;
-    A.gridinfo(&grid_order, &p, &q, &myrow, &mycol);
-    slate_mpi_call(
-            MPI_Comm_size(A.mpiComm(), &mpi_size));
-    //myrow = A.mpiRank();
-    int64_t mloc  = numberLocalRowOrCol(m, nb, myrow, izero, p);
-    int64_t lldA  = blas::max(1, mloc);
+    std::vector<int64_t> isave = {0, 0, 0, 0};
 
-    std::vector<scalar_t> X_data(lldA);
-    std::vector<scalar_t> V_data(lldA);
-    std::vector<int64_t> isgn_data(lldA);
-    std::vector<int64_t> isave(3);
-    isave[0] = 0;
-    isave[1] = 0;
-    isave[2] = 0;
-
-    auto X = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, 1, &X_data[0], lldA, nb, 1, p, q, A.mpiComm() );
-    auto V = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, 1, &V_data[0], lldA, nb, 1, p, q, A.mpiComm() );
-    auto isgn = slate::Matrix<int64_t>::fromScaLAPACK(
-            m, 1, &isgn_data[0], lldA, nb, 1, p, q, A.mpiComm() );
+    auto tileMb = A.tileMbFunc();
+    auto tileNb = func::uniform_blocksize(1, 1);
+    auto tileRank = A.tileRankFunc();
+    auto tileDevice = A.tileDeviceFunc();
+    slate::Matrix<scalar_t> X (m, 1, tileMb, tileNb,
+                               tileRank, tileDevice, A.mpiComm());
+    X.insertLocalTiles(Target::Host);
+    slate::Matrix<scalar_t> V (m, 1, tileMb, tileNb,
+                               tileRank, tileDevice, A.mpiComm());
+    V.insertLocalTiles(Target::Host);
+    slate::Matrix<int64_t> isgn (m, 1, tileMb, tileNb,
+                                 tileRank, tileDevice, A.mpiComm());
+    isgn.insertLocalTiles(Target::Host);
 
     // initial and final value of kase is 0
     kase = 0;
-    internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
-    MPI_Bcast( &isave[0], 3, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
+    internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave );
+    MPI_Bcast( &isave[0], 4, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
     MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
 
     while (kase != 0) {
         if (kase == kase1) {
             // Multiply by inv(A).
-            slate::trsmB(Side::Left, alpha, A, X, opts);
+            slate::trsm( Side::Left, alpha, A, X, opts );
         }
         else {
             // Multiply by inv(A^H).
             auto AH = conj_transpose( A );
-            slate::trsmB(Side::Left, alpha, AH, X, opts);
+            slate::trsm( Side::Left, alpha, AH, X, opts );
         }
 
-        internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
-        MPI_Bcast( &isave[0], 3, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
+        internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave );
+        MPI_Bcast( &isave[0], 4, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
         MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)
 
-    real_t Anorm = norm(in_norm, A, opts);
     // Compute the estimate of the reciprocal condition number.
     if (Ainvnorm != 0.0) {
-        *rcond = (1.0 / Ainvnorm) / Anorm;
+        return (1.0 / Ainvnorm) / Anorm;
+    }
+    else {
+        return 0.;
     }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void trcondest<float>(
+float trcondest<float>(
     Norm in_norm,
     TriangularMatrix<float>& A,
-    float *rcond,
+    float Anorm,
     Options const& opts);
 
 template
-void trcondest<double>(
+double trcondest<double>(
     Norm in_norm,
     TriangularMatrix<double>& A,
-    double *rcond,
+    double Anorm,
     Options const& opts);
 
 template
-void trcondest< std::complex<float> >(
+float trcondest< std::complex<float> >(
     Norm in_norm,
     TriangularMatrix< std::complex<float> >& A,
-    float *rcond,
+    float Anorm,
     Options const& opts);
 
 template
-void trcondest< std::complex<double> >(
+double trcondest< std::complex<double> >(
     Norm in_norm,
     TriangularMatrix< std::complex<double> >& A,
-    double *rcond,
+    double Anorm,
     Options const& opts);
 
 } // namespace slate

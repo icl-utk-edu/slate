@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,12 +8,13 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "matgen.hh"
+
+#include "matrix_utils.hh"
+#include "test_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
-#include "scalapack_copy.hh"
 #include "auxiliary/Debug.hh"
-#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -33,8 +34,6 @@ void test_posv_work(Params& params, bool run)
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';
@@ -43,31 +42,82 @@ void test_posv_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     bool hold_local_workspace = params.hold_local_workspace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Dist dev_dist = params.dev_dist();
-    slate::TileReleaseStrategy tile_release_strategy = params.tile_release_strategy();
     params.matrix.mark();
     params.matrixB.mark();
     slate::Method methodTrsm = params.method_trsm();
     slate::Method methodHemm = params.method_hemm();
+
+    mark_params_for_test_HermitianMatrix( params );
+    mark_params_for_test_Matrix( params );
+
+    // Currently only posv* supports timer_level >= 2.
+    std::vector<std::string> timer_lvl_support{ "posv", "posv_mixed",
+                                                "posv_mixed_gmres" };
+    bool supported = std::find( timer_lvl_support.begin(),
+                                timer_lvl_support.end(), params.routine )
+                     != timer_lvl_support.end();
+
+    if (! supported)
+        timer_level = 1;
 
     // mark non-standard output values
     params.time();
     params.gflops();
     params.ref_time();
     params.ref_gflops();
-    params.time2();
-    params.time2.name( "trs time (s)" );
-    params.time2.width( 12 );
-    params.gflops2();
-    params.gflops2.name( "trs gflop/s" );
 
-    bool do_potrs = (
-        (check && params.routine == "potrf") || params.routine == "potrs");
+    bool do_potrs = params.routine == "potrs"
+                    || (check && params.routine == "potrf");
 
-    if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
+    if (do_potrs) {
+        params.time2();
+        params.time2.name( "trs time (s)" );
+        params.time2.width( 12 );
+        params.gflops2();
+        params.gflops2.name( "trs gflop/s" );
+    }
+    if (timer_level >= 2 && params.routine == "posv") {
+        params.time2();
+        params.time3();
+        params.time2.name( "potrf (s)" );
+        params.time3.name( "potrs (s)" );
+    }
+    else if (timer_level >=2 && (params.routine == "posv_mixed"
+                                 || params.routine == "posv_mixed_gmres")) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time5();
+        params.time6();
+        params.time7();
+        params.time2.name( "potrf_lo (s)" );
+        params.time3.name( "potrs_lo (s)" );
+        params.time4.name( "hemm_hi (s)" );
+        params.time5.name( "add_hi (s)" );
+        params.time6.name( "potrf_hi (s)" );
+        params.time7.name( "potrs_hi (s)" );
+        if (params.routine == "posv_mixed_gmres") {
+            params.time8();
+            params.time9();
+            params.time10();
+            params.time8.name( "rotations (s)" );
+            params.time9.name( "trsm_hi (s)" );
+            params.time10.name( "gemm_hi (s)" );
+        }
+    }
+
+    bool is_iterative = params.routine == "posv_mixed"
+                        || params.routine == "posv_mixed_gmres";
+
+    int64_t itermax = 0;
+    bool fallback = true;
+    if (is_iterative) {
         params.iters();
+        fallback = params.fallback() == 'y';
+        itermax = params.itermax();
     }
 
     if (! run) {
@@ -75,24 +125,20 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
-        {slate::Option::TileReleaseStrategy, tile_release_strategy},
         {slate::Option::HoldLocalWorkspace, hold_local_workspace},
         {slate::Option::MethodTrsm, methodTrsm},
         {slate::Option::MethodHemm, methodHemm},
+        {slate::Option::MaxIterations, itermax},
+        {slate::Option::UseFallbackSolver, fallback},
     };
-
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
-
-    if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
-        params.msg() = "skipping: dev_dist = Row applies only to target devices";
-        return;
-    }
 
     if ((params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
         && ! std::is_same<real_t, double>::value) {
@@ -106,90 +152,24 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
-    // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
-    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+    int64_t info = 0;
 
-    // Matrix B: figure out local size.
-    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
-    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
-    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-
-    // ScaLAPACK data if needed.
-    std::vector<scalar_t> A_data, B_data;
-
-    // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
-
-    slate::HermitianMatrix<scalar_t> A;
-    slate::Matrix<scalar_t> B, X;
-    std::vector<scalar_t> X_data;
-    if (origin != slate::Origin::ScaLAPACK) {
-        if (dev_dist == slate::Dist::Row && target == slate::Target::Devices) {
-            // slate_assert(target == slate::Target::Devices);
-            // todo: doesn't work when lookahead is greater than 2
-            // slate_assert(lookahead < 3);
-            // std::function<int64_t (int64_t i)> tileMb = [nrhs, nb] (int64_t i)
-            //    { return (i + 1)*mb > nrhs ? nrhs%mb : mb; };
-            std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j) {
-                return (j + 1)*nb > n ? n%nb : nb;
-            };
-
-            std::function<int (std::tuple<int64_t, int64_t> ij)>
-            tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
-                int64_t i = std::get<0>(ij);
-                int64_t j = std::get<1>(ij);
-                return int(i%p + (j%q)*p);
-            };
-
-            int num_devices = blas::get_device_count();
-            slate_assert(num_devices > 0);
-
-            std::function<int (std::tuple<int64_t, int64_t> ij)>
-            tileDevice = [p, num_devices](std::tuple<int64_t, int64_t> ij) {
-                int64_t i = std::get<0>(ij);
-                return int(i/p)%num_devices;
-            };
-
-            A = slate::HermitianMatrix<scalar_t>(
-                    uplo, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
-            B = slate::Matrix<scalar_t>(
-                    n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
-        }
-        else {
-            A = slate::HermitianMatrix<scalar_t>(
-                    uplo, n, nb, p, q, MPI_COMM_WORLD);
-            B = slate::Matrix<scalar_t>(
-                    n, nrhs, nb, p, q, MPI_COMM_WORLD);
-        }
-
-        // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
-        A.insertLocalTiles(origin_target);
-
-        B.insertLocalTiles(origin_target);
-
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
-            X_data.resize(lldB*nlocB);
-            X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
-            X.insertLocalTiles(origin_target);
-        }
+    auto A_alloc = allocate_test_HermitianMatrix<scalar_t>( check || ref, true, n, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, true, n, nrhs, params );
+    TestMatrix<slate::Matrix<scalar_t>> X_alloc;
+    if (is_iterative) {
+        X_alloc = allocate_test_Matrix<scalar_t>( false, true, n, nrhs, params );
     }
-    else {
-        // Create SLATE matrix from the ScaLAPACK layouts
-        A_data.resize( lldA * nlocA );
-        B_data.resize( lldB * nlocB );
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
-            X_data.resize(lldB*nlocB);
-            X = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        }
-    }
+
+    auto& A         = A_alloc.A;
+    auto& A_data    = A_alloc.A_data;
+    auto& Aref      = A_alloc.Aref;
+    auto& Aref_data = A_alloc.Aref_data;
+    auto& B         = B_alloc.A;
+    auto& B_data    = B_alloc.A_data;
+    auto& Bref      = B_alloc.Aref;
+    auto& Bref_data = B_alloc.Aref_data;
+    auto& X         = X_alloc.A;
 
     slate::generate_matrix(params.matrix, A);
     slate::generate_matrix(params.matrixB, B);
@@ -197,18 +177,8 @@ void test_posv_work(Params& params, bool run)
     print_matrix("B", B, params);
 
     // if check is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> Aref_data(lldA*nlocA);
-    std::vector<scalar_t> Bref_data(lldB*nlocB);
     std::vector<scalar_t> B_orig;
-    slate::HermitianMatrix<scalar_t> Aref;
-    slate::Matrix<scalar_t> Bref;
     if (check || ref) {
-        // SLATE matrix wrappers for the reference data
-        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                   uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-
         slate::copy( A, Aref );
         slate::copy( B, Bref );
 
@@ -238,26 +208,26 @@ void test_posv_work(Params& params, bool run)
 
         if (params.routine == "potrf" || params.routine == "potrs") {
             // Factor matrix A.
-            slate::chol_factor(A, opts);
+            info = slate::chol_factor( A, opts );
             // Using traditional BLAS/LAPACK name
             // slate::potrf(A, opts);
         }
         else if (params.routine == "posv") {
-            slate::chol_solve(A, B, opts);
+            info = slate::chol_solve( A, B, opts );
             // Using traditional BLAS/LAPACK name
             // slate::posv(A, B, opts);
         }
         else if (params.routine == "posv_mixed") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::posv_mixed( A, B, X, iters, opts );
+                info = slate::posv_mixed( A, B, X, iters, opts );
                 params.iters() = iters;
             }
         }
         else if (params.routine == "posv_mixed_gmres") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::posv_mixed_gmres(A, B, X, iters, opts);
+                info = slate::posv_mixed_gmres(A, B, X, iters, opts);
                 params.iters() = iters;
             }
         }
@@ -266,11 +236,35 @@ void test_posv_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
+        if (timer_level >= 2 && params.routine == "posv") {
+            params.time2() = slate::timers[ "posv::potrf" ];
+            params.time3() = slate::timers[ "posv::potrs" ];
+        }
+        else if (timer_level >= 2 && params.routine == "posv_mixed") {
+            params.time2() = slate::timers[ "posv_mixed::potrf_lo" ];
+            params.time3() = slate::timers[ "posv_mixed::potrs_lo" ];
+            params.time4() = slate::timers[ "posv_mixed::hemm_hi" ];
+            params.time5() = slate::timers[ "posv_mixed::add_hi" ];
+            params.time6() = slate::timers[ "posv_mixed::potrf_hi" ];
+            params.time7() = slate::timers[ "posv_mixed::potrs_hi" ];
+        }
+        else if (timer_level >= 2 && params.routine == "posv_mixed_gmres") {
+            params.time2() = slate::timers[ "posv_mixed_gmres::potrf_lo" ];
+            params.time3() = slate::timers[ "posv_mixed_gmres::potrs_lo" ];
+            params.time4() = slate::timers[ "posv_mixed_gmres::hemm_hi" ];
+            params.time5() = slate::timers[ "posv_mixed_gmres::add_hi" ];
+            params.time6() = slate::timers[ "posv_mixed_gmres::potrf_hi" ];
+            params.time7() = slate::timers[ "posv_mixed_gmres::potrs_hi" ];
+            params.time8() = slate::timers[ "posv_mixed_gmres::rotations" ];
+            params.time9() = slate::timers[ "posv_mixed_gmres::trsm_hi" ];
+            params.time10() = slate::timers[ "posv_mixed_gmres::gemm_hi" ];
+        }
+
         //==================================================
         // Run SLATE test: potrs
         // potrs: Solve AX = B, after factoring A above.
         //==================================================
-        if (do_potrs) {
+        if (do_potrs && info == 0) {
             double time2 = barrier_get_wtime(MPI_COMM_WORLD);
 
             if ((check && params.routine == "potrf")
@@ -290,9 +284,22 @@ void test_posv_work(Params& params, bool run)
         }
 
         if (trace) slate::trace::Trace::finish();
-    }
 
-    if (check) {
+        if (info != 0) {
+            char buf[ 80 ];
+            snprintf( buf, sizeof(buf), "info = %lld, cond = %.2e",
+                      llong( info ), params.matrix.cond_actual() );
+            params.msg() = buf;
+        }
+    }
+    print_matrix( "X_out", X, params );
+
+    if (info != 0 || std::isinf( params.matrix.cond_actual() )) {
+        // info != 0 if and only if cond == inf (singular matrix).
+        // Matrices with unknown cond (nan) that are singular are marked failed.
+        params.okay() = info != 0 && std::isinf( params.matrix.cond_actual() );
+    }
+    else if (check) {
         //==================================================
         // Test results by checking the residual
         //
@@ -307,13 +314,13 @@ void test_posv_work(Params& params, bool run)
 
         // Norm of updated-rhs/solution matrix: || X ||_1
         real_t X_norm;
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
+        if (is_iterative)
             X_norm = slate::norm(slate::Norm::One, X);
         else
             X_norm = slate::norm(slate::Norm::One, B);
 
         // Bref -= Aref*B
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
+        if (is_iterative) {
             slate::multiply(-one, Aref, X, one, Bref);
             // Using traditional BLAS/LAPACK name
             // slate::hemm(slate::Side::Left, -one, Aref, X, one, Bref);
@@ -331,42 +338,19 @@ void test_posv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
+        if (is_iterative)
             params.okay() = params.okay() && params.iters() >= 0;
     }
 
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
-            // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], Aref_desc[9];
-            int B_desc[9], Bref_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank == mpi_rank_ );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
-
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(B_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+            blas_int ictxt, Aref_desc[9], Bref_desc[9];
+            A_alloc.create_ScaLAPACK_context( &ictxt );
+            A_alloc.ScaLAPACK_descriptor( ictxt, Aref_desc );
+            B_alloc.ScaLAPACK_descriptor( ictxt, Bref_desc );
 
             if (check) {
                 // restore Bref_data
@@ -402,9 +386,13 @@ void test_posv_work(Params& params, bool run)
 
             if (verbose > 2) {
                 if (origin == slate::Origin::ScaLAPACK) {
-                    slate::Debug::diffLapackMatrices<scalar_t>(n, n, &A_data[0], lldA, &Aref_data[0], lldA, nb, nb);
+                    slate::Debug::diffLapackMatrices<scalar_t>(
+                        n, n, &A_data[0], A_alloc.lld,
+                        &Aref_data[0], A_alloc.lld, nb, nb);
                     if (params.routine != "potrf") {
-                        slate::Debug::diffLapackMatrices<scalar_t>(n, nrhs, &B_data[0], lldB, &Bref_data[0], lldB, nb, nb);
+                        slate::Debug::diffLapackMatrices<scalar_t>(
+                            n, nrhs, &B_data[0], B_alloc.lld,
+                            &Bref_data[0], B_alloc.lld, nb, nb);
                     }
                 }
             }
@@ -412,7 +400,7 @@ void test_posv_work(Params& params, bool run)
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
             SLATE_UNUSED( verbose );
-            if (mpi_rank == 0)
+            if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }
@@ -422,10 +410,6 @@ void test_posv_work(Params& params, bool run)
 void test_posv(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_posv_work<float> (params, run);
             break;
@@ -440,6 +424,10 @@ void test_posv(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_posv_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -86,20 +86,21 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the band LU factorization failed on the
-///         $i$-th column.
+/// @return 0: successful exit
+/// @return i > 0: the band LU factorization failed on the $i$-th column.
 ///
 /// @ingroup hesv
 ///
 template <typename scalar_t>
-void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-               BandMatrix<scalar_t>& T, Pivots& pivots2,
-                   Matrix<scalar_t>& H,
-          Matrix<scalar_t>& B,
-          Options const& opts)
+int64_t hesv(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+             Matrix<scalar_t>& B,
+    Options const& opts )
 {
+    Timer t_hesv;
+
     assert(B.mt() == A.mt());
 
     auto A_ = A;  // local shallow copy to transpose
@@ -109,16 +110,26 @@ void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
         A_ = conj_transpose( A_ );
 
     // factorization
-    hetrf(A_, pivots, T, pivots2, H, opts);
+    Timer t_hetrf;
+    int64_t info = hetrf( A_, pivots, T, pivots2, H, opts );
+    timers[ "hesv::hetrf" ] = t_hetrf.stop();
 
     // solve
-    hetrs(A_, pivots, T, pivots2, B, opts);
+    Timer t_hetrs;
+    if (info == 0) {
+        hetrs( A_, pivots, T, pivots2, B, opts );
+    }
+    timers[ "hesv::hetrs" ] = t_hetrs.stop();
+
+    timers[ "hesv" ] = t_hesv.stop();
+
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void hesv<float>(
+int64_t hesv<float>(
     HermitianMatrix<float>& A, Pivots& pivots,
          BandMatrix<float>& T, Pivots& pivots2,
              Matrix<float>& H,
@@ -126,7 +137,7 @@ void hesv<float>(
     Options const& opts);
 
 template
-void hesv<double>(
+int64_t hesv<double>(
     HermitianMatrix<double>& A, Pivots& pivots,
          BandMatrix<double>& T, Pivots& pivots2,
              Matrix<double>& H,
@@ -134,7 +145,7 @@ void hesv<double>(
     Options const& opts);
 
 template
-void hesv< std::complex<float> >(
+int64_t hesv< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A, Pivots& pivots,
          BandMatrix< std::complex<float> >& T, Pivots& pivots2,
              Matrix< std::complex<float> >& H,
@@ -142,7 +153,7 @@ void hesv< std::complex<float> >(
     Options const& opts);
 
 template
-void hesv< std::complex<double> >(
+int64_t hesv< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A, Pivots& pivots,
          BandMatrix< std::complex<double> >& T, Pivots& pivots2,
              Matrix< std::complex<double> >& H,

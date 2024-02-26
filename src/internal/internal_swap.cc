@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -202,9 +202,7 @@ void permuteRows(
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag_base, int queue_index)
 {
-    // todo: for performance optimization, merge with the loops below,
-    // at least with lookahead, probably selectively
-    A.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
+    using ij_tuple = typename Matrix<scalar_t>::ij_tuple;
 
     MPI_Comm comm = A.mpiComm();
     int comm_size;
@@ -212,6 +210,13 @@ void permuteRows(
 
     {
         trace::Block trace_block("internal::permuteRows");
+
+        // Compute the relavant tile rows
+        std::set<int64_t> pivoted_tile_rows;
+        pivoted_tile_rows.insert(0);
+        for (Pivot& p : pivot) {
+            pivoted_tile_rows.insert(p.tileIndex());
+        }
 
         MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
 
@@ -234,6 +239,15 @@ void permuteRows(
                 end   = -1;
                 inc   = -1;
             }
+
+            // Get tiles needed locally for this block column
+            std::set< ij_tuple > local_tiles;
+            for (int64_t i : pivoted_tile_rows) {
+                if (A.tileIsLocal(i, j)) {
+                    local_tiles.insert({i, j});
+                }
+            }
+            A.tileGetForWriting( local_tiles, LayoutConvert(layout) );
 
             // process pivots
             int64_t nb = A.tileNb(j);
@@ -500,15 +514,20 @@ void permuteRows(
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag_base, int queue_index)
 {
+    using ij_tuple = typename Matrix<scalar_t>::ij_tuple;
+
     // GPU uses RowMajor
     assert(layout == Layout::RowMajor);
 
-    // todo: for performance optimization, merge with the loops below,
-    // at least with lookahead, probably selectively
-    A.tileGetAllForWritingOnDevices(LayoutConvert(layout));
-
     {
         trace::Block trace_block("internal::permuteRows");
+
+        // Compute the relavant tile rows
+        std::set<int64_t> pivoted_tile_rows;
+        pivoted_tile_rows.insert(0);
+        for (Pivot& p : pivot) {
+            pivoted_tile_rows.insert(p.tileIndex());
+        }
 
         #pragma omp taskgroup
         for (int device = 0; device < A.num_devices(); ++device) {
@@ -552,10 +571,20 @@ void permuteRows(
                     bool root = A.mpiRank() == A.tileRank(0, j);
                     int tag = tag_base + j;
 
-                    // todo: relax the assumption of 1-D block cyclic distribution on devices
+                    // TODO consider if there is a better mapping for remote rows
                     if (device != A.tileDevice(0, j)) {
                         continue;
                     }
+
+                    // Get tiles needed locally for this block column
+                    std::set< ij_tuple > local_tiles;
+                    for (int64_t i : pivoted_tile_rows) {
+                        if (A.tileIsLocal(i, j)) {
+                            local_tiles.insert({i, j});
+                        }
+                    }
+                    A.tileGetForWriting( local_tiles, device,
+                                         LayoutConvert(layout) );
 
                     // process pivots
                     int64_t nb = A.tileNb(j);
@@ -638,7 +667,6 @@ void permuteRows(
                                 if (pivot[i].tileIndex() > 0 ||
                                     pivot[i].elementOffset() > i)
                                     {
-                                        // todo: assumes 1-D block cyclic
                                         assert(A(0, j, device).layout() == Layout::RowMajor);
                                         int64_t i1 = i;
                                         int64_t i2 = pivot[i].elementOffset();

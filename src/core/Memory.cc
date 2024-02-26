@@ -1,10 +1,11 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "auxiliary/Debug.hh"
 #include "slate/internal/Memory.hh"
+#include "slate/Exception.hh"
 
 namespace slate {
 
@@ -14,16 +15,11 @@ Memory::StaticConstructor Memory::static_constructor_;
 //------------------------------------------------------------------------------
 /// Construct saves block size, but does not allocate any memory.
 Memory::Memory(size_t block_size):
-    block_size_(block_size)
+    block_size_(block_size),
+    free_blocks_( num_devices_ ),
+    allocated_mem_( num_devices_ ),
+    capacity_( num_devices_ )
 {
-    // touch maps to create entries;
-    // this allows available() and capacity() to be const by using at()
-    free_blocks_[ HostNum ];
-    capacity_[ HostNum ] = 0;
-    for (int device = 0; device < num_devices_; ++device) {
-        free_blocks_[device];
-        capacity_[device] = 0;
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -35,13 +31,14 @@ Memory::~Memory()
     // needed to release memory (and can't be passed in here).  So to
     // release the memory, an explicit clear must called using the
     // queue parameter ( Memory::clearDeviceBlocks(device, *queue) ).
-    assert(capacity_[ HostNum ] == 0);
+    //assert(capacity_[ HostNum ] == 0);
     for (int device = 0; device < num_devices_; ++device) {
         assert(capacity_[ device ] == 0);
     }
     // Debug::printNumFreeMemBlocks(*this);
 }
 
+/*
 //------------------------------------------------------------------------------
 /// Allocates num_blocks in host memory
 /// and adds them to the pool of free blocks.
@@ -49,7 +46,6 @@ Memory::~Memory()
 // todo: merge with addDeviceBlocks by recognizing HostNum?
 void Memory::addHostBlocks(int64_t num_blocks)
 {
-/*
     // or std::byte* (C++17)
     uint8_t* host_mem;
     host_mem = (uint8_t*) allocHostMemory(block_size_*num_blocks);
@@ -57,8 +53,8 @@ void Memory::addHostBlocks(int64_t num_blocks)
 
     for (int64_t i = 0; i < num_blocks; ++i)
         free_blocks_[ HostNum ].push(host_mem + i*block_size_);
-*/
 }
+*/
 
 //------------------------------------------------------------------------------
 /// Allocates num_blocks in given device's memory
@@ -75,13 +71,13 @@ void Memory::addDeviceBlocks(int device, int64_t num_blocks, blas::Queue *queue)
         free_blocks_[device].push(dev_mem + i*block_size_);
 }
 
+/*
 //------------------------------------------------------------------------------
 /// Empties the pool of free blocks of host memory and frees the allocations.
 ///
 // todo: merge with clearDeviceBlocks by recognizing HostNum?
 void Memory::clearHostBlocks()
 {
-/*
     Debug::checkHostMemoryLeaks(*this);
 
     while (! free_blocks_[ HostNum ].empty())
@@ -93,8 +89,8 @@ void Memory::clearHostBlocks()
         allocated_mem_[ HostNum ].pop();
     }
     capacity_[ HostNum ] = 0;
-*/
 }
+*/
 
 //------------------------------------------------------------------------------
 /// Empties the pool of free blocks of given device's memory and frees the
@@ -128,6 +124,7 @@ void* Memory::alloc(int device, size_t size, blas::Queue* queue)
         block = new char[size];
     }
     else {
+        slate_assert( size <= block_size_ );
         // this block for device only
         #pragma omp critical(slate_memory)
         {
@@ -181,12 +178,16 @@ void* Memory::allocBlock(int device, blas::Queue *queue)
 ///
 void* Memory::allocHostMemory(size_t size)
 {
+    slate_not_implemented( "Memory pool currently doesn't handle host memory" );
+    return nullptr;
+    /*
     void* host_mem;
     host_mem = malloc(size);
     assert(host_mem != nullptr);
     allocated_mem_[ HostNum ].push( host_mem );
 
     return host_mem;
+    */
 }
 
 //------------------------------------------------------------------------------

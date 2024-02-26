@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -28,7 +28,7 @@ void trmm(
 
     if (target == Target::Devices) {
         const int64_t batch_size_default = 0; // use default batch size
-        const int num_queues = 2; // Number of kernels without lookahead
+        const int num_queues = 1; // Number of kernels without lookahead
         B.allocateBatchArrays( batch_size_default, num_queues );
         B.reserveDeviceWorkspace();
     }

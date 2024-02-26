@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -69,6 +69,8 @@ void svd(
     Matrix<scalar_t>& VT,
     Options const& opts)
 {
+    Timer t_svd;
+
     using real_t = blas::real_type<scalar_t>;
     using std::swap;
     using blas::max;
@@ -141,8 +143,12 @@ void svd(
     bool lq_path = n > m;
     Matrix<scalar_t> Ahat, Uhat, VThat;
     TriangularFactors<scalar_t> TQ;
+    timers[ "svd::geqrf" ] = 0;
+    timers[ "svd::gelqf" ] = 0;
     if (qr_path) {
+        Timer t_geqrf;
         geqrf( A, TQ, opts );
+        timers[ "svd::geqrf" ] = t_geqrf.stop();
 
         // Upper triangular part of A (R).
         auto R_ = A.slice(0, n-1, 0, n-1);
@@ -166,7 +172,9 @@ void svd(
         }
     }
     else if (lq_path) {
+        Timer t_gelqf;
         gelqf( A, TQ, opts );
+        timers[ "svd::gelqf" ] = t_gelqf.stop();
         swap(m, n);
 
         // Lower triangular part of A (R).
@@ -204,7 +212,9 @@ void svd(
 
     // 1. Reduce to band form.
     TriangularFactors<scalar_t> TU, TV;
+    Timer t_ge2tb;
     ge2tb(Ahat, TU, TV, opts);
+    timers[ "svd::ge2tb" ] = t_ge2tb.stop();
 
     // Currently, tb2bd and bdsqr run on a single node, gathers band matrix to rank 0.
     TriangularBandMatrix<scalar_t> Aband( Uplo::Upper, Diag::NonUnit,
@@ -236,10 +246,14 @@ void svd(
         U2.insertLocalTiles();
 
         // Reduce band to bi-diagonal.
+        Timer t_tb2bd;
         tb2bd( Aband, U2, VT2, opts );
+        timers[ "svd::tb2bd" ] = t_tb2bd.stop();
 
         // Copy diagonal and super-diagonal to vectors.
         internal::copytb2bd(Aband, Sigma, E);
+
+        Aband.releaseRemoteWorkspace();
     }
 
     int64_t ncvt = 0, nru = 0, ldvt = 1, ldu = 1;
@@ -283,11 +297,13 @@ void svd(
         // QR iteration
         //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, Uhat, VThat, opts);
         // Call the SVD
+        Timer t_bdsvd;
         lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
                       &Sigma[0], &E[0],
                       &VT1D_row_cyclic_data[0], ldvt,
                       &U1D_row_cyclic_data[0], ldu,
                       dummy, 1);
+        timers[ "svd::bdsvd" ] = t_bdsvd.stop();
 
         // If matrix was scaled, then rescale singular values appropriately.
         if (is_scale) {
@@ -316,18 +332,24 @@ void svd(
             redistribute(U1d_row_cyclic, U1d, opts);
 
             // First, U = U2 * U ===> U1d = U2 * U1d
+            Timer t_unmbr_tb2bd_U;
             unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
+            timers[ "svd::unmbr_tb2bd_U" ] = t_unmbr_tb2bd_U.stop();
 
             // Redistribute U1d into U
             redistribute(U1d, Uhat, opts);
 
             // Second, U = U1 * U ===> U = Ahat * U
+            Timer t_unmbr_ge2tb_U;
             unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
+            timers[ "svd::unmbr_ge2tb_U" ] = t_unmbr_ge2tb_U.stop();
+            Timer t_unmqr;
             if (qr_path) {
                 // When initial QR was used.
                 // U = Q*U;
                 unmqr( Side::Left, slate::Op::NoTrans, A, TQ, U, opts );
             }
+            timers[ "svd::unmqr" ] = t_unmqr.stop();
         }
 
         // Back-transform: VT = VT * VT2 * VT1.
@@ -351,21 +373,28 @@ void svd(
             redistribute(V, V1d, opts);
 
             // First: V  = VT2 * V ===> V1d = VT2 * V1d
+            Timer t_unmbr_tb2bd_V;
             unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
+            timers[ "svd::unmbr_tb2bd_V" ] = t_unmbr_tb2bd_V.stop();
 
             // Redistribute V1d into V
             auto V1dT = conj_transpose(V1d);
             redistribute(V1dT, VThat, opts);
 
             // Second: VT = VT1 * VT ===> VT = Ahat * VT
+            Timer t_unmbr_ge2tb_V;
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
+            timers[ "svd::unmbr_ge2tb_V" ] = t_unmbr_ge2tb_V.stop();
+            Timer t_unmlq;
             if (lq_path) {
                 // VT = VT*Q;
                 unmlq( Side::Right, slate::Op::NoTrans, A, TQ, VT, opts );
             }
+            timers[ "svd::unmlq" ] = t_unmlq.stop();
         }
     }
     else {
+        Timer t_bdsvd;
         if (A.mpiRank() == 0) {
             // QR iteration
             //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, U, VT, opts);
@@ -386,7 +415,10 @@ void svd(
 
         // Bcast singular values.
         MPI_Bcast( &Sigma[0], min_mn, mpi_real_type, 0, A.mpiComm() );
+        timers[ "svd::bdsvd" ] = t_bdsvd.stop();
     }
+
+    timers[ "svd" ] = t_svd.stop();
 }
 
 //------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -44,14 +44,6 @@ void gemmA(
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    auto tileStrategy = get_option<TileReleaseStrategy>(
-            opts, Option::TileReleaseStrategy, TileReleaseStrategy::Slate );
-
-    Options local_opts = opts;
-    local_opts[ Option::Lookahead ] = lookahead;
-
-    // XXX This should be removed later, based on Kadir's comment.
-    local_opts[ Option::TileReleaseStrategy ] = tileStrategy;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector( A.nt() );
@@ -60,9 +52,6 @@ void gemmA(
     uint8_t* gemmA = gemmA_vector.data();
     SLATE_UNUSED( bcast ); // Used only by OpenMP
     SLATE_UNUSED( gemmA ); // Used only by OpenMP
-
-    const int priority_0 = 0;
-    const int queue_0 = 0;
 
     if (target == Target::Devices) {
         if (A.num_devices() > 1)
@@ -117,7 +106,7 @@ void gemmA(
                 alpha, std::move(A),
                        B.sub( 0, B.mt()-1, 0, 0 ),
                 beta,  C.sub( 0, C.mt()-1, 0, 0 ),
-                layout, priority_0, queue_0, local_opts );
+                layout );
 
             // reduce C(:, 0)
             using ReduceList = typename Matrix<scalar_t>::ReduceList;
@@ -131,20 +120,19 @@ void gemmA(
             int tag_0 = 0;
             C.template listReduce( reduce_list_C, layout, tag_0 );
         }
-        // Clean the memory introduced by internal::gemmA on Devices
-        if (target == Target::Devices) {
-            #pragma omp task depend( in:gemmA[ 0 ] ) \
-                              shared( B, C )
-            {
-                auto B_col_0 = B.sub( 0, B.mt()-1, 0, 0 );
-                B_col_0.releaseRemoteWorkspace();
-                B_col_0.releaseLocalWorkspace();
 
-                auto C_col_0 = C.sub( 0, C.mt()-1, 0, 0 );
-                C_col_0.releaseRemoteWorkspace();
-                C_col_0.tileUpdateAllOrigin();
-                C_col_0.releaseLocalWorkspace();
-            }
+        // Clean up workspace
+        #pragma omp task depend( in:gemmA[ 0 ] ) \
+                          shared( B, C )
+        {
+            auto B_col_0 = B.sub( 0, B.mt()-1, 0, 0 );
+            B_col_0.releaseRemoteWorkspace();
+            B_col_0.releaseLocalWorkspace();
+
+            auto C_col_0 = C.sub( 0, C.mt()-1, 0, 0 );
+            C_col_0.releaseRemoteWorkspace();
+            C_col_0.tileUpdateAllOrigin();
+            C_col_0.releaseLocalWorkspace();
         }
 
         // broadcast (with lookahead) and multiply the rest of the columns
@@ -180,7 +168,7 @@ void gemmA(
                     alpha, std::move(A),
                            B.sub( 0, B.mt()-1, k, k ),
                     beta,  C.sub( 0, C.mt()-1, k, k ),
-                    layout, priority_0, queue_0, local_opts );
+                    layout );
 
                 // reduce C(:, k)
                 using ReduceList = typename Matrix<scalar_t>::ReduceList;
@@ -194,21 +182,20 @@ void gemmA(
                 int tag_k = k;
                 C.template listReduce( reduce_list_C, layout, tag_k );
             }
-            // Clean the memory introduced by internal::gemmA on Devices
-            if (target == Target::Devices) {
-                #pragma omp task depend( in:gemmA[ k ] ) \
-                                  shared( B, C ) \
-                                  firstprivate( k )
-                {
-                    auto B_col_k = B.sub( 0, B.mt()-1, k, k );
-                    B_col_k.releaseRemoteWorkspace();
-                    B_col_k.releaseLocalWorkspace();
 
-                    auto C_col_k = C.sub( 0, C.mt()-1, k, k );
-                    C_col_k.releaseRemoteWorkspace();
-                    C_col_k.tileUpdateAllOrigin();
-                    C_col_k.releaseLocalWorkspace();
-                }
+            // Clean up workspace
+            #pragma omp task depend( in:gemmA[ k ] ) \
+                              shared( B, C ) \
+                              firstprivate( k )
+            {
+                auto B_col_k = B.sub( 0, B.mt()-1, k, k );
+                B_col_k.releaseRemoteWorkspace();
+                B_col_k.releaseLocalWorkspace();
+
+                auto C_col_k = C.sub( 0, C.mt()-1, k, k );
+                C_col_k.releaseRemoteWorkspace();
+                C_col_k.tileUpdateAllOrigin();
+                C_col_k.releaseLocalWorkspace();
             }
         }
         #pragma omp taskwait

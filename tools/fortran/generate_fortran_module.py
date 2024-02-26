@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -54,7 +54,7 @@ types_dict = {
     "float":                           ("real(kind=c_float)"),
     "double _Complex":                 ("complex(kind=c_double_complex)"),
     "float _Complex":                  ("complex(kind=c_float_complex)"),
-    "slate_Norm":                      ("character(kind=c_char)"),
+    "bool":                            ("logical(kind=c_bool)"),
     "slate_Matrix_r32":                ("type(c_ptr)"),
     "slate_Matrix_r64":                ("type(c_ptr)"),
     "slate_Matrix_c32":                ("type(c_ptr)"),
@@ -92,24 +92,28 @@ types_dict = {
     "slate_TriangularFactors_r64":     ("type(c_ptr)"),
     "slate_TriangularFactors_c32":     ("type(c_ptr)"),
     "slate_TriangularFactors_c64":     ("type(c_ptr)"),
-    "slate_OptionValue":               ("type(slate_OptionValue)"),
-    # "slate_Options":                   ("type(slate_Options)"),
+    "slate_Tile_r32":                  ("type(slate_Tile_r32)"),
+    "slate_Tile_r64":                  ("type(slate_Tile_r64)"),
+    "slate_Tile_c32":                  ("type(slate_Tile_c32)"),
+    "slate_Tile_c64":                  ("type(slate_Tile_c64)"),
+    # SLATE enum types and typedefs
     "slate_Options":                   ("type(c_ptr)"),
-    "slate_Option":                    ("type(slate_Option)"),
+    "slate_Option":                    ("character(kind=c_char)"),
+    "slate_Norm":                      ("character(kind=c_char)"),
     "slate_Side":                      ("character(kind=c_char)"),
     "slate_Diag":                      ("character(kind=c_char)"),
     "slate_Op":                        ("character(kind=c_char)"),
     "slate_Uplo":                      ("character(kind=c_char)"),
     "slate_Layout":                    ("character(kind=c_char)"),
+    "slate_Target":                    ("character(kind=c_char)"),
+    "slate_TileReleaseStrategy":       ("character(kind=c_char)"),
+    "slate_MethodEig":                 ("character(kind=c_int)"),
+    "slate_Method":                    ("integer(kind=c_int)"),
     "slate_TileKind":                  ("integer(kind=c_int)"),
-    "slate_Tile_r32":                  ("type(slate_Tile_r32)"),
-    "slate_Tile_r64":                  ("type(slate_Tile_r64)"),
-    "slate_Tile_c32":                  ("type(slate_Tile_c32)"),
-    "slate_Tile_c64":                  ("type(slate_Tile_c64)"),
     "MPI_Comm":                        ("integer(kind=c_int)"),
     "MPI_Fint":                        ("integer(kind=c_int)"),
+    "slate_MOSI_State":                ("integer(kind=c_short)"),
     # "MPI_Comm":                        ("type(MPI_Comm)"),
-    "bool":                            ("logical(kind=c_bool)"),
     "void":                            ("type(c_ptr)"),
 }
 
@@ -349,6 +353,24 @@ def fortran_interface_enum(enum):
 # end
 
 #-------------------------------------------------------------------------------
+def fortran_interface_constant(constant):
+    """Generate an interface for a constant."""
+
+    name  = constant[0]
+    value = constant[1]
+
+    type = ""
+    if re.search(r'\d', value):
+        if name == "slate_Norm_One" or name == "slate_Norm_Two":
+            type = "character"
+        else:
+            type = "integer"
+    else:
+        type = "character"
+    return indent + type + ", parameter :: " + name + " = " + value + "\n"
+# end
+
+#-------------------------------------------------------------------------------
 def fortran_interface_struct(struct):
     """Generate an interface for a struct.
        Translate it into a derived type."""
@@ -584,7 +606,8 @@ def fortran_wrapper(function):
 # end
 
 #-------------------------------------------------------------------------------
-def write_module(output, module_name, enum_list, struct_list, function_list):
+def write_module(output, module_name,
+                 enum_list, constant_list, struct_list, function_list):
     """Generate a single Fortran module. Its structure will be:
        enums converted to constants
        structs converted to derived types
@@ -600,7 +623,7 @@ def write_module(output, module_name, enum_list, struct_list, function_list):
     modulefile.write(
 '''!>
 !>------------------------------------------------------------------------------
-!> Copyright (c) 2017-2022, University of Tennessee
+!> Copyright (c) 2017-2023, University of Tennessee
 !> All rights reserved.
 !>
 !> Redistribution and use in source and binary forms, with or without
@@ -655,6 +678,15 @@ def write_module(output, module_name, enum_list, struct_list, function_list):
         for enum in enum_list:
             f_interface = fortran_interface_enum(enum)
             modulefile.write(f_interface + "\n")
+
+    # global constants and pseudo enums
+    if (len(constant_list) > 0):
+        modulefile.write(indent + "! C constants.\n")
+
+        for constant in constant_list:
+            f_interface = fortran_interface_constant(constant)
+            modulefile.write(f_interface)
+        modulefile.write("\n")
 
     # derived types
     if (len(struct_list) > 0):
@@ -870,6 +902,22 @@ def parse_enums(preprocessed_list):
 # end
 
 #-------------------------------------------------------------------------------
+def parse_constants(preprocessed_list):
+    """Each constant will be parsed into a list of its name and value."""
+
+    constant_list = []
+    for proto in preprocessed_list:
+        s = re.search(r"^ const\s*\w+\s*(\w+)\s*=\s*(['\w]+)\s*$", proto)
+        if s:
+            name = s.group(1)
+            value = s.group(2)
+
+            constant_list.append([name, value])
+
+    return constant_list
+# end
+
+#-------------------------------------------------------------------------------
 def preprocess_list(initial_list):
     """Preprocessing and cleaning of the header file.
        Works with a list of strings.
@@ -989,6 +1037,9 @@ def main():
     # register all enums
     enum_list = parse_enums(preprocessed_list)
 
+    # register all constants
+    constant_list = parse_constants(preprocessed_list)
+
     # register all structs
     struct_list = parse_structs(preprocessed_list)
 
@@ -996,8 +1047,8 @@ def main():
     function_list = parse_prototypes(preprocessed_list)
 
     # export the module
-    write_module(
-        opts.output, module_name, enum_list, struct_list, function_list)
+    write_module(opts.output, module_name,
+                 enum_list, constant_list, struct_list, function_list)
     print( "Exported file:", opts.output )
 # end
 

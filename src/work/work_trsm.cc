@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -90,17 +90,9 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
-    Options opts2 = opts;
-
     // Requires 2+lookahead queues
     if (target == Target::Devices) {
         assert(B.numComputeQueues() >= 2+lookahead);
-
-        // Use only TileReleaseStrategy::Slate for trsm.
-        // Internal routines (trsm and gemm) called here
-        // won't release any tiles. Trsm will
-        // clean up tiles.
-        opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
     }
 
     if (A.uplo() == Uplo::Lower) {
@@ -121,7 +113,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    priority_1, layout, queue_1, opts2 );
+                    priority_1, layout, queue_1 );
 
                 // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -149,7 +141,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(i, i, 0, nt-1),
-                        layout, priority_1, queue_ik1, opts2 );
+                        layout, priority_1, queue_ik1 );
                 }
             }
 
@@ -167,7 +159,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(k+1+lookahead, mt-1, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout, priority_0, queue_0 );
                 }
             }
 
@@ -206,7 +198,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    priority_1, layout, queue_1, opts2 );
+                    priority_1, layout, queue_1 );
 
                 // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -231,7 +223,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(i, i, 0, nt-1),
-                        layout, priority_1, queue_ikl2, opts2 );
+                        layout, priority_1, queue_ikl2 );
                 }
             }
 
@@ -248,7 +240,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(0, k-1-lookahead, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(0, k-1-lookahead, 0, nt-1),
-                        layout, priority_0, queue_0, opts2 );
+                        layout, priority_0, queue_0 );
                 }
             }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,7 +8,6 @@
 #include "test.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
-#include "scalapack_support_routines.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -244,10 +243,6 @@ void test_hb2st_work(Params& params, bool run)
 void test_hb2st(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_hb2st_work<float> (params, run);
             break;
@@ -262,6 +257,10 @@ void test_hb2st(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_hb2st_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

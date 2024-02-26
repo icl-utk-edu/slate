@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -10,6 +10,7 @@
 #include "print_matrix.hh"
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
+#include "matgen.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -258,10 +259,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 void test_unmtr_he2hb(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_unmtr_he2hb_work<float> (params, run);
             break;
@@ -276,6 +273,10 @@ void test_unmtr_he2hb(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_unmtr_he2hb_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

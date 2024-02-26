@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,6 +8,7 @@
 #include "slate/Matrix.hh"
 #include "internal/Tile_tpmqrt.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
@@ -31,6 +32,7 @@ void unmqr(
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const int64_t tag_0 = 0;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -102,24 +104,11 @@ void unmqr(
 
             auto A_panel = A.sub(k, A_mt-1, k, k);
 
-            // Find ranks in this column.
-            std::set<int> ranks_set;
-            A_panel.getRanks(&ranks_set);
-            assert(ranks_set.size() > 0);
-
             // Find each rank's first (top-most) row in this panel,
             // where the triangular tile resulting from local geqrf
             // panel will reside.
-            std::vector< int64_t > first_indices;
-            first_indices.reserve(ranks_set.size());
-            for (int r: ranks_set) {
-                for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank(i, 0) == r) {
-                        first_indices.push_back(i+k);
-                        break;
-                    }
-                }
-            }
+            std::vector< int64_t > first_indices
+                            = internal::geqrf_compute_first_indices(A_panel, k);
 
             #pragma omp task depend(inout:block[k]) \
                              depend(in:block[lastk])
@@ -137,7 +126,6 @@ void unmqr(
 
                 // Send V(i) across row C(i, 0:nt-1) or col C(0:mt-1, i),
                 // for side = left or right, respectively.
-                BcastList bcast_list_V_top;
                 BcastList bcast_list_V;
                 for (int64_t i = k; i < A_mt; ++i) {
                     if (side == Side::Left) {
@@ -148,20 +136,10 @@ void unmqr(
                         j0 = i;
                         j1 = i;
                     }
-                    if (std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
-                        bcast_list_V_top.push_back(
-                            {i, k, {C.sub(i0, i1, j0, j1)}});
-                    }
-                    else {
-                        bcast_list_V.push_back(
-                            {i, k, {C.sub(i0, i1, j0, j1)}});
-                    }
+                    bcast_list_V.push_back(
+                        {i, k, {C.sub(i0, i1, j0, j1)}});
                 }
-                // V tiles in first_indices need up to 5 lives: 1 for ttmqr,
-                // 2 + extra 2 if mb > nb (trapezoid) for Vs in unmqr I-VTV^T.
-                // This may leak a few tiles that A.clearWorkspace will cleanup.
-                A.template listBcast(bcast_list_V_top, layout, 0, 5);
-                A.template listBcast(bcast_list_V, layout, 0, 2);
+                A.template listBcast<target>(bcast_list_V, layout);
 
                 // Send Tlocal(i) across row C(i, 0:nt-1) or col C(0:mt-1, i).
                 if (first_indices.size() > 0) {
@@ -222,7 +200,8 @@ void unmqr(
                                     side, op,
                                     std::move(A_panel),
                                     Treduce.sub(k, A_mt-1, k, k),
-                                    std::move(C_trail));
+                                    std::move(C_trail),
+                                    tag_0 );
                 }
 
                 // Apply local reflectors.
@@ -231,7 +210,7 @@ void unmqr(
                                 std::move(A_panel),
                                 Tlocal.sub(k, A_mt-1, k, k),
                                 std::move(C_trail),
-                                std::move(W_trail));
+                                std::move(W_trail) );
 
                 // Left,  (Conj)Trans: Qi^H C = Qi_reduce^H Qi_local^H C, or
                 // Right, NoTrans:     C Qi   = C Qi_local Qi_reduce,
@@ -242,7 +221,29 @@ void unmqr(
                                     side, op,
                                     std::move(A_panel),
                                     Treduce.sub(k, A_mt-1, k, k),
-                                    std::move(C_trail));
+                                    std::move(C_trail),
+                                    tag_0 );
+                }
+            }
+            #pragma omp task depend(in:block[k])
+            {
+                A_panel.releaseRemoteWorkspace();
+                A_panel.releaseLocalWorkspace();
+
+                for (int64_t i : first_indices) {
+                    if (Tlocal.tileIsLocal( i, k )) {
+                        // Tlocal and Treduce have the have process distribution
+                        Tlocal.releaseLocalWorkspaceTile( i, k );
+                        if (i != k) {
+                            // i == k is the root of the reduction tree
+                            // Treduce( k, k ) isn't allocated
+                            Treduce.releaseLocalWorkspaceTile( i, k );
+                        }
+                    }
+                    else {
+                        Treduce.releaseRemoteWorkspaceTile( i, k );
+                        Tlocal.releaseRemoteWorkspaceTile( i, k );
+                    }
                 }
             }
 

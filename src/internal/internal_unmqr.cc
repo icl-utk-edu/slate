@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -22,10 +22,10 @@ void unmqr(Side side, Op op,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            Matrix<scalar_t>&& W,
-           int priority, int64_t queue_index)
+           int priority, int64_t queue_index )
 {
     unmqr<target>(internal::TargetType<target>(),
-          side, op, V, T, C, W, priority, queue_index);
+          side, op, V, T, C, W, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -45,7 +45,7 @@ void unmqr(internal::TargetType<target>,
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
            Matrix<scalar_t>& W,
-           int priority=0, int64_t queue_index=0)
+           int priority, int64_t queue_index )
 {
     const scalar_t one = 1;
 
@@ -160,12 +160,12 @@ void unmqr(internal::TargetType<target>,
         // W <- V0^H W
         internal::copy<target>(
                 std::move(C0), std::move(Wr),
-                priority, queue_index);
+                priority, queue_index );
         internal::trmm<target>(
                 Side::Left,
                 one, conj_transpose( V0tr ),
                      std::move(Wr),
-                priority, queue_index);
+                priority, queue_index );
 
         if (trapezoid) {
             // W <- V0b^H C0b + W
@@ -174,7 +174,7 @@ void unmqr(internal::TargetType<target>,
                          std::move(C0b),
                     one, std::move(Wr),
                     layout,
-                    priority, queue_index);
+                    priority, queue_index );
         }
 
         // W <- V1^H C1 + W
@@ -190,7 +190,7 @@ void unmqr(internal::TargetType<target>,
                          std::move(Ci),
                     one, std::move(Wr),
                     layout,
-                    priority, queue_index);
+                    priority, queue_index );
         }
 
         // --------------------
@@ -199,7 +199,7 @@ void unmqr(internal::TargetType<target>,
                 Side::Left,
                 one, std::move(T0tr),
                      std::move(Wr),
-                priority, queue_index);
+                priority, queue_index );
 
         // --------------------
         // 3. C = C - V W
@@ -210,7 +210,7 @@ void unmqr(internal::TargetType<target>,
                           std::move(Wr),
                     one,  C.sub(row_indices[1], mt-1, 0, nt-1),
                     layout,
-                    priority, queue_index);
+                    priority, queue_index );
         }
 
         if (trapezoid) {
@@ -220,7 +220,7 @@ void unmqr(internal::TargetType<target>,
                           std::move(Wr),
                     one,  std::move(C0b),
                     layout,
-                    priority, queue_index);
+                    priority, queue_index );
         }
 
         // W <- V0 W
@@ -228,13 +228,13 @@ void unmqr(internal::TargetType<target>,
                 Side::Left,
                 one, std::move(V0tr),
                      std::move(Wr),
-                priority, queue_index);
+                priority, queue_index );
 
         // C0 <- C0 - W
         internal::add<target>(
                 -one, std::move(Wr),
                 one,  std::move(C0),
-                priority, queue_index);
+                priority, queue_index );
 
         // free workspace
         for (int64_t j = 0; j < Wr.nt(); ++j) {
@@ -341,12 +341,12 @@ void unmqr(internal::TargetType<target>,
         // W <- W V0
         internal::copy<target>(
                 std::move(C0), std::move(Wc),
-                priority, queue_index);
+                priority, queue_index );
         internal::trmm<target>(
                 Side::Right,
                 one, std::move(V0tr),
                      std::move(Wc),
-                priority, queue_index);
+                priority, queue_index );
 
         if (trapezoid) {
             // W <- C0b V0b + W
@@ -355,7 +355,7 @@ void unmqr(internal::TargetType<target>,
                          std::move(V0b),
                     one, std::move(Wc),
                     layout,
-                    priority, queue_index);
+                    priority, queue_index );
         }
 
         // W <- C1 V1 + W
@@ -371,7 +371,7 @@ void unmqr(internal::TargetType<target>,
                          V.sub(col, col, 0, 0),
                     one, std::move(Wc),
                     layout,
-                    priority, queue_index);
+                    priority, queue_index );
         }
 
         // --------------------
@@ -380,7 +380,7 @@ void unmqr(internal::TargetType<target>,
                 Side::Right,
                 one, std::move(T0tr),
                      std::move(Wc),
-                priority, queue_index);
+                priority, queue_index );
 
         // --------------------
         // 3. C = C - W V^H
@@ -391,7 +391,7 @@ void unmqr(internal::TargetType<target>,
                           conj_transpose( V.sub( col_indices[1], nt-1, 0, 0 ) ),
                     one,  C.sub(0, mt-1, col_indices[1], nt-1),
                     layout,
-                    priority, queue_index);
+                    priority, queue_index );
         }
 
         if (trapezoid) {
@@ -401,7 +401,7 @@ void unmqr(internal::TargetType<target>,
                           conj_transpose( V0b ),
                     one,  std::move(C0b),
                     layout,
-                    priority, queue_index);
+                    priority, queue_index );
         }
 
         // W <- W V0^H
@@ -409,13 +409,13 @@ void unmqr(internal::TargetType<target>,
                 Side::Right,
                 one, conj_transpose( V0tr ),
                      std::move(Wc),
-                priority, queue_index);
+                priority, queue_index );
 
         // C0 <- C0 - W
         internal::add<target>(
                 -one, std::move(Wc),
                 one,  std::move(C0),
-                priority, queue_index);
+                priority, queue_index );
 
         // free workspace
         // todo: Wc.clear();
@@ -437,7 +437,7 @@ void unmqr<Target::HostTask, float>(
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr<Target::HostNest, float>(
@@ -446,7 +446,7 @@ void unmqr<Target::HostNest, float>(
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr<Target::HostBatch, float>(
@@ -455,7 +455,7 @@ void unmqr<Target::HostBatch, float>(
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr<Target::Devices, float>(
@@ -464,7 +464,7 @@ void unmqr<Target::Devices, float>(
     Matrix<float>&& T,
     Matrix<float>&& C,
     Matrix<float>&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -474,7 +474,7 @@ void unmqr<Target::HostTask, double>(
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr<Target::HostNest, double>(
@@ -483,7 +483,7 @@ void unmqr<Target::HostNest, double>(
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr<Target::HostBatch, double>(
@@ -492,7 +492,7 @@ void unmqr<Target::HostBatch, double>(
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr<Target::Devices, double>(
@@ -501,7 +501,7 @@ void unmqr<Target::Devices, double>(
     Matrix<double>&& T,
     Matrix<double>&& C,
     Matrix<double>&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -511,7 +511,7 @@ void unmqr< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr< Target::HostNest, std::complex<float> >(
@@ -520,7 +520,7 @@ void unmqr< Target::HostNest, std::complex<float> >(
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr< Target::HostBatch, std::complex<float> >(
@@ -529,7 +529,7 @@ void unmqr< Target::HostBatch, std::complex<float> >(
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr< Target::Devices, std::complex<float> >(
@@ -538,7 +538,7 @@ void unmqr< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
     Matrix< std::complex<float> >&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -548,7 +548,7 @@ void unmqr< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr< Target::HostNest, std::complex<double> >(
@@ -557,7 +557,7 @@ void unmqr< Target::HostNest, std::complex<double> >(
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr< Target::HostBatch, std::complex<double> >(
@@ -566,7 +566,7 @@ void unmqr< Target::HostBatch, std::complex<double> >(
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 template
 void unmqr< Target::Devices, std::complex<double> >(
@@ -575,7 +575,7 @@ void unmqr< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
     Matrix< std::complex<double> >&& W,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

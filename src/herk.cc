@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -36,12 +36,6 @@ void herk(
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    // Use only TileReleaseStrategy::Slate for herk.
-    // Internal herk routine called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options opts2 = opts;
-    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
@@ -109,7 +103,7 @@ void herk(
             internal::herk<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
                 beta,  std::move(C),
-                priority_0, queue_0, layout, opts2);
+                priority_0, queue_0, layout );
 
             auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
 
@@ -148,7 +142,7 @@ void herk(
                 internal::herk<target>(
                     alpha,       A.sub(0, A.mt()-1, k, k),
                     real_t(1.0), std::move(C),
-                    priority_0, queue_0, layout, opts2);
+                    priority_0, queue_0, layout );
 
                 auto A_colblock = A.sub(0, A.mt()-1, k, k);
 

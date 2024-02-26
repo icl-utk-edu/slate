@@ -1,5 +1,10 @@
 // ex03_submatrix.cc
 // A.sub and A.slice
+
+/// !!!   Lines between `//---------- begin label`          !!!
+/// !!!             and `//---------- end label`            !!!
+/// !!!   are included in the SLATE Users' Guide.           !!!
+
 #include <slate/slate.hh>
 
 #include "util.hh"
@@ -18,46 +23,85 @@ void test_submatrix()
     print_func( mpi_rank );
 
     int64_t m=2000, n=1000, nb=256;
+    int64_t i1=1, i2=3, j1=2, j2=3;
+    int64_t row1=100, row2=300, col1=200, col2=400;
 
     slate::Matrix<scalar_type>
         A( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     printf( "rank %d: A mt=%lld, nt=%lld, m=%lld, n=%lld\n",
             mpi_rank, llong(A.mt()), llong(A.nt()), llong(A.m()), llong(A.n()) );
 
-    // --------------------
-    // shallow copy of all of A
-    auto B = A;
+    //---------------------------------------- sub-matrix
+
+    //---------- begin sub1
+    // view of A( i1 : i2, j1 : j2 ) as tile indices, inclusive
+    auto B = A.sub( i1, i2, j1, j2 );
+    //---------- end sub1
     printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
             mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
 
-    // same
+    //---------- begin sub2
+
+    // view of all of A
+    B = A;
+    //---------- end sub2
+    printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
+            mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
+
+    //---------- begin sub3
+
+    // same, view of all of A
     B = A.sub( 0, A.mt()-1, 0, A.nt()-1 );
+    //---------- end sub3
     printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
             mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
 
-    // first block-column, A[ 0:mt-1, 0:0 ] as tile indices
+    //---------- begin sub4
+
+    // view of first block-column, A[ 0:mt-1, 0:0 ] as tile indices
     B = A.sub( 0, A.mt()-1, 0, 0 );
+    //---------- end sub4
     printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
             mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
 
-    // first block-row, A[ 0:0, 0:nt-1 ] as tile indices
+    //---------- begin sub5
+
+    // view of first block-row, A[ 0:0, 0:nt-1 ] as tile indices
     B = A.sub( 0, 0, 0, A.nt()-1 );
+    //---------- end sub5
     printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
             mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
 
-    // --------------------
-    // shallow copy of all of A
+    //---------------------------------------- slicing
+
+    //---------- begin slice1
+    // view of A( row1 : row2, col1 : col2 ), inclusive
+    B = A.slice( row1, row2, col1, col2 );
+    //---------- end slice1
+    printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
+            mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
+
+    //---------- begin slice2
+
+    // view of all of A
     B = A.slice( 0, A.m()-1, 0, A.n()-1 );
+    //---------- end slice2
     printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
             mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
 
-    // first column, A[ 0:m-1, 0:0 ]
+    //---------- begin slice3
+
+    // view of first column, A[ 0:m-1, 0:0 ]
     B = A.slice( 0, A.m()-1, 0, 0 );
+    //---------- end slice3
     printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
             mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
 
-    // first row, A[ 0:0, 0:n-1 ]
+    //---------- begin slice4
+
+    // view of first row, A[ 0:0, 0:n-1 ]
     B = A.slice( 0, 0, 0, A.n()-1 );
+    //---------- end slice4
     printf( "rank %d: B mt=%lld, nt=%lld, m=%lld, n=%lld\n",
             mpi_rank, llong(B.mt()), llong(B.nt()), llong(B.m()), llong(B.n()) );
 }

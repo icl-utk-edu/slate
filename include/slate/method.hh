@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -9,9 +9,9 @@
 #ifndef SLATE_METHOD_HH
 #define SLATE_METHOD_HH
 
-namespace slate {
+#include "slate/types.hh"
 
-typedef int Method;
+namespace slate {
 
 // This defines default values that MUST be considered in the inner namespaces
 constexpr char baseMethodError_str[]  = "error";

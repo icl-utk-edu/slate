@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -12,170 +12,6 @@
 #include "slate/types.hh"
 
 namespace slate {
-
-//==============================================================================
-// Specializations of device kernels to map std::complex => cuComplex, etc.,
-// and define float, double versions if compiled without CUDA or HIP.
-namespace device {
-
-//------------------------------------------------------------------------------
-// CUBLAS/ROCBLAS need complex translation, others do not
-#if ! defined( SLATE_HAVE_OMPTARGET )
-
-// device single tile routine
-template <>
-void geset(
-    int64_t m, int64_t n,
-    std::complex<float> const& offdiag_value, std::complex<float> const& diag_value,
-    std::complex<float>* A, int64_t lda,
-    blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    geset(m, n,
-          make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
-          make_cuFloatComplex( diag_value.real(), diag_value.imag() ),
-          (cuFloatComplex*) A, lda,
-          queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    geset(m, n,
-          make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
-          make_hipFloatComplex( diag_value.real(), diag_value.imag() ),
-          (hipFloatComplex*) A, lda,
-          queue);
-#endif
-}
-
-//----------------------------------------
-template <>
-void geset(
-    int64_t m, int64_t n,
-    std::complex<double> const& offdiag_value, std::complex<double> const& diag_value,
-    std::complex<double>* A, int64_t lda,
-    blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    geset(m, n,
-          make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
-          make_cuDoubleComplex( diag_value.real(), diag_value.imag() ),
-          (cuDoubleComplex*) A, lda,
-          queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    geset(m, n,
-          make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
-          make_hipDoubleComplex( diag_value.real(), diag_value.imag() ),
-          (hipDoubleComplex*) A, lda,
-          queue);
-#endif
-}
-
-#endif // ! defined( SLATE_HAVE_OMPTARGET )
-
-#if ! defined( SLATE_HAVE_DEVICE )
-// Specializations to allow compilation without CUDA or HIP.
-template <>
-void geset(
-    int64_t m, int64_t n,
-    double const& offdiag_value, double const& diag_value,
-    double* A, int64_t lda,
-    blas::Queue &queue)
-{
-}
-
-template <>
-void geset(
-    int64_t m, int64_t n,
-    float const& offdiag_value, float const& diag_value,
-    float* A, int64_t lda,
-    blas::Queue &queue)
-{
-}
-#endif // not SLATE_HAVE_DEVICE
-
-//==============================================================================
-namespace batch {
-
-//------------------------------------------------------------------------------
-// CUBLAS/ROCBLAS need complex translation, others do not
-#if ! defined( SLATE_HAVE_OMPTARGET )
-
-// device::batch routine
-template <>
-void geset(
-    int64_t m, int64_t n,
-    std::complex<float> const& offdiag_value, std::complex<float> const& diag_value,
-    std::complex<float>** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    geset(m, n,
-          make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
-          make_cuFloatComplex( diag_value.real(), diag_value.imag() ),
-          (cuFloatComplex**) Aarray, lda,
-          batch_count, queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    geset(m, n,
-          make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
-          make_hipFloatComplex( diag_value.real(), diag_value.imag() ),
-          (hipFloatComplex**) Aarray, lda,
-          batch_count, queue);
-#endif
-}
-
-//----------------------------------------
-template <>
-void geset(
-    int64_t m, int64_t n,
-    std::complex<double> const& offdiag_value, std::complex<double> const& diag_value,
-    std::complex<double>** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    geset(m, n,
-          make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
-          make_cuDoubleComplex( diag_value.real(), diag_value.imag() ),
-          (cuDoubleComplex**) Aarray, lda,
-          batch_count, queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    geset(m, n,
-          make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
-          make_hipDoubleComplex( diag_value.real(), diag_value.imag() ),
-          (hipDoubleComplex**) Aarray, lda,
-          batch_count, queue);
-#endif
-}
-
-#endif // ! defined( SLATE_HAVE_OMPTARGET )
-
-#if ! defined( SLATE_HAVE_DEVICE )
-// Specializations to allow compilation without CUDA or HIP.
-template <>
-void geset(
-    int64_t m, int64_t n,
-    double const& offdiag_value, double const& diag_value,
-    double** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue)
-{
-}
-
-template <>
-void geset(
-    int64_t m, int64_t n,
-    float const& offdiag_value, float const& diag_value,
-    float** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue)
-{
-}
-#endif // not SLATE_HAVE_DEVICE
-
-} // namespace batch
-} // namespace device
-
-
-//==============================================================================
 namespace internal {
 
 //------------------------------------------------------------------------------
@@ -256,112 +92,67 @@ void set(internal::TargetType<Target::Devices>,
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // Define index ranges for regions of matrix.
-    // Tiles in each region are all the same size.
-    int64_t irange[4][2] = {
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   },
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   }
-    };
-    int64_t jrange[4][2] = {
-        { 0,        A.nt()-1 },
-        { 0,        A.nt()-1 },
-        { A.nt()-1, A.nt()   },
-        { A.nt()-1, A.nt()   }
-    };
-
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task slate_omp_default_none \
-            shared( A ) priority( priority ) \
-            firstprivate(device, irange, jrange, queue_index, offdiag_value, diag_value)
+        #pragma omp task slate_omp_default_none priority( priority ) \
+            shared( A ) firstprivate( device, queue_index, offdiag_value, diag_value )
         {
-            // temporarily, convert both into same layout
-            // todo: this is in-efficient, because both matrices may have same layout already
-            //       and possibly wrong, because an input matrix is being altered
+            // Get local tiles for writing.
+            // convert to column major layout to simplify lda's
+            // todo: this is in-efficient because the diagonal is independant of layout
             // todo: best, handle directly through the CUDA kernels
-            auto layout = Layout::ColMajor;
+            auto layout = LayoutConvert::ColMajor;
             std::set<ij_tuple> A_tiles_set;
 
             for (int64_t i = 0; i < A.mt(); ++i) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                        A_tiles_set.insert({i, j});
+                    if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
+                        A_tiles_set.insert( { i, j } );
                     }
                 }
             }
-            A.tileGetForWriting(A_tiles_set, device, LayoutConvert(layout));
+            A.tileGetForWriting( A_tiles_set, device, layout );
 
-            scalar_t** a_array_host = A.array_host(device, queue_index);
+            int64_t batch_size = A_tiles_set.size();
+            scalar_t** a_array_host = A.array_host( device, queue_index );
 
-            int64_t batch_count = 0;
-            int64_t mb[8], nb[8], lda[8], group_count[8];
-            for (int q = 0; q < 4; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb(irange[q][0]);
-                nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                            if (i != j) {
-                                a_array_host[batch_count] = A(i, j, device).data();
-                                lda[q] = A(i, j, device).stride();
-                                ++group_count[q];
-                                ++batch_count;
-                            }
-                        }
-                    }
-                }
-            }
-            for (int q = 4; q < 8; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb(irange[q-4][0]);
-                nb[q] = A.tileNb(jrange[q-4][0]);
-                for (int64_t i = irange[q-4][0]; i < irange[q-4][1]; ++i) {
-                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                            if (i == j) {
-                                a_array_host[batch_count] = A(i, j, device).data();
-                                lda[q] = A(i, j, device).stride();
-                                ++group_count[q];
-                                ++batch_count;
-                            }
-                        }
-                    }
-                }
-            }
+            // If offdiag == diag value, lump diag tiles with offdiag tiles
+            // in one batch.
+            bool diag_same = offdiag_value == diag_value;
 
-            scalar_t** a_array_dev = A.array_device(device, queue_index);
+            auto group_params = diag_same
+                                   ? device_regions_build<true, 1, scalar_t, true>(
+                                                {A}, {a_array_host}, device )
+                                   : device_regions_build<true, 1, scalar_t, false>(
+                                                {A}, {a_array_host}, device );
+            blas::Queue* queue = A.compute_queue( device, queue_index );
 
-            blas::Queue* queue = A.compute_queue(device, queue_index);
-
+            scalar_t** a_array_dev = A.array_device( device, queue_index );
             blas::device_memcpy<scalar_t*>(
-                a_array_dev, a_array_host, batch_count,
+                a_array_dev, a_array_host, batch_size,
                 blas::MemcpyKind::HostToDevice, *queue);
 
-            for (int q = 0; q < 4; ++q) {
-                if (group_count[q] > 0) {
-                    device::batch::geset(mb[q], nb[q],
-                                  offdiag_value, offdiag_value, a_array_dev, lda[q],
-                                  group_count[q], *queue);
-                    a_array_dev += group_count[q];
+            for (size_t g = 0; g < group_params.size(); ++g) {
+                int64_t group_count = group_params[ g ].count;
+                if (group_params[ g ].is_diagonal) {
+                    device::batch::geset(
+                        group_params[ g ].mb, group_params[ g ].nb,
+                        offdiag_value, diag_value,
+                        a_array_dev, group_params[ g ].ld[0],
+                        group_count, *queue );
                 }
-            }
-            for (int q = 4; q < 8; ++q) {
-                if (group_count[q] > 0) {
-                    device::batch::geset(mb[q], nb[q],
-                                  offdiag_value, diag_value, a_array_dev, lda[q],
-                                  group_count[q], *queue);
-                    a_array_dev += group_count[q];
+                else {
+                    device::batch::geset(
+                        group_params[ g ].mb, group_params[ g ].nb,
+                        offdiag_value, offdiag_value,
+                        a_array_dev, group_params[ g ].ld[0],
+                        group_count, *queue );
                 }
+                a_array_dev += group_count;
             }
-
             queue->sync();
-        }
-    }
+        } // end task
+    } // end for dev
 }
 
 //------------------------------------------------------------------------------

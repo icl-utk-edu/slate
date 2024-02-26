@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -20,10 +20,10 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void ttlqt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T)
+           Matrix<scalar_t>&& T )
 {
     ttlqt(internal::TargetType<target>(),
-          A, T);
+          A, T );
 }
 
 //------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ void ttlqt(Matrix<scalar_t>&& A,
 template <typename scalar_t>
 void ttlqt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T)
+           Matrix<scalar_t>& T )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -73,7 +73,7 @@ void ttlqt(internal::TargetType<Target::HostTask>,
         int nranks = rank_cols.size();
         int nlevels = int( ceil( log2( nranks ) ) );
 
-        // Example: 2D cyclic, p = 7, q = 1, row k = 9
+        // Example: 2D cyclic, p = 1, q = 7, row k = 9
         //                                           Levels
         //               { rank, col }        index  L=0  L=1  L=2
         // rank_cols = [ {    2,   9 },    // 0      src  src  src
@@ -122,7 +122,6 @@ void ttlqt(internal::TargetType<Target::HostTask>,
 
                 // Send updated tile back. This rank is done!
                 A.tileSend(0, j_src, src);
-                A.tileTick(0, j_src);
                 break;
             }
             step *= 2;
@@ -136,25 +135,25 @@ void ttlqt(internal::TargetType<Target::HostTask>,
 template
 void ttlqt<Target::HostTask, float>(
     Matrix<float>&& A,
-    Matrix<float>&& T);
+    Matrix<float>&& T );
 
 // ----------------------------------------
 template
 void ttlqt<Target::HostTask, double>(
     Matrix<double>&& A,
-    Matrix<double>&& T);
+    Matrix<double>&& T );
 
 // ----------------------------------------
 template
 void ttlqt< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& T);
+    Matrix< std::complex<float> >&& T );
 
 // ----------------------------------------
 template
 void ttlqt< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& T);
+    Matrix< std::complex<double> >&& T );
 
 } // namespace internal
 } // namespace slate

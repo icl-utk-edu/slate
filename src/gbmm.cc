@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -124,7 +124,7 @@ void gbmm(
                     alpha, A.sub(i_begin, i_end-1, 0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
                     beta,  C.sub(i_begin, i_end-1, 0, C.nt()-1),
-                    layout);
+                    layout );
 
             if (beta != one) {
                 // Scale block rows of C below the bandwidth of A:
@@ -189,7 +189,21 @@ void gbmm(
                         alpha, A.sub(i_begin, i_end-1, k, k),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(i_begin, i_end-1, 0, C.nt()-1),
-                        layout);
+                        layout );
+                }
+
+                #pragma omp task depend(in:gemm[k])
+                {
+                    auto A_colblock = A.sub(i_begin, i_end-1, k, k);
+                    auto B_rowblock = B.sub(k, k, 0, B.nt()-1);
+
+                    // Erase remote tiles on all devices including host
+                    A_colblock.releaseRemoteWorkspace();
+                    B_rowblock.releaseRemoteWorkspace();
+
+                    // Erase local workspace on devices.
+                    A_colblock.releaseLocalWorkspace();
+                    B_rowblock.releaseLocalWorkspace();
                 }
             }
         }

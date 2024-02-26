@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -50,7 +50,7 @@ __device__ void geadd_func(
         scalar_t* rowB = &B[ i ];
 
         for (int64_t j = 0; j < n; ++j)
-            rowB[ j*ldb ] = axpby( alpha, rowA[ j*lda ], beta, rowB[ j*ldb ] );
+            rowB[ j*ldb ] = alpha * rowA[ j*lda ] + beta * rowB[ j*ldb ];
     }
 }
 
@@ -149,29 +149,45 @@ template
 void geadd(
     int64_t m, int64_t n,
     float const& alpha, float* Aarray, int64_t lda,
-    float const& beta, float* Barray, int64_t ldb,
+    float const& beta,  float* Barray, int64_t ldb,
     blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
     double const& alpha, double* Aarray, int64_t lda,
-    double const& beta, double* Barray, int64_t ldb,
+    double const& beta,  double* Barray, int64_t ldb,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
+template <>
 void geadd(
     int64_t m, int64_t n,
-    cuFloatComplex const& alpha, cuFloatComplex* Aarray, int64_t lda,
-    cuFloatComplex const& beta, cuFloatComplex* Barray, int64_t ldb,
-    blas::Queue &queue);
+    std::complex<float> const& alpha, std::complex<float>* Aarray, int64_t lda,
+    std::complex<float> const& beta,  std::complex<float>* Barray, int64_t ldb,
+    blas::Queue &queue)
+{
+    geadd( m, n,
+           make_cuFloatComplex( real( alpha ), imag( alpha ) ),
+           (cuFloatComplex*) Aarray, lda,
+           make_cuFloatComplex( real( beta ), imag( beta ) ),
+           (cuFloatComplex*) Barray, ldb, queue );
+}
 
-template
+template <>
 void geadd(
     int64_t m, int64_t n,
-    cuDoubleComplex const& alpha, cuDoubleComplex* Aarray, int64_t lda,
-    cuDoubleComplex const& beta, cuDoubleComplex* Barray, int64_t ldb,
-    blas::Queue &queue);
+    std::complex<double> const& alpha, std::complex<double>* Aarray, int64_t lda,
+    std::complex<double> const& beta,  std::complex<double>* Barray, int64_t ldb,
+    blas::Queue &queue)
+{
+    geadd( m, n,
+           make_cuDoubleComplex( real( alpha ), imag( alpha ) ),
+           (cuDoubleComplex*) Aarray, lda,
+           make_cuDoubleComplex( real( beta ), imag( beta ) ),
+           (cuDoubleComplex*) Barray, ldb, queue );
+}
 
 //==============================================================================
 namespace batch {
@@ -259,19 +275,37 @@ void geadd(
     double const& beta, double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
+template <>
 void geadd(
     int64_t m, int64_t n,
-    cuFloatComplex const& alpha, cuFloatComplex** Aarray, int64_t lda,
-    cuFloatComplex const& beta, cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<float> const& alpha, std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const& beta, std::complex<float>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    geadd( m, n,
+           make_cuFloatComplex( real( alpha ), imag( alpha ) ),
+           (cuFloatComplex**) Aarray, lda,
+           make_cuFloatComplex( real( beta ), imag( beta ) ),
+           (cuFloatComplex**) Barray, ldb,
+           batch_count, queue );
+}
 
-template
+template <>
 void geadd(
     int64_t m, int64_t n,
-    cuDoubleComplex const& alpha, cuDoubleComplex** Aarray, int64_t lda,
-    cuDoubleComplex const& beta, cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<double> const& alpha, std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const& beta, std::complex<double>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    geadd( m, n,
+           make_cuDoubleComplex( real( alpha ), imag( alpha ) ),
+           (cuDoubleComplex**) Aarray, lda,
+           make_cuDoubleComplex( real( beta ), imag( beta ) ),
+           (cuDoubleComplex**) Barray, ldb,
+           batch_count, queue );
+}
 
 } // namespace batch
 } // namespace device

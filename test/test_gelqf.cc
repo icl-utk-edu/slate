@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -11,7 +11,6 @@
 #include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -190,9 +189,9 @@ void test_gelqf_work(Params& params, bool run)
             // A comparison with a reference routine from ScaLAPACK for timing only
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], Aref_desc[9], LQ_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int A_desc[9], Aref_desc[9], LQ_desc[9];
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -206,6 +205,7 @@ void test_gelqf_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
@@ -216,7 +216,7 @@ void test_gelqf_work(Params& params, bool run)
             slate_assert(info == 0);
 
             // tau vector for ScaLAPACK
-            int64_t ltau = num_local_rows_cols(std::min(m, n), nb, mycol, q);
+            int64_t ltau = num_local_rows_cols(std::min(m, n), nb, myrow, p);
             std::vector<scalar_t> tau(ltau);
 
             // workspace for ScaLAPACK
@@ -257,10 +257,6 @@ void test_gelqf_work(Params& params, bool run)
 void test_gelqf(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_gelqf_work<float> (params, run);
             break;
@@ -275,6 +271,10 @@ void test_gelqf(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_gelqf_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -6,6 +6,7 @@
 #ifndef SLATE_STORAGE_HH
 #define SLATE_STORAGE_HH
 
+#include "slate/func.hh"
 #include "slate/internal/Memory.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -29,155 +30,30 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// A tile state in the MOSI coherency protocol
-enum MOSI {
-    Modified = 0x100,   ///< tile data is modified, other instances should be Invalid, cannot be purged
-    OnHold = 0x1000,  ///< a hold is placed on this tile instance, cannot be purged
-    Shared = 0x010,   ///< tile data is up-to-date, other instances may be Shared, or Invalid, may be purged
-    Invalid = 0x001,   ///< tile data is obsolete, other instances may be Modified, Shared, or Invalid, may be purged
-};
-typedef short MOSI_State;
-
-//------------------------------------------------------------------------------
-///
-template <typename scalar_t>
-class TileInstance {
-private:
-    Tile<scalar_t>* tile_;
-    MOSI_State state_;
-    mutable omp_nest_lock_t lock_;
-
-public:
-    TileInstance()
-        : tile_(nullptr),
-          state_(MOSI::Invalid)
-    {
-        omp_init_nest_lock(&lock_);
-    }
-
-    /// Destructor for TileInstance class
-    ~TileInstance()
-    {
-        omp_destroy_nest_lock(&lock_);
-        assert(tile_ == nullptr);
-    }
-
-    //--------------------------------------------------------------------------
-    // 2. copy constructor -- not allowed; lock_ is not copyable
-    // 3. move constructor -- not allowed; lock_ is not copyable
-    // 4. copy assignment  -- not allowed; lock_ is not copyable
-    // 5. move assignment  -- not allowed; lock_ is not copyable
-    TileInstance(TileInstance&  orig) = delete;
-    TileInstance(TileInstance&& orig) = delete;
-    TileInstance& operator = (TileInstance&  orig) = delete;
-    TileInstance& operator = (TileInstance&& orig) = delete;
-
-    //--------------------------------------------------------------------------
-    /// Get and Set tile pointer
-    Tile<scalar_t>* tile() const { return tile_; }
-    void tile(Tile<scalar_t>* tile) { tile_ = tile; }
-
-    //--------------------------------------------------------------------------
-    /// Returns whether this tile instance is valid (Tile instance exists)
-    bool valid() const { return tile_ != nullptr; }
-
-    //--------------------------------------------------------------------------
-    /// Initialize tile pointer and MOSI state
-    void init(Tile<scalar_t>* tile, MOSI_State state)
-    {
-        slate_assert(tile_ == nullptr);
-        slate_assert(tile  != nullptr);
-        tile_ = tile;
-        state_ = state;
-    }
-
-    //--------------------------------------------------------------------------
-    /// Retrun pointer to tile instance OMP lock
-    omp_nest_lock_t* getLock()
-    {
-        return &lock_;
-    }
-
-    //--------------------------------------------------------------------------
-    /// Set the state to: Modified/Shared/Invalid, or set On/Off the OnHold flag
-    void setState(MOSI_State stateIn)
-    {
-        switch (stateIn) {
-            case MOSI::Modified:
-            case MOSI::Shared:
-            case MOSI::Invalid:
-                state_ = (state_ & MOSI::OnHold) | stateIn;
-                break;
-            case MOSI::OnHold:
-                state_ |= stateIn;
-                break;
-            case ~MOSI::OnHold:
-                state_ &= stateIn;
-                break;
-            default:
-                assert(false);  // Unknown state
-                break;
-        }
-    }
-
-    /// Returns the current MOSI state (Modified/Shared/Invalid)
-    /// to check the OnHold flag use stateOn
-    MOSI getState() const
-    {
-        return MOSI(state_ & MOSI_State(~MOSI::OnHold));
-    }
-
-    /// returns whether the Modified/Shared/Invalid state or the OnHold flag is On
-    bool stateOn(MOSI_State stateIn) const
-    {
-        switch (stateIn) {
-            case MOSI::Modified:
-            case MOSI::Shared:
-            case MOSI::Invalid:
-                return (state_ & ~MOSI::OnHold) == stateIn;
-                break;
-            case MOSI::OnHold:
-                return (state_ & MOSI::OnHold) == stateIn;
-                break;
-            default:
-                assert(false);  // Unknown state
-                break;
-        }
-        return false;
-    }
-};
-
-//------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
 class TileNode {
 private:
-    typedef TileInstance<scalar_t> TileInstance_t;
     /// vector of tile instances indexed by device id.
-    using TileInstances = std::vector< std::unique_ptr<TileInstance_t> >;
-
-    TileInstances tile_instances_;
+    std::vector< Tile<scalar_t>* > tiles_;
     int num_instances_;
-    int64_t life_;
     /// number of times a tile is received.
     /// This variable is used for only MPI communications.
     int64_t receive_count_;
 
-    /// OMP lock used to protect operations that modify the TileInstances within
+    /// OMP lock used to protect operations that modify the Tiles within
     mutable omp_nest_lock_t lock_;
 
 public:
     /// Constructor for TileNode class
     TileNode(int num_devices)
         : num_instances_(0),
-          life_(0),
           receive_count_(0)
     {
         slate_assert(num_devices >= 0);
         omp_init_nest_lock(&lock_);
         for (int d = 0; d < num_devices+1; ++d) {
-            tile_instances_.push_back(
-                std::unique_ptr<TileInstance_t>( new TileInstance_t() ));
+            tiles_.push_back( nullptr );
         }
     }
 
@@ -190,10 +66,10 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    // 2. copy constructor -- not allowed; lock_ and tile_instances_ are not copyable
-    // 3. move constructor -- not allowed; lock_ and tile_instances_ are not copyable
-    // 4. copy assignment  -- not allowed; lock_ and tile_instances_ are not copyable
-    // 5. move assignment  -- not allowed; lock_ and tile_instances_ are not copyable
+    // 2. copy constructor -- not allowed; lock_ and tiles_ are not copyable
+    // 3. move constructor -- not allowed; lock_ and tiles_ are not copyable
+    // 4. copy assignment  -- not allowed; lock_ and tiles_ are not copyable
+    // 5. move assignment  -- not allowed; lock_ and tiles_ are not copyable
     TileNode(TileNode&  orig) = delete;
     TileNode(TileNode&& orig) = delete;
     TileNode& operator = (TileNode&  orig) = delete;
@@ -210,9 +86,10 @@ public:
     /// Inserts a tile instance at device and increments the number of resident instances
     void insertOn(int device, Tile<scalar_t>* tile, MOSI_State state)
     {
-        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        slate_assert(! tile_instances_[device+1]->valid());
-        tile_instances_[device+1]->init(tile, state);
+        slate_assert(device >= -1 && device+1 < int(tiles_.size()));
+        slate_assert(tiles_[device+1] == nullptr);
+        tile->state( MOSI(state) );
+        tiles_[device+1] = tile;
         ++num_instances_;
     }
 
@@ -220,8 +97,8 @@ public:
     /// Returns whether a tile instance exists at device
     bool existsOn(int device) const
     {
-        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        return tile_instances_[device+1]->valid();
+        slate_assert(device >= -1 && device+1 < int(tiles_.size()));
+        return tiles_[device+1] != nullptr;
     }
 
     //--------------------------------------------------------------------------
@@ -229,39 +106,29 @@ public:
     // CAUTION: tile's memory must have been already released to MatrixStorage Memory
     void eraseOn(int device)
     {
-        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        if (tile_instances_[device+1]->valid()) {
-            tile_instances_[device+1]->setState(MOSI::Invalid);
-            delete tile_instances_[device+1]->tile();
-            tile_instances_[device+1]->tile(nullptr);
+        slate_assert(device >= -1 && device+1 < int(tiles_.size()));
+        auto tile = tiles_[device+1];
+        tiles_[device+1] = nullptr;
+        if (tile != nullptr) {
+            delete tile;
             --num_instances_;
         }
     }
 
     //--------------------------------------------------------------------------
-    /// Returns a reference to the tile instance at device
-    TileInstance_t& operator[](int device) const
+    /// Returns a pointer to the tile instance at device
+    Tile<scalar_t>* operator[](int device) const
     {
-        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        return *(tile_instances_[device+1]);
+        slate_assert(device >= -1 && device+1 < int(tiles_.size()));
+        return tiles_[device+1];
     }
 
     //--------------------------------------------------------------------------
-    /// Returns a reference to the tile instance at device
-    TileInstance_t& at(int dev) const
+    /// Returns a pointer to the tile instance at device
+    Tile<scalar_t>* at(int dev) const
     {
-        slate_assert(dev >= -1 && dev+1 < int(tile_instances_.size()));
-        return *(tile_instances_[dev+1]);
-    }
-
-    int numInstances() const
-    {
-        return num_instances_;
-    }
-
-    int64_t& lives()
-    {
-        return life_;
+        slate_assert(dev >= -1 && dev+1 < int(tiles_.size()));
+        return tiles_[dev+1];
     }
 
     int64_t& receiveCount()
@@ -285,24 +152,22 @@ class MatrixStorage {
 public:
     friend class Debug;
 
-    template <typename T>
-    friend class BaseMatrix;
-
-    typedef TileInstance<scalar_t> TileInstance_t;
+    typedef Tile<scalar_t> Tile_t;
     typedef TileNode<scalar_t> TileNode_t;
 
     using ijdev_tuple = std::tuple<int64_t, int64_t, int>;
     using ij_tuple    = std::tuple<int64_t, int64_t>;
-    using TilesMap = std::map< ij_tuple, std::unique_ptr<TileNode_t> >;
+    using TilesMap = std::map< ij_tuple, std::shared_ptr<TileNode_t> >;
 
     MatrixStorage( int64_t m, int64_t n, int64_t mb, int64_t nb,
                    GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
-    MatrixStorage(std::function<int64_t (int64_t i)>& inTileMb,
-                  std::function<int64_t (int64_t j)>& inTileNb,
-                  std::function<int (ij_tuple ij)>& inTileRank,
-                  std::function<int (ij_tuple ij)>& inTileDevice,
-                  MPI_Comm mpi_comm);
+    MatrixStorage( int64_t mt, int64_t nt,
+                   std::function<int64_t (int64_t i)>& inTileMb,
+                   std::function<int64_t (int64_t j)>& inTileNb,
+                   std::function<int (ij_tuple ij)>& inTileRank,
+                   std::function<int (ij_tuple ij)>& inTileDevice,
+                   MPI_Comm mpi_comm);
 
 
     // 1. destructor
@@ -324,6 +189,36 @@ protected:
     void destroyQueues();
 
 public:
+    static int num_devices() { return Memory::num_devices_; };
+
+    /// @return BLAS++ communication queues
+    ///
+    /// @param[in] device
+    ///     Tile's device ID.
+    lapack::Queue* comm_queue( int device )
+    {
+        return comm_queues_.at( device );
+    }
+
+    /// @return BLAS++ compute queues
+    ///
+    /// @param[in] device
+    ///     Tile's device ID
+    ///
+    /// @param[in] queue_index
+    ///     The index of a specific set of queues
+    lapack::Queue* compute_queue( int device, int queue_index )
+    {
+        assert((queue_index >= 0) && (queue_index < num_compute_queues()));
+        return compute_queues_.at( queue_index ).at( device );
+    }
+
+    /// @return number of allocated BLAS++ compute queues
+    int num_compute_queues()
+    {
+        return int(compute_queues_.size());
+    }
+
     //--------------------------------------------------------------------------
     // batch arrays
     void allocateBatchArrays(int64_t batch_size, int64_t num_arrays);
@@ -335,6 +230,20 @@ public:
         return batch_array_size_;
     }
 
+    /// @return the batch array on host, to send to device
+    scalar_t** batchArrayHost( int device, int64_t batch_arrays_index )
+    {
+        assert(batch_arrays_index >= 0);
+        return array_host_.at( batch_arrays_index ).at( device );
+    }
+
+    /// @return the batch array on device
+    scalar_t** batchArrayDevice( int device, int64_t batch_arrays_index )
+    {
+        assert(batch_arrays_index >= 0);
+        return array_dev_.at( batch_arrays_index ).at( device );
+    }
+
     //--------------------------------------------------------------------------
     // workspace
     void reserveHostWorkspace(int64_t num_tiles);
@@ -343,14 +252,17 @@ public:
     void clearWorkspace();
     void releaseWorkspace();
 
-    scalar_t* allocWorkspaceBuffer(int device);
+    scalar_t* allocWorkspaceBuffer(int device, int size);
     void      releaseWorkspaceBuffer(scalar_t* data, int device);
+
+private:
+    // Iterator routines should be called only within a Tiles Map LockGuard.
+    // Otherwise, there may be race conditions with the returned iterator.
 
     //--------------------------------------------------------------------------
     /// @return TileNode(i, j) if it has instance on device, end() otherwise
     typename TilesMap::iterator find(ijdev_tuple ijdev)
     {
-        LockGuard guard(getTilesMapLock());
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
@@ -365,7 +277,6 @@ public:
     /// @return TileNode(i, j) if found, end() otherwise
     typename TilesMap::iterator find(ij_tuple ij)
     {
-        LockGuard guard(getTilesMapLock());
         return tiles_.find(ij);
     }
 
@@ -373,7 +284,6 @@ public:
     /// @return begin iterator of TileNode map
     typename TilesMap::iterator begin()
     {
-        LockGuard guard(getTilesMapLock());
         return tiles_.begin();
     }
 
@@ -381,25 +291,10 @@ public:
     /// @return begin iterator of TileNode map
     typename TilesMap::iterator end()
     {
-        LockGuard guard(getTilesMapLock());
         return tiles_.end();
     }
 
-    //--------------------------------------------------------------------------
-    /// @return reference to single tile instance.
-    /// Throws exception if instance doesn't exist.
-    // at() doesn't create new (null) entries in map as operator[] would
-    TileInstance_t& at(ijdev_tuple ijdev)
-    {
-        LockGuard guard(getTilesMapLock());
-        int64_t i  = std::get<0>(ijdev);
-        int64_t j  = std::get<1>(ijdev);
-        int device = std::get<2>(ijdev);
-        auto& tile_node = tiles_.at({i, j});
-        slate_assert(tile_node->existsOn(device));
-        return tile_node->at(device);
-    }
-
+public:
     //--------------------------------------------------------------------------
     /// @return reference to TileNode(i, j).
     /// Throws exception if entry doesn't exist.
@@ -410,6 +305,20 @@ public:
         return *(tiles_.at(ij));
     }
 
+    /// @return pointer to an actual Tile object
+    /// Throws exception if entry doesn't exist.
+    Tile<scalar_t>* at(ijdev_tuple ijdev)
+    {
+        int64_t i  = std::get<0>(ijdev);
+        int64_t j  = std::get<1>(ijdev);
+        int device = std::get<2>(ijdev);
+        auto& tile_node = at( {i, j} );
+
+        // TODO ideally, this would be accessed with a lock on the tile node,
+        // but that breaks BaseMatrix::tileLayoutConvert(set<ij>, ...)
+        return tile_node.at(device);
+    }
+
     void erase(ijdev_tuple ijdev);
     void erase(ij_tuple ij);
     void release(ijdev_tuple ijdev);
@@ -418,18 +327,6 @@ private:
 public:
     void freeTileMemory(Tile<scalar_t>* tile);
     void clear();
-
-    //--------------------------------------------------------------------------
-    /// @return number of allocated tile nodes (size of tiles map).
-    size_t size() const
-    {
-        LockGuard guard(getTilesMapLock());
-        return tiles_.size();
-    }
-
-    //--------------------------------------------------------------------------
-    /// @return True if map has no tiles.
-    bool empty() const { return size() == 0; }
 
     //--------------------------------------------------------------------------
     /// Return pointer to tiles-map OMP lock
@@ -451,33 +348,32 @@ public:
         return tileRank(ij) == mpi_rank_;
     }
 
-    TileInstance<scalar_t>& tileInsert(
+    Tile<scalar_t>* tileInsert(
         ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
-    TileInstance<scalar_t>& tileInsert(
+    Tile<scalar_t>* tileInsert(
         ijdev_tuple ijdev, scalar_t* data, int64_t lda,
         Layout layout=Layout::ColMajor);
-    TileInstance<scalar_t>& tileAcquire(ijdev_tuple ijdev, Layout layout);
+private:
+    Tile<scalar_t>* tileInsert(
+        ijdev_tuple ijdev, scalar_t* data, int64_t lda,
+        TileKind kind, Layout layout);
+public:
+    bool tileExists( ijdev_tuple ijdev )
+    {
+        LockGuard guard( getTilesMapLock() );
+        int64_t i  = std::get<0>(ijdev);
+        int64_t j  = std::get<1>(ijdev);
+        int device = std::get<2>(ijdev);
+        if (device == AnyDevice) {
+            return find( {i, j} ) != end();
+        }
+        else {
+            return find( ijdev ) != end();
+        }
+    }
 
     void tileMakeTransposable(Tile<scalar_t>* tile);
     void tileLayoutReset(Tile<scalar_t>* tile);
-
-    void tileTick(ij_tuple ij);
-
-    //--------------------------------------------------------------------------
-    /// @return tile's life counter.
-    int64_t tileLife(ij_tuple ij)
-    {
-        LockGuard guard( getTilesMapLock() );
-        return tiles_.at( ij )->lives();
-    }
-
-    //--------------------------------------------------------------------------
-    /// Set tile's life counter.
-    void tileLife(ij_tuple ij, int64_t life)
-    {
-        LockGuard guard( getTilesMapLock() );
-        tiles_.at( ij )->lives() = life;
-    }
 
     //--------------------------------------------------------------------------
     /// @return tile's receive counter.
@@ -497,22 +393,72 @@ public:
 
     //--------------------------------------------------------------------------
     /// Decrement tile's receive counter.
-    void tileDecrementReceiveCount(ij_tuple ij)
+    void tileDecrementReceiveCount( ij_tuple ij, int64_t release_count = 1 )
     {
         LockGuard guard( getTilesMapLock() );
-        tiles_.at( ij )->receiveCount()--;
+        tiles_.at( ij )->receiveCount() -= release_count;
+    }
+
+    /// Ensures the tile node exists and increments the recieve count.
+    /// If the tile node doesn't exist (i.e., no tile on any device),
+    /// this inserts a new tile on the given device, which may be host.
+    /// This does not currently ensure that a tile exists on the given device.
+    void tilePrepareToReceive(ij_tuple ij, int device, Layout layout)
+    {
+        if (! tileIsLocal(ij)) {
+            // Create tile to receive data.
+            LockGuard guard( getTilesMapLock() );
+            int64_t i  = std::get<0>( ij );
+            int64_t j  = std::get<1>( ij );
+
+            auto iter = find( ij );
+
+            if (iter == end())
+                tileInsert( {i, j, device}, TileKind::Workspace, layout );
+            tileIncrementReceiveCount( ij );
+        }
+    }
+
+    // MOSI management
+    /// Gets the state of the given tile
+    MOSI tileState(ijdev_tuple ijdev)
+    {
+        LockGuard guard( getTilesMapLock() );
+        auto iter = find( ijdev );
+        assert(iter != end());
+
+        int device = std::get<2>(ijdev);
+        return iter->second->at(device)->state();
+    }
+
+    /// Checks whether the given tile is on hold
+    MOSI tileOnHold(ijdev_tuple ijdev)
+    {
+        LockGuard guard( getTilesMapLock() );
+        auto iter = find( ijdev );
+        assert(iter != end());
+
+        int device = std::get<2>(ijdev);
+        return iter->second->at(device)->stateOn(MOSI::OnHold);
+    }
+
+    /// Unsets any hold on the given tile
+    void tileUnsetHold(ijdev_tuple ijdev)
+    {
+        LockGuard guard( getTilesMapLock() );
+        auto iter = find( ijdev );
+        if (iter != end()) {
+            int device = std::get<2>(ijdev);
+            iter->second->at(device)->state(~MOSI::OnHold);
+        }
     }
 
 private:
     TilesMap tiles_;        ///< map of tiles and associated states
     mutable omp_nest_lock_t lock_;  ///< TilesMap lock
     slate::Memory memory_;  ///< memory allocator
-    scalar_t *host_mem;
-    std::map< int, std::stack<void*> > allocated_mem_;
-    bool own;
 
     int mpi_rank_;
-    static int num_devices_;
 
     int64_t batch_array_size_;
 
@@ -540,44 +486,23 @@ MatrixStorage<scalar_t>::MatrixStorage(
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm, &mpi_rank_));
 
-    // todo: these are static, but we (re-)initialize with each matrix.
-    // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
-    num_devices_ = memory_.num_devices_;
+    // functions for computing the tile's size
+    tileMb = func::uniform_blocksize(m, mb);
+    tileNb = func::uniform_blocksize(n, nb);
 
-    // TODO: these all assume 2D block cyclic with fixed size tiles (mb x nb)
-    // lambdas that capture m, n, mb, nb for
-    // computing tile's mb (rows) and nb (cols)
-    tileMb = [m, mb](int64_t i) { return (i + 1)*mb > m ? m%mb : mb; };
-    tileNb = [n, nb](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
-
-    // lambda that captures p, q for computing tile's rank,
-    // assuming 2D block cyclic
+    // function for computing the tile's rank, assuming 2D block cyclic
     if (order == GridOrder::Col) {
-        tileRank = [p, q]( ij_tuple ij ) {
-            int64_t i = std::get<0>( ij );
-            int64_t j = std::get<1>( ij );
-            return int((i%p) + (j%q)*p);
-        };
+        tileRank = func::process_2d_grid( GridOrder::Col, p, q );
     }
     else if (order == GridOrder::Row) {
-        tileRank = [p, q]( ij_tuple ij ) {
-            int64_t i = std::get<0>( ij );
-            int64_t j = std::get<1>( ij );
-            return int((i%p)*q + (j%q));
-        };
+        tileRank = func::process_2d_grid( GridOrder::Row, p, q );
     }
     else {
         slate_error( "invalid GridOrder, must be Col or Row" );
     }
-
-    // lambda that captures q, num_devices to distribute local matrix
-    // in 1D column block cyclic fashion among devices
-    if (num_devices_ > 0) {
-        int num_devices = num_devices_;  // local copy to capture
-        tileDevice = [q, num_devices](ij_tuple ij) {
-            int64_t j = std::get<1>(ij);
-            return int(j/q)%num_devices;
-        };
+    // function for computing the tile's device, assuming 1d block cyclic
+    if (num_devices() > 0) {
+        tileDevice = func::device_1d_grid( GridOrder::Row, q, num_devices() );
     }
     else {
         tileDevice = []( ij_tuple ij ) {
@@ -590,9 +515,10 @@ MatrixStorage<scalar_t>::MatrixStorage(
 }
 
 //------------------------------------------------------------------------------
-/// For memory, assumes tiles of size mb = inTileMb(0) x nb = inTileNb(0).
 template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
+    int64_t mt,
+    int64_t nt,
     std::function<int64_t (int64_t i)>& inTileMb,
     std::function<int64_t (int64_t j)>& inTileNb,
     std::function<int (ij_tuple ij)>& inTileRank,
@@ -603,15 +529,12 @@ MatrixStorage<scalar_t>::MatrixStorage(
       tileRank(inTileRank),
       tileDevice(inTileDevice),
       tiles_(),
-      memory_(sizeof(scalar_t) * inTileMb(0) * inTileNb(0)),  // block size in bytes
+      memory_(sizeof(scalar_t) * func::max_blocksize(mt, inTileMb) // block size in bytes
+                               * func::max_blocksize(nt, inTileNb)),
       batch_array_size_(0)
 {
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm, &mpi_rank_));
-
-    // todo: these are static, but we (re-)initialize with each matrix.
-    // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
-    num_devices_ = memory_.num_devices_;
 
     initQueues();
     omp_init_nest_lock(&lock_);
@@ -628,7 +551,7 @@ MatrixStorage<scalar_t>::~MatrixStorage()
         clearBatchArrays();
         // Clear all host and device memory allocations
         memory_.clearHostBlocks();
-        for (int device = 0; device < num_devices_; ++device) {
+        for (int device = 0; device < num_devices(); ++device) {
             blas::Queue* queue = comm_queues_[device];
             memory_.clearDeviceBlocks(device, queue);
         }
@@ -650,11 +573,11 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::initQueues()
 {
-    comm_queues_   .resize(num_devices_);
-    compute_queues_.resize(1);
+    comm_queues_.resize(num_devices());
 
-    compute_queues_.at(0).resize(num_devices_, nullptr);
-    for (int device = 0; device < num_devices_; ++device) {
+    compute_queues_.resize(1);
+    compute_queues_.at(0).resize(num_devices(), nullptr);
+    for (int device = 0; device < num_devices(); ++device) {
         comm_queues_        [ device ] = new lapack::Queue( device );
         compute_queues_[ 0 ][ device ] = new lapack::Queue( device );
     }
@@ -662,8 +585,8 @@ void MatrixStorage<scalar_t>::initQueues()
     array_host_.resize(1);
     array_dev_ .resize(1);
 
-    array_host_.at(0).resize(num_devices_, nullptr);
-    array_dev_ .at(0).resize(num_devices_, nullptr);
+    array_host_.at(0).resize(num_devices(), nullptr);
+    array_dev_ .at(0).resize(num_devices(), nullptr);
 }
 
 //------------------------------------------------------------------------------
@@ -674,7 +597,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::destroyQueues()
 {
     int num_queues = int(compute_queues_.size());
-    for (int device = 0; device < num_devices_; ++device) {
+    for (int device = 0; device < num_devices(); ++device) {
         delete comm_queues_[device];
                comm_queues_[device] = nullptr;
 
@@ -720,9 +643,9 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
         compute_queues_.resize(num_arrays);
 
         for (int64_t i = i_begin; i < num_arrays; ++i) {
-            array_host_    .at(i).resize(num_devices_, nullptr);
-            array_dev_     .at(i).resize(num_devices_, nullptr);
-            compute_queues_.at(i).resize(num_devices_, nullptr);
+            array_host_    .at(i).resize(num_devices(), nullptr);
+            array_dev_     .at(i).resize(num_devices(), nullptr);
+            compute_queues_.at(i).resize(num_devices(), nullptr);
         }
         is_resized = true;
     }
@@ -741,7 +664,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
         assert(int(array_host_.size()) >= num_arrays);
 
         for (std::size_t i = i_begin; i < array_host_.size(); ++i) {
-            for (int device = 0; device < num_devices_; ++device) {
+            for (int device = 0; device < num_devices(); ++device) {
 
                 // Get the original queue for malloc
                 blas::Queue* queue = comm_queues_[device];
@@ -752,11 +675,10 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
                 // Free device arrays.
                 blas::device_free(array_dev_[i][device], *queue);
 
-                // Free queues.
-                delete compute_queues_[i][device];
-
-                // Allocate queues.
-                compute_queues_[ i ][ device ] = new lapack::Queue( device );
+                if (compute_queues_[ i ][ device ] == nullptr) {
+                    // Allocate queues.
+                    compute_queues_[ i ][ device ] = new lapack::Queue( device );
+                }
 
                 // Allocate host arrays;
                 array_host_[i][device]
@@ -784,7 +706,7 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
     assert(array_host_.size() == array_dev_.size());
 
     for (std::size_t i = 0; i < array_host_.size(); ++i) {
-        for (int device = 0; device < num_devices_; ++device) {
+        for (int device = 0; device < num_devices(); ++device) {
 
             // Get the original queue for memory allocations
             blas::Queue* queue = comm_queues_[device];
@@ -823,7 +745,7 @@ void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 {
-    for (int device = 0; device < num_devices_; ++device) {
+    for (int device = 0; device < num_devices(); ++device) {
         int64_t n = num_tiles - memory_.capacity(device);
         if (n > 0) {
             blas::Queue* queue = comm_queues_[device];
@@ -839,10 +761,11 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::ensureDeviceWorkspace(int device, int64_t num_tiles)
 {
-    if (memory_.available(device) < size_t(num_tiles)) {
-        // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
-        blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-        memory_.addDeviceBlocks(device, num_tiles - memory_.available(device), queue);
+    slate_assert( device != HostNum );
+    int64_t n = num_tiles - memory_.available( device );
+    if (n > 0) {
+        blas::Queue* queue = comm_queues_[ device ];
+        memory_.addDeviceBlocks( device, n, queue );
     }
 }
 
@@ -868,11 +791,11 @@ void MatrixStorage<scalar_t>::clearWorkspace()
     LockGuard guard(getTilesMapLock());
     for (auto iter = begin(); iter != end(); /* incremented below */) {
         auto& tile_node = *(iter->second);
-        for (int d = HostNum; d < num_devices_; ++d) {
+        for (int d = HostNum; d < num_devices(); ++d) {
             if (tile_node.existsOn(d) &&
-                tile_node[d].tile()->workspace())
+                tile_node[d]->workspace())
             {
-                freeTileMemory(tile_node[d].tile());
+                freeTileMemory(tile_node[d]);
                 tile_node.eraseOn(d);
             }
         }
@@ -890,7 +813,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
         memory_.clearHostBlocks();
     }
 
-    for (int device = 0; device < num_devices_; ++device) {
+    for (int device = 0; device < num_devices(); ++device) {
         if (memory_.allocated(device) == 0) {
             blas::Queue* queue = comm_queues_[device];
             memory_.clearDeviceBlocks(device, queue);
@@ -899,10 +822,12 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 }
 
 //------------------------------------------------------------------------------
-/// Clears all host and device workspace tiles that are not OnHold nor Modified.
+/// Clears all host and device workspace tiles that are not OnHold.
+/// For local tiles, it ensures that a valid copy remains.
 ///
-/// Note that Modified, local tiles are currently not released but that this
-/// behavior may change in the future and should not be relied apon.
+/// Note that local tiles are currently not released if it would leave all
+/// remaining tiles invalid, but this behavior may change in the future
+/// and should not be relied on.
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspace()
 {
@@ -918,7 +843,7 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
     if (memory_.allocated( HostNum ) == 0) {
         memory_.clearHostBlocks();
     }
-    for (int device = 0; device < num_devices_; ++device) {
+    for (int device = 0; device < num_devices(); ++device) {
         if (memory_.allocated(device) == 0) {
             blas::Queue* queue = comm_queues_[device];
             memory_.clearDeviceBlocks(device, queue);
@@ -947,7 +872,7 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
 
-        freeTileMemory(tile_node[device].tile());
+        freeTileMemory(tile_node[device]);
         tile_node.eraseOn(device);
 
         if (tile_node.empty())
@@ -956,8 +881,8 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
 }
 
 //------------------------------------------------------------------------------
-/// Remove a tile instance on device and delete it
-/// if it is a workspace and not OnHold nor Modified.
+/// Remove a tile instance on device and delete it if it is a workspace,
+/// not OnHold, and not the last valid instance of a local tile.
 /// If tile node becomes empty, deletes it.
 /// If tile's memory was allocated by SLATE, then its memory is freed back
 /// to the allocator memory pool.
@@ -976,18 +901,30 @@ void MatrixStorage<scalar_t>::release(
     int end   = device + 1;
     if (device == AllDevices) {
         begin = HostNum;
-        end   = num_devices_;
+        end   = num_devices();
     }
 
-    bool localTile = tileIsLocal(iter->first);
+    // Don't release tiles if it'd delete the last valid copy
+    // Remote tiles never have the last valid copy
+    bool last_valid = tileIsLocal( iter->first );
+    for (int dev = HostNum; dev < num_devices(); ++dev) {
+        if (tile_node.existsOn( dev )
+            && (dev < begin || dev >= end || tile_node[ dev ]->origin())
+            && ! tile_node[ dev ]->stateOn( MOSI::Invalid )) {
+
+            last_valid = false;
+            break;
+        }
+    }
+    // TODO consider copying to origin when last_valid
 
     for (int dev = begin; dev < end; ++dev) {
         if (tile_node.existsOn( dev )
-            && tile_node[ dev ].tile()->workspace()
-            && ! tile_node[ dev ].stateOn( MOSI::OnHold )
-            && ! (localTile && tile_node[ dev ].stateOn( MOSI::Modified ))) {
+            && tile_node[ dev ]->workspace()
+            && ! tile_node[ dev ]->stateOn( MOSI::OnHold )
+            && (! last_valid || tile_node[ dev ]->stateOn( MOSI::Invalid ))) {
 
-            freeTileMemory( tile_node[ dev ].tile() );
+            freeTileMemory( tile_node[ dev ] );
             tile_node.eraseOn( dev );
         }
     }
@@ -997,14 +934,16 @@ void MatrixStorage<scalar_t>::release(
 
 //------------------------------------------------------------------------------
 /// Remove a tile instance on device and delete it
-/// if it is a workspace and not OnHold nor Modified.
+/// if it is a workspace and not OnHold.
 /// If tile node becomes empty, deletes it.
 /// If tile's memory was allocated by SLATE, then its memory is freed back
 /// to the allocator memory pool.
+/// For local tiles, it ensures that a valid copy remains.
 /// device can be AllDevices.
 ///
-/// Note that Modified, local tiles are currently not released but that this
-/// behavior may change in the future and should not be relied apon.
+/// Note that local tiles are currently not released if it would leave all
+/// remaining tiles invalid, but this behavior may change in the future
+/// and should not be relied on.
 ///
 // todo: currently ignores if ijdev doesn't exist; is that right?
 template <typename scalar_t>
@@ -1038,9 +977,9 @@ void MatrixStorage<scalar_t>::erase(ij_tuple ij)
 
         auto& tile_node = iter->second;
 
-        for (int d = HostNum; (! tile_node->empty()) && d < num_devices_; ++d) {
+        for (int d = HostNum; (! tile_node->empty()) && d < num_devices(); ++d) {
             if (tile_node->existsOn(d)) {
-                freeTileMemory(tile_node->at(d).tile());
+                freeTileMemory(tile_node->at(d));
                 tile_node->eraseOn(d);
             }
         }
@@ -1073,15 +1012,15 @@ void MatrixStorage<scalar_t>::clear()
 /// @param[in] device
 ///     Device ID (GPU or Host) where the memory block is needed.
 ///
+/// @param[in] size
+///     Number of scalars needed in the memory block
+///
 template <typename scalar_t>
-scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
+scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device, int size)
 {
-    int64_t mb = tileMb(0);
-    int64_t nb = tileNb(0);
     // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
     blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
-    return data;
+    return (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * size, queue);
 }
 
 //------------------------------------------------------------------------------
@@ -1100,91 +1039,19 @@ void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
 }
 
 //------------------------------------------------------------------------------
-/// Acquires tile {i, j} on given device, which can be host,
-/// allocating new memory for it.
-/// TileNode(i, j) is assumed to pre-exist (equivalently the origin tile),
-/// thus, tile kind is set to TileKind::Workspace,
-///
-/// @return Reference to newly inserted TileInstance.
-///
-template <typename scalar_t>
-TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
-    ijdev_tuple ijdev, Layout layout)
-{
-    int64_t i  = std::get<0>(ijdev);
-    int64_t j  = std::get<1>(ijdev);
-    int device = std::get<2>(ijdev);
-
-    LockGuard tiles_guard(getTilesMapLock());
-
-    // find the tileNode
-    // if not found, insert new-entry in TilesMap
-    // todo: is this needed?
-    if (find({i, j}) == end()) {
-        tiles_[{i, j}] = std::unique_ptr<TileNode_t>( new TileNode_t( num_devices_ ) );
-    }
-
-    auto& tile_node = this->at({i, j});
-
-    // if tile instance does not exist, insert new instance
-    if (! tile_node.existsOn(device)) {
-        int64_t mb = tileMb(i);
-        int64_t nb = tileNb(j);
-        // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
-        blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
-        int64_t stride = layout == Layout::ColMajor ? mb : nb;
-        Tile<scalar_t>* tile
-            = new Tile<scalar_t>(
-                  mb, nb, data, stride, device, TileKind::Workspace, layout);
-        tile_node.insertOn(device, tile, MOSI::Invalid);
-    }
-    return tile_node[device];
-}
-
-//------------------------------------------------------------------------------
 /// Inserts tile {i, j} on given device, which can be host,
 /// allocating new memory for it.
-/// Creates TileNode(i, j) if not already exists (Tile's life is set 0).
+/// Creates TileNode(i, j) if not already exists.
 /// Tile kind should be either TileKind::Workspace or TileKind::SlateOwned.
 ///
-/// @return Reference to newly inserted TileInstance.
+/// @return Pointer to newly inserted Tile.
 ///
 template <typename scalar_t>
-TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
+Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, TileKind kind, Layout layout)
 {
-    assert(kind == TileKind::Workspace ||
-           kind == TileKind::SlateOwned);
-    int64_t i  = std::get<0>(ijdev);
-    int64_t j  = std::get<1>(ijdev);
-    int device = std::get<2>(ijdev);
-
-    LockGuard tiles_guard(getTilesMapLock());
-
-    // find the tileNode
-    // if not found, insert new-entry in TilesMap
-    if (find({i, j}) == end()) {
-        tiles_[{i, j}] = std::unique_ptr<TileNode_t>( new TileNode_t( num_devices_ ) );
-    }
-    auto& tile_node = this->at({i, j});
-
-    // if tile instance does not exist, insert new instance
-    if (! tile_node.existsOn(device)) {
-        int64_t mb = tileMb(i);
-        int64_t nb = tileNb(j);
-        // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
-        blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
-        //scalar_t* data = new scalar_t[mb*nb];
-        int64_t stride = layout == Layout::ColMajor ? mb : nb;
-        Tile<scalar_t>* tile
-            = new Tile<scalar_t>(mb, nb, data, stride, device, kind, layout);
-        tile_node.insertOn(device, tile, kind == TileKind::Workspace ?
-                                         MOSI::Invalid :
-                                         MOSI::Shared);
-    }
-    return tile_node[device];
+    assert(kind == TileKind::Workspace || kind == TileKind::SlateOwned);
+    return tileInsert( ijdev, nullptr, 0, kind, layout );
 }
 
 //------------------------------------------------------------------------------
@@ -1193,22 +1060,34 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 /// wrapping existing memory for it.
 /// Sets tile kind = TileKind::UserOwned.
 /// This will be the origin tile, thus TileNode(i, j) should not pre-exist.
-/// @return Pointer to newly inserted TileInstance.
+/// @return Pointer to newly inserted Tile.
 ///
 template <typename scalar_t>
-TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
+Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout)
+{
+    slate_assert( data != nullptr );
+    return tileInsert( ijdev, data, lda, TileKind::UserOwned, layout );
+}
+
+
+//------------------------------------------------------------------------------
+/// shared logic of tileInsert
+template <typename scalar_t>
+Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
+    ijdev_tuple ijdev, scalar_t* data, int64_t lda, TileKind kind, Layout layout )
 {
     int64_t i  = std::get<0>(ijdev);
     int64_t j  = std::get<1>(ijdev);
     int device = std::get<2>(ijdev);
-    slate_assert( HostNum <= device && device < num_devices_ );
+    slate_assert( HostNum <= device && device < num_devices() );
 
     LockGuard guard(getTilesMapLock());
 
-    assert(find({i, j}) == end());
-    // insert new-entry in map
-    tiles_[{i, j}] = std::unique_ptr<TileNode_t>( new TileNode_t( num_devices_ ) );
+    if (find({i, j}) == end()) {
+        // insert new-entry in map
+        tiles_[{i, j}] = std::make_shared<TileNode_t>( num_devices() );
+    }
 
     auto& tile_node = this->at({i, j});
 
@@ -1216,12 +1095,19 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     if (! tile_node.existsOn(device)) {
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
+        if (data == nullptr) {
+            // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
+            blas::Queue* queue = (device == HostNum) ? nullptr : comm_queues_[device];
+            data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
+            lda = (layout == Layout::ColMajor) ? mb : nb;
+        }
         Tile<scalar_t>* tile
             = new Tile<scalar_t>(
-                  mb, nb, data, lda, device, TileKind::UserOwned, layout);
-        tile_node.insertOn(device, tile, MOSI::Shared);
+                  mb, nb, data, lda, device, kind, layout);
+        tile_node.insertOn(device, tile, kind == TileKind::Workspace ?
+                                         MOSI::Invalid :
+                                         MOSI::Shared);
     }
-    //printf("\n tileInsert2 \n");
     return tile_node[device];
 }
 
@@ -1240,8 +1126,8 @@ void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
         return;
 
     int device = tile->device();
-    int64_t mb = tileMb(0);
-    int64_t nb = tileNb(0);
+    int64_t mb = tile->mb();
+    int64_t nb = tile->nb();
     // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
     blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
     scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
@@ -1264,27 +1150,6 @@ void MatrixStorage<scalar_t>::tileLayoutReset(Tile<scalar_t>* tile)
         tile->layoutReset();
     }
 }
-
-//------------------------------------------------------------------------------
-/// If tile {i, j} is a workspace tile (i.e., not local),
-/// decrement its life counter by 1;
-/// if life reaches 0, erase tile on the host and all devices.
-///
-template <typename scalar_t>
-void MatrixStorage<scalar_t>::tileTick(ij_tuple ij)
-{
-    if (! tileIsLocal(ij)) {
-        LockGuard guard(getTilesMapLock());
-        int64_t life = --(tiles_.at(ij)->lives());
-        if (life == 0) {
-            erase(ij);
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-int MatrixStorage<scalar_t>::num_devices_ = 0;
 
 } // namespace slate
 

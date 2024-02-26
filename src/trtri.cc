@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -27,6 +27,7 @@ void trtri(
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const scalar_t one = 1.0;
+    const int64_t priority_0 = 0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -71,9 +72,15 @@ void trtri(
                 // A(1:nt-1, 0) * A(0, 0)^{-H}
                 internal::trsm<Target::HostTask>(
                     Side::Right,
-                    -one, A.sub(0, 0), A.sub(1, A_nt-1, 0, 0) );
+                    -one, A.sub(0, 0), A.sub(1, A_nt-1, 0, 0),
+                    priority_0, layout );
             }
             ++tag;
+
+            #pragma omp task depend(in:col[0])
+            {
+                A.sub(0, 0).releaseRemoteWorkspace();
+            }
         }
 
         // send A(1, 0) down
@@ -95,6 +102,7 @@ void trtri(
 
         // next lookahead columns trsms
         for (int64_t k = 1; k < lookahead+1 && k+1 < A_nt; ++k) {
+            // A(k+1:nt-1, k) *= A(k, k)^{-H}
             #pragma omp task depend(inout:col[k]) \
                              depend(inout:row[k+1]) firstprivate(tag)
             {
@@ -104,7 +112,8 @@ void trtri(
                 // leading column trsm, A(k+1:nt-1, k) * A(k, k)^{-H}
                 internal::trsm<Target::HostTask>(
                     Side::Right,
-                    -one, A.sub(k, k), A.sub(k+1, A_nt-1, k, k) );
+                    -one, A.sub(k, k), A.sub(k+1, A_nt-1, k, k),
+                    priority_0, layout );
 
                 // send leading column to the left
                 BcastList bcast_list_A;
@@ -120,6 +129,7 @@ void trtri(
         for (int64_t k = 1; k < A_nt; ++k) {
             // next leading column trsm
             if (k+1+lookahead < A_nt) {
+                // A(k+1+la:nt-1, k) *= A(k+la, k+la)^{-H}
                 #pragma omp task depend(in:col[k-1]) \
                                  depend(inout:col[k+lookahead]) \
                                  depend(inout:row[k+1+lookahead]) \
@@ -136,7 +146,8 @@ void trtri(
                         Side::Right,
                         -one, A.sub(k+lookahead, k+lookahead),
                               A.sub(k+1+lookahead, A_nt-1,
-                                    k+lookahead, k+lookahead) );
+                                    k+lookahead, k+lookahead),
+                        priority_0, layout );
 
                     // send leading column to the left
                     BcastList bcast_list_A;
@@ -148,6 +159,11 @@ void trtri(
                     A.template listBcast<target>(bcast_list_A, layout, tag+1);
                 }
                 tag += 2;
+
+                #pragma omp task depend(in:col[k+1+lookahead])
+                {
+                    A.sub(k+lookahead, k+lookahead).releaseRemoteWorkspace();
+                }
             }
 
             // update lookahead rows
@@ -161,7 +177,7 @@ void trtri(
                         one, A.sub(i, i, k, k),
                              A.sub(k, k, 0, k-1),
                         one, A.sub(i, i, 0, k-1),
-                        layout);
+                        layout, priority_0 );
 
                     if (i+1 < A_nt) {
                         // send the row down
@@ -189,7 +205,7 @@ void trtri(
                         one, A.sub(k+1+lookahead, A_nt-1, k, k),
                              A.sub(k, k, 0, k-1),
                         one, A.sub(k+1+lookahead, A_nt-1, 0, k-1),
-                        layout);
+                        layout, priority_0 );
                 }
 
                 if (k+2+lookahead < A_nt) {
@@ -216,12 +232,25 @@ void trtri(
                 // solve A(k, k) A(k, :) = A(k, 0:k-1)
                 internal::trsm<Target::HostTask>(
                     Side::Left,
-                    one, A.sub(k, k), A.sub(k, k, 0, k-1) );
+                    one, A.sub(k, k), A.sub(k, k, 0, k-1),
+                    priority_0, layout );
 
                 // invert A(k, k)
                 internal::trtri<Target::HostTask>(A.sub(k, k));
             }
             ++tag;
+
+            #pragma omp task depend(in:row[k])
+            {
+                // The diagonal tile is bcast twice.  Call releaseRemoteWorkspace
+                // again to decrement the receive count to 0
+                A.sub( k, k ).releaseRemoteWorkspace();
+
+                auto A_row = A.sub( k, k, 0, k );
+                A_row.releaseRemoteWorkspace();
+                A_row.tileUpdateAllOrigin();
+                A_row.releaseLocalWorkspace();
+            }
         }
 
         #pragma omp taskwait

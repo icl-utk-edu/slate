@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -69,6 +69,7 @@ void synorm(
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using real_t = blas::real_type<scalar_t>;
     // quick return
     if (batch_count == 0)
@@ -198,6 +199,9 @@ void synorm(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -257,6 +261,7 @@ void synormOffdiag(
     int64_t batch_count,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using real_t = blas::real_type<scalar_t>;
 
     // quick return
@@ -294,6 +299,9 @@ void synormOffdiag(
     else {
         slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

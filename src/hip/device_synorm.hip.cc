@@ -1,5 +1,5 @@
 #include "hip/hip_runtime.h"
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -50,7 +50,7 @@ __global__ void synorm_max_kernel(
     int chunk;
 
     // Save partial results in shared memory.
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
     if (threadIdx.x < blockDim.x) {
         row_max[threadIdx.x] = 0;
@@ -185,7 +185,7 @@ __global__ void synorm_fro_kernel(
     int chunk;
 
     // Save partial results in shared memory.
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
 
@@ -220,11 +220,11 @@ __global__ void synorm_fro_kernel(
             row_sumsq[chunk] = 1;
         }
         combine_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
-        __syncthreads();
     }
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
+    __syncthreads();
     if (threadIdx.x == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];
@@ -310,7 +310,8 @@ void synorm(
         else {
             assert(ldv == 1);
             size_t shared_mem = sizeof(real_t) * nb;
-            hipLaunchKernelGGL(synorm_max_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, n, Aarray, lda, values);
+            synorm_max_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
+                (uplo, n, Aarray, lda, values);
         }
     }
     //---------
@@ -321,7 +322,8 @@ void synorm(
         }
         else {
             assert(ldv >= n);
-            hipLaunchKernelGGL(synorm_one_kernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, n, Aarray, lda, values, ldv);
+            synorm_one_kernel<<<batch_count, nb, 0, queue.stream()>>>
+                (uplo, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -333,7 +335,8 @@ void synorm(
         else {
             assert(ldv == 2);
             size_t shared_mem = sizeof(real_t) * nb * 2;
-            hipLaunchKernelGGL(synorm_fro_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, n, Aarray, lda, values);
+            synorm_fro_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
+                (uplo, n, Aarray, lda, values);
         }
     }
 
@@ -386,7 +389,7 @@ __global__ void synorm_offdiag_one_kernel(
     // ceil(m/ib) entries; in total it is ceil(m/ib)*ib entries.
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = Aarray[ blockIdx.x ];
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
     real_t* row_sums = &shmem_tile[ ib1*ib ];
     const int k = threadIdx.x;
@@ -502,7 +505,9 @@ void synormOffdiag(
         size_t shared_mem
             = sizeof(real_t) * (ib*ib1 + roundup( m, int64_t(ib) ));
         assert( shared_mem <= 48*1024 ); // max 48 KiB
-        hipLaunchKernelGGL(synorm_offdiag_one_kernel, dim3(batch_count), dim3(32), shared_mem, queue.stream(), m, n, Aarray, lda, values, ldv);
+        synorm_offdiag_one_kernel
+            <<<batch_count, 32, shared_mem, queue.stream()>>>
+            (m, n, Aarray, lda, values, ldv);
     }
     else {
         slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
@@ -530,23 +535,36 @@ void synorm(
     double* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void synorm(
     lapack::Norm norm, lapack::Uplo uplo,
     int64_t n,
-    hipFloatComplex const* const* Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    synorm( norm, uplo, n,
+            (rocblas_float_complex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
-template
+template <>
 void synorm(
     lapack::Norm norm, lapack::Uplo uplo,
     int64_t n,
-    hipDoubleComplex const* const* Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    synorm( norm, uplo, n,
+            (rocblas_double_complex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
-//----------------------------------------
+//------------------------------------------------------------------------------
+// Explicit instantiations.
 template
 void synormOffdiag(
     lapack::Norm norm,
@@ -565,23 +583,38 @@ void synormOffdiag(
     int64_t batch_count,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void synormOffdiag(
     lapack::Norm norm,
     int64_t m, int64_t n,
-    hipFloatComplex const* const* Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    synormOffdiag(
+        norm, m, n,
+        (rocblas_float_complex**) Aarray, lda,
+        values, ldv, batch_count, queue );
+}
 
-template
+template <>
 void synormOffdiag(
     lapack::Norm norm,
     int64_t m, int64_t n,
-    hipDoubleComplex const* const* Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+
+{
+    synormOffdiag(
+        norm, m, n,
+        (rocblas_double_complex**) Aarray, lda,
+        values, ldv, batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

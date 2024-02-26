@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -224,39 +224,69 @@ void gescale_row_col_batch(
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
 // real R, C
-template
+template <>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
     float const* const* Rarray,
     float const* const* Carray,
-    cuFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    gescale_row_col_batch(
+        equed, m, n, Rarray, Carray,
+        (cuFloatComplex**) Aarray, lda,
+        batch_count, queue );
+}
 
-template
+template <>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
     double const* const* Rarray,
     double const* const* Carray,
-    cuDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    gescale_row_col_batch(
+        equed, m, n, Rarray, Carray,
+        (cuDoubleComplex**) Aarray, lda,
+        batch_count, queue );
+}
 
 // complex R, C
-template
+template <>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
-    cuFloatComplex const* const* Rarray,
-    cuFloatComplex const* const* Carray,
-    cuFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<float> const* const* Rarray,
+    std::complex<float> const* const* Carray,
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    gescale_row_col_batch(
+        equed, m, n,
+        (cuFloatComplex**) Rarray,
+        (cuFloatComplex**) Carray,
+        (cuFloatComplex**) Aarray, lda,
+        batch_count, queue );
+}
 
-template
+template <>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
-    cuDoubleComplex const* const* Rarray,
-    cuDoubleComplex const* const* Carray,
-    cuDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<double> const* const* Rarray,
+    std::complex<double> const* const* Carray,
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    gescale_row_col_batch(
+        equed, m, n,
+        (cuDoubleComplex**) Rarray,
+        (cuDoubleComplex**) Carray,
+        (cuDoubleComplex**) Aarray, lda,
+        batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

@@ -52,13 +52,15 @@ export color=no
 
 # For simplicity, create make.inc regardless of ${maker}
 cat > make.inc << END
-CXXFLAGS = -Werror -Dslate_omp_default_none='default(none)'
-CXX      = mpicxx
-CC       = mpicc
-FC       = mpif90
-blas     = mkl
-prefix   = ${top}/install
-md5sum   = md5sum
+CXXFLAGS    = -Werror -Dslate_omp_default_none='default(none)'
+CXX         = mpicxx
+CC          = mpicc
+FC          = mpif90
+blas        = mkl
+prefix      = ${top}/install
+md5sum      = md5sum
+c_api       = 1
+fortran_api = 1
 END
 
 #----------------------------------------------------------------- Compiler
@@ -67,7 +69,7 @@ if [ "${device}" = "gpu_intel" ]; then
     quiet module load intel-oneapi-compilers
 else
     print "======================================== Load GNU compiler"
-    quiet module load gcc@10.4.0
+    quiet module load gcc@11.3
 fi
 print "---------------------------------------- Verify compiler"
 print "CXX = $CXX"
@@ -106,6 +108,14 @@ mpicxx --version
 mpif90 --version
 
 #----------------------------------------------------------------- GPU
+# Find idle GPUs. gpu_bind.sh also uses ${idle_gpus}.
+# Arrays can't be exported, effectively.
+export idle_gpus=$(./tools/idle_gpus.py)
+idle_gpus_array=(${idle_gpus})  # convert to array
+gpu_kind=${idle_gpus_array[0]}  # element 0 is gpu_kind: cuda or rocm
+idle_gpus_array=(${idle_gpus_array[@]:1})  # slice elements 1:end
+
+#----------------------------------------------------------------- GPU
 if [ "${device}" = "gpu_nvidia" ]; then
     print "======================================== Load CUDA"
     quiet module load cuda
@@ -114,6 +124,9 @@ if [ "${device}" = "gpu_nvidia" ]; then
     export gpu_backend=cuda
     quiet which nvcc
     nvcc --version
+
+    # Limit tests to 1st idle GPU. gpu_bind.sh overrides this.
+    export CUDA_VISIBLE_DEVICES=${idle_gpus_array[0]}
 
     echo "cuda_arch = volta" >> make.inc
 
@@ -125,6 +138,9 @@ elif [ "${device}" = "gpu_amd" ]; then
     export gpu_backend=hip
     quiet which hipcc
     hipcc --version
+
+    # Limit tests to 1st idle GPU. gpu_bind.sh overrides this.
+    export ROCR_VISIBLE_DEVICES=${idle_gpus_array[0]}
 
     if [ -e ${ROCM_PATH}/lib/rocblas/library ]; then
         # ROCm 5.2

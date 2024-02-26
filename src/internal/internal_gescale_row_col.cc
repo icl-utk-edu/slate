@@ -1,10 +1,11 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/internal/device.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_util.hh"
 #include "internal/internal.hh"
 #include "internal/DevVector.hh"
 #include "slate/internal/util.hh"
@@ -67,26 +68,10 @@ void scale_row_col(
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // Define index ranges for regions of matrix.
-    // Tiles in each region are all the same size.
-    int64_t irange[4][2] = {
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   },
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   }
-    };
-    int64_t jrange[4][2] = {
-        { 0,        A.nt()-1 },
-        { 0,        A.nt()-1 },
-        { A.nt()-1, A.nt()   },
-        { A.nt()-1, A.nt()   }
-    };
-
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task slate_omp_default_none \
-            shared( R, C, A ) \
-            firstprivate( equed, device, irange, jrange )
+        #pragma omp task shared( R, C, A ) \
+            firstprivate( equed, device )
         {
             bool want_row = equed == Equed::Both || equed == Equed::Row;
             bool want_col = equed == Equed::Both || equed == Equed::Col;
@@ -111,6 +96,14 @@ void scale_row_col(
                 c_array_dev .resize( A.batchArraySize(), device, *queue );
             }
 
+            std::vector< int64_t > ioffsets, joffsets;
+            if (want_row) {
+                ioffsets = tile_offsets( RowCol::Row, A );
+            }
+            if (want_col) {
+                joffsets = tile_offsets( RowCol::Col, A );
+            }
+
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
             //       and possibly wrong, because an input matrix is being altered
@@ -126,37 +119,22 @@ void scale_row_col(
             }
             A.tileGetForWriting( A_tiles_set, device, layout );
 
-            scalar_t** a_array_host = A.array_host( device );
+            scalar_t** a_array_host = A.array_host( device, queue_index );
 
             int64_t batch_count = 0;
-            int64_t mb[4], nb[4], lda[4], group_count[4];
-            for (int q = 0; q < 4; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb( irange[q][0] );
-                nb[q] = A.tileNb( jrange[q][0] );
-                int ii = A.tileMb( 0 ) * irange[q][0];
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    int jj = A.tileNb( 0 ) * jrange[q][0];
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                            auto Aij = A( i, j, device );
-                            if (want_row)
-                                r_array_host[ batch_count ] = &dR[ ii ];
-                            if (want_col)
-                                c_array_host[ batch_count ] = &dC[ jj ];
-                            a_array_host[ batch_count ] = Aij.data();
-                            lda[q] = Aij.stride();
-                            ++group_count[q];
-                            ++batch_count;
-                        }
-                        jj += A.tileNb( j );
-                    }
-                    ii += A.tileMb( i );
-                }
-            }
+            std::function<void(int64_t, int64_t, int64_t)>
+            store_rc = [&](int64_t group, int64_t i, int64_t j) {
+                    if (want_row)
+                        r_array_host[ batch_count ] = &dR[ ioffsets[ i ] ];
+                    if (want_col)
+                        c_array_host[ batch_count ] = &dC[ joffsets[ j ] ];
+                    ++batch_count;
+            };
+            auto group_params = device_regions_build<false, 1, scalar_t>(
+                    {A}, {a_array_host}, device, store_rc );
 
-            scalar_t** a_array_dev = A.array_device( device );
+
+            scalar_t** a_array_dev = A.array_device( device, queue_index );
 
             blas::device_memcpy< scalar_t* >(
                 &a_array_dev[ 0 ], &a_array_host[ 0 ], batch_count, *queue);
@@ -177,16 +155,17 @@ void scale_row_col(
             scalar_t2** r_array_data = r_array_dev.data();
             scalar_t2** c_array_data = c_array_dev.data();
 
-            for (int q = 0; q < 4; ++q) {
-                if (group_count[q] > 0) {
-                    device::gescale_row_col_batch(
-                        equed, mb[q], nb[q],
-                        r_array_data, c_array_data, a_array_dev, lda[q],
-                        group_count[q], *queue);
-                    r_array_data += group_count[q];
-                    c_array_data += group_count[q];
-                    a_array_dev += group_count[q];
-                }
+            for (size_t g = 0; g < group_params.size(); ++g) {
+                int64_t group_count = group_params[ g ].count;
+                device::gescale_row_col_batch(
+                        equed,
+                        group_params[ g ].mb, group_params[ g ].nb,
+                        r_array_data, c_array_data,
+                        a_array_dev, group_params[ g ].ld[0],
+                        group_count, *queue);
+                r_array_data += group_count;
+                c_array_data += group_count;
+                a_array_dev  += group_count;
             }
 
             // Clear the DevVectors, freeing device memory

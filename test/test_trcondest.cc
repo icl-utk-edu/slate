@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -9,9 +9,9 @@
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
+#include "matgen.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -131,8 +131,6 @@ void test_trcondest_work(Params& params, bool run)
 
     double gflop = lapack::Gflop<scalar_t>::getrf(m, n);
 
-    // Compute the matrix norm
-    real_t Anorm = 0;
     real_t slate_rcond = 1., scl_rcond = 1., exact_rcond = 1.;
 
     if (! ref_only) {
@@ -154,22 +152,23 @@ void test_trcondest_work(Params& params, bool run)
         double time = barrier_get_wtime(MPI_COMM_WORLD);
         auto R  = slate::TriangularMatrix<scalar_t>(
             slate::Uplo::Upper, slate::Diag::NonUnit, A );
-        slate::trcondest(norm, R, &slate_rcond, opts);
+
+        real_t Rnorm = slate::norm( norm, R, opts );
+        slate_rcond = slate::triangular_rcondest( norm, R, Rnorm, opts );
+        // Using traditional BLAS/LAPACK name
+        // slate_rcond = slate::trcondest( norm, R, Rnorm, opts );
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
 
         if (trace) slate::trace::Trace::finish();
-    }
 
-    if (check) {
-        // Find the exact condition number:
-        auto R  = slate::TriangularMatrix<scalar_t>(
-            slate::Uplo::Upper, slate::Diag::NonUnit, A );
-        Anorm = slate::norm(norm, R, opts);
-        trtri(R, opts);
-        exact_rcond = (1. / slate::norm(norm, R, opts)) / Anorm;
+        if (check) {
+            // Find the exact condition number:
+            trtri( R, opts );
+            exact_rcond = (1. / slate::norm( norm, R, opts )) / Rnorm;
+        }
     }
 
     if (ref) {
@@ -177,8 +176,8 @@ void test_trcondest_work(Params& params, bool run)
             // A comparison with a reference routine from ScaLAPACK for timing only
 
             // BLACS/MPI variables
-            int ictxt, myrow_, mycol_, info, p_, q_;
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, myrow_, mycol_, p_, q_;
+            blas_int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
@@ -191,7 +190,8 @@ void test_trcondest_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             // ScaLAPACK descriptor for the reference matrix
-            int Aref_desc[9];
+            int64_t info;
+            blas_int Aref_desc[9];
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
@@ -224,7 +224,7 @@ void test_trcondest_work(Params& params, bool run)
             // query for workspace size for ptrcon
             int64_t info_ref_trcon = 0;
             int64_t liwork = -1;
-            int  idummy;
+            blas_int idummy;
             int64_t lwork_trcon = -1;
             scalar_t dummy_trcon;
             slate::Uplo uplo = slate::Uplo::Upper;
@@ -238,7 +238,7 @@ void test_trcondest_work(Params& params, bool run)
 
             // Compute the condition number using scalapack
             std::vector<scalar_t> work_trcon(lwork_trcon);
-            std::vector<int> iwork(liwork);
+            std::vector<blas_int> iwork( liwork );
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_ptrcon( norm2str(norm), uplo2str(uplo), diag2str(diag), n,
@@ -282,10 +282,6 @@ void test_trcondest_work(Params& params, bool run)
 void test_trcondest(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_trcondest_work<float> (params, run);
             break;
@@ -300,6 +296,10 @@ void test_trcondest(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_trcondest_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

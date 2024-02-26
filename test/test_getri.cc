@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -10,7 +10,6 @@
 #include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -66,6 +65,8 @@ void test_getri_work(Params& params, bool run)
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
+
+    int64_t info = 0;
 
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
@@ -152,11 +153,17 @@ void test_getri_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         // factor then invert; measure time for both
-        slate::lu_factor(A, pivots, opts);
+        info = slate::lu_factor(A, pivots, opts);
         // Using traditional BLAS/LAPACK name
         // slate::getrf(A, pivots, opts);
 
-        if (params.routine == "getri") {
+        if (info != 0) {
+            char buf[ 80 ];
+            snprintf( buf, sizeof(buf), "info = %lld, cond = %.2e",
+                      llong( info ), params.matrix.cond_actual() );
+            params.msg() = buf;
+        }
+        else if (params.routine == "getri") {
             // call in-place inversion
             slate::lu_inverse_using_factor(A, pivots, opts);
             // Using traditional BLAS/LAPACK name
@@ -178,17 +185,22 @@ void test_getri_work(Params& params, bool run)
         params.gflops() = gflop / time;
     }
 
-    if (check) {
+    if (info != 0 || std::isinf( params.matrix.cond_actual() )) {
+        // info != 0 if and only if cond == inf (singular matrix).
+        // Matrices with unknown cond (nan) that are singular are marked failed.
+        params.okay() = info != 0 && std::isinf( params.matrix.cond_actual() );
+    }
+    else if (check) {
         #ifdef SLATE_HAVE_SCALAPACK
             //==================================================
             // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
             // TODO: implement check using SLATE.
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], Aref_desc[9];
-            int Cchk_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int A_desc[9], Aref_desc[9];
+            blas_int Cchk_desc[9];
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -205,11 +217,11 @@ void test_getri_work(Params& params, bool run)
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
+            slate_assert( info == 0 );
 
-            scalapack_descinit(Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
+            slate_assert( info == 0 );
 
             if (origin != slate::Origin::ScaLAPACK) {
                 // Copy SLATE result back from GPU or CPU tiles.
@@ -264,10 +276,6 @@ void test_getri_work(Params& params, bool run)
 void test_getri(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_getri_work<float> (params, run);
             break;
@@ -282,6 +290,10 @@ void test_getri(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_getri_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

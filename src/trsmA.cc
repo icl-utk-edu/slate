@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -25,9 +25,6 @@ void trsmA(
 {
     // Options
     int64_t lookahead = get_option<int64_t>(opts, Option::Lookahead, 1);
-
-    Options opts_local = opts;
-    opts_local[ Option::Lookahead ] = lookahead;
 
     if (target == Target::Devices) {
         if (A.num_devices() > 1)
@@ -62,7 +59,7 @@ void trsmA(
     {
         #pragma omp task
         {
-            work::trsmA<target, scalar_t>( side, alpha, A, B, row, opts_local );
+            work::trsmA<target, scalar_t>( side, alpha, A, B, row, opts );
             B.tileUpdateAllOrigin();
         }
     }

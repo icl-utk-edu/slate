@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -35,8 +35,9 @@ void tbsm(
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
-    const int priority_1 = 1;
     const Layout layout = Layout::ColMajor;
+    const int priority_0 = 0;
+    const int priority_1 = 1;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -136,7 +137,8 @@ void tbsm(
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
+                             B.sub(k, k, 0, nt-1),
+                        priority_1, layout );
 
                     // send A(i=k+1:i_end-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -163,7 +165,7 @@ void tbsm(
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(i, i, 0, nt-1),
-                            layout, 1);
+                            layout, priority_1 );
                     }
                 }
 
@@ -181,8 +183,23 @@ void tbsm(
                             -one, A.sub(k+1+lookahead, i_end-1, k, k),
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(k+1+lookahead, i_end-1, 0, nt-1),
-                            layout);
+                            layout, priority_0 );
                     }
+                }
+
+                #pragma omp task depend(inout:row[k])
+                {
+                    auto A_panel = A.sub(k, i_end-1, k, k);
+                    A_panel.releaseRemoteWorkspace();
+                    A_panel.releaseLocalWorkspace();
+
+                    auto B_panel = B.sub(k, k, 0, nt-1);
+                    B_panel.releaseRemoteWorkspace();
+
+                    // Copy back modifications to tiles in the B panel
+                    // before they are erased.
+                    B_panel.tileUpdateAllOrigin();
+                    B_panel.releaseLocalWorkspace();
                 }
             }
         }
@@ -204,7 +221,8 @@ void tbsm(
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
+                             B.sub(k, k, 0, nt-1),
+                        priority_1, layout );
 
                     // send A(i=k-kdt:k-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -228,7 +246,7 @@ void tbsm(
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(i, i, 0, nt-1),
-                            layout, 1);
+                            layout, priority_1 );
                     }
                 }
 
@@ -245,8 +263,23 @@ void tbsm(
                             -one, A.sub(i_begin, k-1-lookahead, k, k),
                                   B.sub(k, k, 0, nt-1),
                             one,  B.sub(i_begin, k-1-lookahead, 0, nt-1),
-                            layout);
+                            layout, priority_0 );
                     }
+                }
+
+                #pragma omp task depend(inout:row[k])
+                {
+                    auto A_panel = A.sub(i_begin, k, k, k);
+                    A_panel.releaseRemoteWorkspace();
+                    A_panel.releaseLocalWorkspace();
+
+                    auto B_panel = B.sub(k, k, 0, nt-1);
+                    B_panel.releaseRemoteWorkspace();
+
+                    // Copy back modifications to tiles in the B panel
+                    // before they are erased.
+                    B_panel.tileUpdateAllOrigin();
+                    B_panel.releaseLocalWorkspace();
                 }
             }
         }
@@ -259,15 +292,15 @@ void tbsm(
             // A = L^T, the RHS updates are organized differently than in
             // the no-pivoting case above. Due to dependencies, there is no
             // lookahead or top-level tasks, only the nested tasks inside
-            // internal routines.
+            // internal routines and a tile-release task.
             for (int64_t k = mt-1; k >= 0; --k) {
+                // A( k, k : k_end-1 ) is k-th row
+                // Typically, A is L^T, so the k-th row is the
+                // k-th panel (transposed) from gbtrf.
+                int64_t k_end = min(k + kdt + 1, A.nt());
+
                 // update RHS
                 {
-                    // A( k, k : k_end-1 ) is k-th row
-                    // Typically, A is L^T, so the k-th row is the
-                    // k-th panel (transposed) from gbtrf.
-                    int64_t k_end = min(k + kdt + 1, A.nt());
-
                     for (int64_t i = k+1; i < k_end; ++i) {
                         // send A(k, i) across to ranks owning B(k, :)
                         A.template tileBcast<target>(k, i, B.sub(k, k, 0, nt-1), layout);
@@ -297,7 +330,8 @@ void tbsm(
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         one, A.sub(k, k),
-                             B.sub(k, k, 0, nt-1), 1);
+                             B.sub(k, k, 0, nt-1),
+                        priority_1, layout );
                 }
 
                 // swap rows in B(k:mt-1, 0:nt-1)
@@ -305,6 +339,23 @@ void tbsm(
                     internal::permuteRows<Target::HostTask>(
                         Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
                         pivots.at(k), layout);
+                }
+
+                #pragma omp task shared( A, B ) firstprivate( k, k_end, nt )
+                {
+                    auto A_panel = A.sub( k, k, k, k_end-1 );
+                    A_panel.releaseRemoteWorkspace();
+                    A_panel.releaseLocalWorkspace();
+
+                    if (k + kdt + 1 <= A.nt()) {
+                        auto B_panel = B.sub( k_end-1, k_end-1, 0, nt-1 );
+                        B_panel.releaseRemoteWorkspace();
+
+                        // Copy back modifications to tiles in the B panel
+                        // before they are erased.
+                        B_panel.tileUpdateAllOrigin();
+                        B_panel.releaseLocalWorkspace();
+                    }
                 }
             }
         }

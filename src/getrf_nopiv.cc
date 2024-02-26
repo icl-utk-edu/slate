@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -21,7 +21,7 @@ namespace impl {
 /// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
-void getrf_nopiv(
+int64_t getrf_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts )
 {
@@ -30,7 +30,6 @@ void getrf_nopiv(
 
     // Constants
     const scalar_t one = 1.0;
-    const int life_1 = 1;
     const int priority_0 = 0;
     const int priority_1 = 1;
     const int queue_0 = 0;
@@ -38,8 +37,8 @@ void getrf_nopiv(
     const Layout layout = Layout::ColMajor;
 
     // Options
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    int64_t lookahead = get_option<Option::Lookahead>( opts, 1 );
+    int64_t ib = get_option<Option::InnerBlocking>( opts, 16 );
 
     if (target == Target::Devices) {
         // two batch arrays plus one for each lookahead
@@ -48,10 +47,10 @@ void getrf_nopiv(
         A.reserveDeviceWorkspace();
     }
 
+    int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    bool is_shared = lookahead > 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -72,6 +71,7 @@ void getrf_nopiv(
     #pragma omp parallel
     #pragma omp master
     {
+        int64_t kk = 0;  // column index (not block-column)
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             // panel, high priority
@@ -80,8 +80,12 @@ void getrf_nopiv(
                              priority(1)
             {
                 // factor A(k, k)
+                int64_t iinfo;
                 internal::getrf_nopiv<Target::HostTask>(
-                    A.sub(k, k, k, k), ib, priority_1 );
+                    A.sub(k, k, k, k), ib, priority_1, &iinfo );
+                if (info == 0 && iinfo > 0) {
+                    info = kk + iinfo;
+                }
 
                 // Update panel
                 int tag_k = k;
@@ -89,7 +93,7 @@ void getrf_nopiv(
                 bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                                A.sub(k, k, k+1, A_nt-1)}});
                 A.template listBcast<target>(
-                    bcast_list_A, layout, tag_k, life_1, true );
+                    bcast_list_A, layout, tag_k );
             }
 
             #pragma omp task depend(inout:column[k]) \
@@ -114,7 +118,7 @@ void getrf_nopiv(
                     bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
                 A.template listBcastMT<target>(
-                  bcast_list, layout, life_1, is_shared );
+                  bcast_list, layout );
             }
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
@@ -194,45 +198,34 @@ void getrf_nopiv(
                         layout, priority_0, queue_1 );
                 }
             }
-            if (target == Target::Devices) {
-                #pragma omp task depend(inout:diag[k])
-                {
-                    if (A.tileIsLocal(k, k) && k+1 < A_nt) {
-                        std::set<int> dev_set;
-                        A.sub(k+1, A_mt-1, k, k).getLocalDevices(&dev_set);
-                        A.sub(k, k, k+1, A_nt-1).getLocalDevices(&dev_set);
+            #pragma omp task depend(inout:column[k])
+            {
+                auto left_panel = A.sub( k, A_mt-1, k, k );
+                auto top_panel = A.sub( k, k, k+1, A_nt-1 );
 
-                        for (auto device : dev_set) {
-                            A.tileUnsetHold(k, k, device);
-                            A.tileRelease(k, k, device);
-                        }
-                    }
-                }
-                if (is_shared) {
-                    #pragma omp task depend(inout:column[k])
-                    {
-                        for (int64_t i = k+1; i < A_mt; ++i) {
-                            if (A.tileIsLocal(i, k)) {
-                                A.tileUpdateOrigin(i, k);
+                // Erase remote tiles on all devices including host
+                left_panel.releaseRemoteWorkspace();
+                top_panel.releaseRemoteWorkspace();
 
-                                std::set<int> dev_set;
-                                A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                left_panel.tileUpdateAllOrigin();
+                top_panel.tileUpdateAllOrigin();
 
-                                for (auto device : dev_set) {
-                                    A.tileUnsetHold(i, k, device);
-                                    A.tileRelease(i, k, device);
-                                }
-                            }
-                        }
-                    }
-                }
+                // Erase local workspace on devices.
+                left_panel.releaseLocalWorkspace();
+                top_panel.releaseLocalWorkspace();
             }
+            kk += A.tileNb( k );
         }
 
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
     A.clearWorkspace();
+
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -275,17 +268,14 @@ void getrf_nopiv(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
-///         factorization has been completed, but the factor $U$ is exactly
-///         singular, and division by zero will occur if it is used
-///         to solve a system of equations.
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization will have NaN due to division by zero.
 ///
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf_nopiv(
+int64_t getrf_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts )
 {
@@ -294,43 +284,39 @@ void getrf_nopiv(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::getrf_nopiv<Target::HostTask>( A, opts );
-            break;
+            return impl::getrf_nopiv<Target::HostTask>( A, opts );
 
         case Target::HostNest:
-            impl::getrf_nopiv<Target::HostNest>( A, opts );
-            break;
+            return impl::getrf_nopiv<Target::HostNest>( A, opts );
 
         case Target::HostBatch:
-            impl::getrf_nopiv<Target::HostBatch>( A, opts );
-            break;
+            return impl::getrf_nopiv<Target::HostBatch>( A, opts );
 
         case Target::Devices:
-            impl::getrf_nopiv<Target::Devices>( A, opts );
-            break;
+            return impl::getrf_nopiv<Target::Devices>( A, opts );
     }
-    // todo: return value for errors?
+    return -2;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void getrf_nopiv<float>(
+int64_t getrf_nopiv<float>(
     Matrix<float>& A,
     Options const& opts);
 
 template
-void getrf_nopiv<double>(
+int64_t getrf_nopiv<double>(
     Matrix<double>& A,
     Options const& opts);
 
 template
-void getrf_nopiv< std::complex<float> >(
+int64_t getrf_nopiv< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     Options const& opts);
 
 template
-void getrf_nopiv< std::complex<double> >(
+int64_t getrf_nopiv< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     Options const& opts);
 

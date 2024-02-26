@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -7,6 +7,10 @@
 #define SLATE_MATRIX_UTILS_HH
 
 #include "slate/slate.hh"
+#include "test.hh"
+
+#include "scalapack_wrappers.hh"
+#include "grid_utils.hh"
 
 //------------------------------------------------------------------------------
 // Zero out B, then copy band matrix B from A.
@@ -202,5 +206,123 @@ matrix_type matrix_cast(
 {
     return matrix_cast_impl( MatrixType< matrix_type >(), A, uplo, diag );
 }
+
+
+//------------------------------------------------------------------------------
+// Functions for allocating test matrices
+
+template <typename MatrixType>
+class TestMatrix {
+    using scalar_t = typename MatrixType::value_type;
+
+public:
+    TestMatrix() {}
+
+    TestMatrix(int64_t m_, int64_t n_, int64_t nb_,
+               int p_, int q_, slate::GridOrder grid_order_)
+        : m(m_), n(n_), nb(nb_), p(p_), q(q_), grid_order(grid_order_)
+    {
+        int mpi_rank, myrow, mycol;
+        MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
+        gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
+        this->mloc = num_local_rows_cols( m, nb, myrow, p );
+        this->nloc = num_local_rows_cols( n, nb, mycol, q );
+        this->lld  = blas::max( 1, mloc ); // local leading dimension of A
+    }
+
+    // SLATE matrices
+    MatrixType A;
+    MatrixType Aref;
+
+    // Storage for ScaLAPACK matrices
+    std::vector<scalar_t> A_data;
+    std::vector<scalar_t> Aref_data;
+
+    // ScaLAPACK configuration
+    int64_t m, n, mloc, nloc, lld, nb;
+    int p, q;
+    slate::GridOrder grid_order;
+
+    #ifdef SLATE_HAVE_SCALAPACK
+    void ScaLAPACK_descriptor( blas_int ictxt, blas_int A_desc[9] )
+    {
+        int64_t info;
+        scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mloc, &info);
+        slate_assert(info == 0);
+    }
+
+    void create_ScaLAPACK_context( blas_int* ictxt )
+    {
+        // Call free function version
+        ::create_ScaLAPACK_context( grid_order, p, q, ictxt );
+    }
+    #endif
+};
+
+//------------------------------------------------------------------------------
+/// Marks the paramters used by allocate_test_Matrix
+inline void mark_params_for_test_Matrix(Params& params)
+{
+    params.grid.m();
+    params.grid.n();
+    params.nb();
+    params.nonuniform_nb();
+    params.origin();
+    params.grid_order();
+    params.dev_order();
+}
+
+//------------------------------------------------------------------------------
+/// Marks the paramters used by allocate_test_HermitianMatrix
+inline void mark_params_for_test_HermitianMatrix(Params& params)
+{
+    params.uplo();
+    mark_params_for_test_Matrix( params );
+}
+
+//------------------------------------------------------------------------------
+/// Marks the paramters used by allocate_test_SymmetricMatrix
+inline void mark_params_for_test_SymmetricMatrix(Params& params)
+{
+    mark_params_for_test_HermitianMatrix( params );
+}
+
+//------------------------------------------------------------------------------
+/// Marks the paramters used by allocate_test_TriangularMatrix
+inline void mark_params_for_test_TriangularMatrix(Params& params)
+{
+    params.uplo();
+    params.diag();
+    mark_params_for_test_Matrix( params );
+}
+
+// -----------------------------------------------------------------------------
+/// Marks the paramters used by allocate_test_TrapezoidMatrix
+inline void mark_params_for_test_TrapezoidMatrix(Params& params)
+{
+    params.uplo();
+    params.diag();
+    mark_params_for_test_Matrix( params );
+}
+
+template <typename scalar_t>
+TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
+
+template <typename scalar_t>
+TestMatrix<slate::HermitianMatrix<scalar_t>> allocate_test_HermitianMatrix(
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
+
+template <typename scalar_t>
+TestMatrix<slate::SymmetricMatrix<scalar_t>> allocate_test_SymmetricMatrix(
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
+
+template <typename scalar_t>
+TestMatrix<slate::TriangularMatrix<scalar_t>> allocate_test_TriangularMatrix(
+    bool ref_matrix, bool nonuniform_ref, int64_t n, Params& params);
+
+template <typename scalar_t>
+TestMatrix<slate::TrapezoidMatrix<scalar_t>> allocate_test_TrapezoidMatrix(
+    bool ref_matrix, bool nonuniform_ref, int64_t m, int64_t n, Params& params);
 
 #endif // SLATE_MATRIX_UTILS_HH

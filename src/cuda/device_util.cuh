@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -87,6 +87,52 @@ void sum_reduce(int n, int tid, real_t* x)
     if (n >    1) { if (tid <    1 && tid +    1 < n) { x[tid] += x[tid+   1]; }  __syncthreads(); }
 }
 
+//==============================================================================
+// real, imag, conj.
+
+#ifdef __NVCC__
+
+// CUDA doesn't provide real, imag, conj.
+__host__ __device__ inline double real( cuDoubleComplex x ) { return x.x; }
+__host__ __device__ inline float  real( cuFloatComplex  x ) { return x.x; }
+
+__host__ __device__ inline double imag( cuDoubleComplex x ) { return x.y; }
+__host__ __device__ inline float  imag( cuFloatComplex  x ) { return x.y; }
+
+__host__ __device__ inline cuDoubleComplex conj( cuDoubleComplex x ) { return cuConj(x); }
+__host__ __device__ inline cuFloatComplex  conj( cuFloatComplex  x ) { return cuConjf(x); }
+
+#else
+
+__host__ __device__ inline double real( rocblas_double_complex x ) { return x.real(); }
+__host__ __device__ inline float  real( rocblas_float_complex  x ) { return x.real(); }
+
+__host__ __device__ inline double imag( rocblas_double_complex x ) { return x.imag(); }
+__host__ __device__ inline float  imag( rocblas_float_complex  x ) { return x.imag(); }
+
+__host__ __device__ inline rocblas_double_complex conj( rocblas_double_complex x ) { return { x.real(), -x.imag() }; }
+__host__ __device__ inline rocblas_float_complex  conj( rocblas_float_complex  x ) { return { x.real(), -x.imag() }; }
+
+#endif
+
+//----------------------------------------
+// Overloads for real numbers.
+
+/// @return real component of complex number x; x for real number.
+/// @ingroup complex
+__host__ __device__  inline double real( double x ) { return x; }
+__host__ __device__  inline float  real( float  x ) { return x; }
+
+/// @return imaginary component of complex number x; 0 for real number.
+/// @ingroup complex
+__host__ __device__  inline double imag( double x ) { return 0; }
+__host__ __device__  inline float  imag( float  x ) { return 0; }
+
+/// @return conjugate of complex number x; x for real number.
+/// @ingroup complex
+__host__ __device__  inline double conj( double x ) { return x; }
+__host__ __device__  inline float  conj( float  x ) { return x; }
+
 //------------------------------------------------------------------------------
 /// Overloaded versions of absolute value on device.
 __host__ __device__
@@ -95,22 +141,24 @@ inline float abs(float x)
     return fabsf(x);
 }
 
+//----------------------------------------
 __host__ __device__
 inline double abs(double x)
 {
     return fabs(x);
 }
 
+//----------------------------------------
 __host__ __device__
 inline float abs(cuFloatComplex x)
 {
-    // CUDA has good implementation,
-    // otherwise use our implementation that scales per LAPACK.
 #ifdef __NVCC__
+    // CUDA has a good implementation.
     return cuCabsf(x);
 #else
-    float a = cuCrealf(x);
-    float b = cuCimagf(x);
+    // For HIP, use our implementation that scales per LAPACK.
+    float a = real( x );
+    float b = imag( x );
     float z, w, t;
     if (isnan( a )) {
         return a;
@@ -136,16 +184,17 @@ inline float abs(cuFloatComplex x)
 #endif
 }
 
+//----------------------------------------
 __host__ __device__
 inline double abs(cuDoubleComplex x)
 {
-    // CUDA has good implementation,
-    // otherwise use our implementation that scales per LAPACK.
 #ifdef __NVCC__
+    // CUDA has a good implementation.
     return cuCabs(x);
 #else
-    double a = cuCreal(x);
-    double b = cuCimag(x);
+    // For HIP, use our implementation that scales per LAPACK.
+    double a = real( x );
+    double b = imag( x );
     double z, w, t;
     if (isnan( a )) {
         return a;
@@ -169,71 +218,6 @@ inline double abs(cuDoubleComplex x)
         return t;
     }
 #endif
-}
-
-//------------------------------------------------------------------------------
-/// Overloaded versions of Ax+By on device.
-template <typename T>
-__host__ __device__
-inline T axpby(T alpha, T x, T beta, T y)
-{
-    return alpha*x + beta*y;
-}
-
-__host__ __device__
-inline cuFloatComplex axpby(cuFloatComplex alpha, cuFloatComplex x,
-                            cuFloatComplex beta, cuFloatComplex y)
-{
-    return cuCaddf(cuCmulf(alpha, x), cuCmulf(beta, y));
-}
-
-__host__ __device__
-inline cuDoubleComplex axpby(cuDoubleComplex alpha, cuDoubleComplex x,
-                             cuDoubleComplex beta, cuDoubleComplex y)
-{
-    return cuCadd(cuCmul(alpha, x), cuCmul(beta, y));
-}
-
-//------------------------------------------------------------------------------
-/// Overloaded copy and precision conversion.
-/// Sets b = a, converting from type TA to type TB.
-template <typename TA, typename TB>
-__host__ __device__
-inline void copy(TA a, TB& b)
-{
-    b = a;
-}
-
-/// Sets b = a, converting from complex-float to complex-double.
-__host__ __device__
-inline void copy(cuFloatComplex a, cuDoubleComplex& b)
-{
-    b.x = a.x;
-    b.y = a.y;
-}
-
-/// Sets b = a, converting from complex-double to complex-float.
-__host__ __device__
-inline void copy(cuDoubleComplex a, cuFloatComplex& b)
-{
-    b.x = a.x;
-    b.y = a.y;
-}
-
-/// Sets b = a, converting from float to complex-float.
-__host__ __device__
-inline void copy( float a, cuFloatComplex& b )
-{
-    b.x = a;
-    b.y = 0;
-}
-
-/// Sets b = a, converting from double to complex-double.
-__host__ __device__
-inline void copy( double a, cuDoubleComplex& b )
-{
-    b.x = a;
-    b.y = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -294,6 +278,7 @@ inline constexpr T ceildiv(T x, T y)
     return T((x + y - 1) / y);
 }
 
+//------------------------------------------------------------------------------
 /// @return ceil( x / y )*y, i.e., x rounded up to next multiple of y.
 template <typename T>
 __host__ __device__
@@ -301,28 +286,50 @@ inline constexpr T roundup(T x, T y)
 {
     return T((x + y - 1) / y) * y;
 }
-__host__ __device__  inline double real(cuDoubleComplex x) { return x.x; }
-__host__ __device__  inline float  real(cuFloatComplex  x) { return  x.x; }
 
-__host__ __device__  inline double imag(cuDoubleComplex x) { return  x.y; }
-__host__ __device__  inline float  imag(cuFloatComplex  x) { return x.y;  }
+//------------------------------------------------------------------------------
+/// Overloaded copy and precision conversion.
+/// Sets b = a, converting from type TA to type TB.
+template <typename TA, typename TB>
+__host__ __device__
+inline void copy(TA a, TB& b)
+{
+    b = a;
+}
 
-__host__ __device__  inline cuDoubleComplex conj(cuDoubleComplex x) { return cuConj(x); }
-__host__ __device__  inline cuFloatComplex  conj(cuFloatComplex  x) { return cuConjf(x); }
-//#endif
+/// Sets b = a, converting from complex-float to complex-double.
+__host__ __device__
+inline void copy(cuFloatComplex a, cuDoubleComplex& b)
+{
+    b = make_cuDoubleComplex( real( a ), imag( a ) );
+}
 
-__host__ __device__  inline double real(double             x) { return x; }
-__host__ __device__  inline float  real(float              x) { return x; }
+/// Sets b = a, converting from complex-double to complex-float.
+__host__ __device__
+inline void copy(cuDoubleComplex a, cuFloatComplex& b)
+{
+    b = make_cuFloatComplex( real( a ), imag( a ) );
+}
 
-/// @return imaginary component of complex number x; 0 for real number.
-/// @ingroup complex
-__host__ __device__  inline double imag(double             x) { return 0.; }
-__host__ __device__  inline float  imag(float              x) { return 0.f; }
+/// Sets b = a, converting from float to complex-float.
+__host__ __device__
+inline void copy( float a, cuFloatComplex& b )
+{
+    b = make_cuFloatComplex( a, 0 );
+}
 
-/// @return conjugate of complex number x; x for real number.
-/// @ingroup complex
-__host__ __device__  inline double conj(double             x) { return x; }
-__host__ __device__  inline float  conj(float              x) { return x; }
+/// Sets b = a, converting from double to complex-double.
+__host__ __device__
+inline void copy( double a, cuDoubleComplex& b )
+{
+    b = make_cuDoubleComplex( a, 0 );
+}
+
+//==============================================================================
+// CUDA doesn't provide operators, so define our own.
+// rocBLAS provides operators.
+//
+// complex-double
 
 #if defined( BLAS_HAVE_CUBLAS )
 
@@ -531,8 +538,8 @@ operator /= (cuDoubleComplex& a, const double s)
     return a;
 }
 
-// =============================================================================
-// cuFloatComplex
+//==============================================================================
+// complex-float
 
 // ---------- negate
 __host__ __device__  inline cuFloatComplex

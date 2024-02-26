@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,10 +8,8 @@
 #include "test.hh"
 #include "print_matrix.hh"
 
-#include "scalapack_support_routines.hh"
 #include "band_utils.hh"
 #include "grid_utils.hh"
-#include "matrix_generator.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -217,9 +215,9 @@ void test_stedc_work( Params& params, bool run )
             }
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int Zref_desc[9];
-            int mpi_rank_, nprocs;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int Zref_desc[9];
+            blas_int mpi_rank_, nprocs;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo( &mpi_rank_, &nprocs );
@@ -233,6 +231,7 @@ void test_stedc_work( Params& params, bool run )
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit( Zref_desc, n, n, nb, nb, 0, 0, ictxt, lldZ, &info );
             slate_assert( info == 0 );
 
@@ -300,7 +299,7 @@ void test_stedc( Params& params, bool run )
             break;
 
         default:
-            throw std::exception();
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

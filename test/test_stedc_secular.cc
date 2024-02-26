@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,7 +8,6 @@
 #include "test.hh"
 #include "print_matrix.hh"
 
-#include "scalapack_support_routines.hh"
 #include "band_utils.hh"
 #include "grid_utils.hh"
 
@@ -192,22 +191,22 @@ void test_stedc_secular_work( Params& params, bool run )
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_get( -1, 0, &ictxt );
             Cblacs_gridinit( &ictxt, "Col", p, q );
             Cblacs_gridinfo( ictxt, &p_, &q_, &myrow_, &mycol_ );
 
-            std::vector<int> itype_ref( n, -1 ),
-                             pcols_ref( n, -1 ),
-                             prows_ref( n, -1 ),
-                             irow( n, -1 ),
-                             icol( n, -1 ),
-                             ct_count_ref( q*4, -1 );
+            std::vector<blas_int> itype_ref( n, -1 ),
+                                  pcols_ref( n, -1 ),
+                                  prows_ref( n, -1 ),
+                                  irow( n, -1 ),
+                                  icol( n, -1 ),
+                                  ct_count_ref( q*4, -1 );
             std::vector<scalar_t> buf( 3*n, -1 ),
                                   ztilde_ref( n, -1 );
-            int info = 0;
+            int64_t info = 0;
 
             // Copy & convert idx from 0-based to 1-based.
             for (int64_t j = 0; j < n; ++j) {
@@ -227,13 +226,13 @@ void test_stedc_secular_work( Params& params, bool run )
                 printf( "-------------------- ScaLAPACK input\n" );
                 printf( "itype_ref = [ " );
                 for (int64_t j = 0; j < n; ++j) {
-                    printf( " %d", itype_ref[ j ] );
+                    printf( " %lld", llong( itype_ref[ j ] ) );
                 }
                 printf( " ];\n" );
 
                 printf( "ct_count_ref = [ " );
                 for (int64_t j = 0; j < n; ++j) {
-                    printf( " %d", itype_ref[ j ] );
+                    printf( " %lld", llong( itype_ref[ j ] ) );
                 }
                 printf( " ];\n" );
             }
@@ -320,7 +319,7 @@ void test_stedc_secular( Params& params, bool run )
             break;
 
         default:
-            throw std::exception();
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

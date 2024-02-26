@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -63,6 +63,9 @@ __global__ void tzscale_kernel(
         }
     }
 }
+
+//==============================================================================
+namespace batch {
 
 //------------------------------------------------------------------------------
 /// Batched routine for element-wise trapezoidal tile scale.
@@ -141,21 +144,34 @@ void tzscale(
     double numer, double denom, double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
+template <>
 void tzscale(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
     float numer, float denom,
-    cuFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    tzscale( uplo, m, n, numer, denom,
+             (cuFloatComplex**) Aarray, lda,
+             batch_count, queue );
+}
 
-template
+template <>
 void tzscale(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
     double numer, double denom,
-    cuDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    tzscale( uplo, m, n, numer, denom,
+             (cuDoubleComplex**) Aarray, lda,
+             batch_count, queue );
+}
 
+} // namespace batch
 } // namespace device
 } // namespace slate

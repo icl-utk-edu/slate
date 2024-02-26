@@ -1,8 +1,9 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
+#include "slate/Exception.hh"
 #include "slate/internal/device.hh"
 
 #include <cstdio>
@@ -42,6 +43,7 @@ void geset(
     scalar_t* A, int64_t lda,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (m == 0 || n == 0)
         return;
@@ -56,6 +58,9 @@ void geset(
             rowA[j*lda] = (j != i) ? offdiag_value : diag_value;
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -127,6 +132,7 @@ void geset(
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (batch_count == 0)
         return;
@@ -149,6 +155,9 @@ void geset(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

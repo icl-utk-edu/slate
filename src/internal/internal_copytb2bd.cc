@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -63,7 +63,6 @@ void copytb2bd(internal::TargetType<Target::HostTask>,
             auto T = A(i-1, i);
             E[E_index] = real( T(T.mb()-1, 0) );
             E_index += 1;
-            A.tileTick(i-1, i);
         }
 
         // Copy main diagonal to D.
@@ -80,7 +79,6 @@ void copytb2bd(internal::TargetType<Target::HostTask>,
             E[E_index + j] = real( T(j, j+1) );
         }
         E_index += len-1;
-        A.tileTick(i, i);
     }
 }
 

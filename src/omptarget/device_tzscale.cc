@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -12,6 +12,7 @@
 
 namespace slate {
 namespace device {
+namespace batch {
 
 //------------------------------------------------------------------------------
 /// Batched routine for element-wise trapezoidal tile scale.
@@ -57,6 +58,7 @@ void tzscale(
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (batch_count == 0)
         return;
@@ -85,6 +87,9 @@ void tzscale(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -119,5 +124,6 @@ void tzscale(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
+} // namespace batch
 } // namespace device
 } // namespace slate

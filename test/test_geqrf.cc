@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -11,7 +11,6 @@
 #include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -222,9 +221,9 @@ void test_geqrf_work(Params& params, bool run)
             // A comparison with a reference routine from ScaLAPACK for timing only
 
             // BLACS/MPI variables
-            int ictxt, myrow_, mycol_, info, p_, q_;
-            int Aref_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, myrow_, mycol_, p_, q_;
+            blas_int Aref_desc[9];
+            blas_int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
@@ -236,6 +235,7 @@ void test_geqrf_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
@@ -248,8 +248,6 @@ void test_geqrf_work(Params& params, bool run)
             std::vector<scalar_t> work(1);
             //---------------
 
-            int64_t info_ref = 0;
-
             if (check) {
                 // Copy original A for ScaLAPACK check
                 slate::copy(Aref, A);
@@ -258,7 +256,8 @@ void test_geqrf_work(Params& params, bool run)
             // query for workspace size
             scalar_t dummy;
             scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                             &dummy, -1, &info_ref);
+                             &dummy, -1, &info);
+            slate_assert( info == 0 );
             lwork = int64_t( real( dummy ) );
             work.resize(lwork);
 
@@ -267,8 +266,8 @@ void test_geqrf_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                             work.data(), lwork, &info_ref);
-            slate_assert(info_ref == 0);
+                             work.data(), lwork, &info);
+            slate_assert( info == 0 );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             if (0) {
@@ -298,14 +297,16 @@ void test_geqrf_work(Params& params, bool run)
                 scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
                                  &Aref_data[0], 1, 1, Aref_desc, tau.data(),
                                  &scala_QR_data[0], 1, 1, Aref_desc,
-                                 &dummy, -1, &info_ref);
+                                 &dummy, -1, &info);
+                slate_assert( info == 0 );
                 lwork = int64_t( real( dummy ) );
                 work.resize(lwork);
+
                 scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
                                  &Aref_data[0], 1, 1, Aref_desc, tau.data(),
                                  &scala_QR_data[0], 1, 1, Aref_desc,
-                                 work.data(), lwork, &info_ref);
-                slate_assert(info_ref == 0);
+                                 work.data(), lwork, &info);
+                slate_assert( info == 0 );
 
                 print_matrix("QR", scala_QR, params);
 
@@ -335,10 +336,6 @@ void test_geqrf_work(Params& params, bool run)
 void test_geqrf(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_geqrf_work<float> (params, run);
             break;
@@ -353,6 +350,10 @@ void test_geqrf(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_geqrf_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

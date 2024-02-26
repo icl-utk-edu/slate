@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -21,7 +21,7 @@ namespace impl {
 /// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
-void getrf_tntpiv(
+int64_t getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
@@ -32,18 +32,18 @@ void getrf_tntpiv(
 
     // Constants
     const scalar_t one = 1.0;
-    const int life_1 = 1;
     const int priority_0 = 0;
     const int priority_1 = 1;
     const int queue_0 = 0;
     const int queue_1 = 1;
+    const int queue_2 = 2;
 
     // Options
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    int64_t lookahead = get_option<Option::Lookahead>( opts, 1 );
+    int64_t ib = get_option<Option::InnerBlocking>( opts, 16 );
     int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
-                                             max_panel_threads );
+    max_panel_threads = get_option<Option::MaxPanelThreads>(
+                                                      opts, max_panel_threads );
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -57,22 +57,22 @@ void getrf_tntpiv(
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;
 
+    int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    bool is_shared = target == Target::Devices && lookahead > 0;
     pivots.resize(min_mt_nt);
 
     // setting up dummy variables for case the when target == host
     int64_t num_devices  = A.num_devices();
     int     panel_device = -1;
-    size_t  work_size    = 0;
+    size_t  dwork_bytes  = 0;
 
-    std::vector< scalar_t* > dwork_array( num_devices, nullptr );
+    std::vector< char* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
         const int64_t batch_size_default = 0;
-        int num_queues = 2 + lookahead;
+        int num_queues = 3 + lookahead;
         A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
 
@@ -100,25 +100,32 @@ void getrf_tntpiv(
         }
 
         if (panel_device >= 0) {
-
             lapack::Queue* comm_queue = A.comm_queue(panel_device);
 
-            int64_t nb       = A.tileNb(0);
-            int64_t size_A   = blas::max( 1, mlocal ) * nb;
-            int64_t diag_len = blas::min( A.tileMb(0), nb );
-            size_t  hsize, dsize;
+            int64_t nb           = A.tileNb(0);
+            int64_t diag_len     = blas::min( A.tileMb(0), nb );
+            size_t  size_A_bytes = blas::max( 1, mlocal ) * nb * sizeof( scalar_t );
+            size_t  ipiv_bytes   = diag_len * sizeof( device_pivot_int );
 
             // Find size of the workspace needed
-            lapack::getrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
+            scalar_t* dA = (scalar_t*) dwork_array[ 0 ];
+            size_t hsize, dsize;
+            lapack::getrf_work_size_bytes( mlocal, nb, dA, mlocal,
                                            &dsize, &hsize, *comm_queue );
 
-            // Size of dA, dipiv, dwork and dinfo
-            work_size = size_A + diag_len + ceildiv(dsize, sizeof(scalar_t))
-                        + ceildiv(sizeof(device_info_int), sizeof(scalar_t));
+            // Pad arrays to 8-byte boundaries.
+            dsize        = roundup( dsize,        size_t( 8 ) );
+            size_A_bytes = roundup( size_A_bytes, size_t( 8 ) );
+            ipiv_bytes   = roundup( ipiv_bytes,   size_t( 8 ) );
+
+            // Size of dA, dwork, dipiv, and dinfo in bytes.
+            dwork_bytes = dsize + size_A_bytes + ipiv_bytes
+                        + sizeof( device_info_int );
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
                 lapack::Queue* queue = A.comm_queue( dev );
-                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size, *queue);
+                dwork_array[ dev ]
+                    = blas::device_malloc<char>( dwork_bytes, *queue );
             }
         }
     }
@@ -127,6 +134,9 @@ void getrf_tntpiv(
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
     SLATE_UNUSED( column ); // Used only by OpenMP
+    std::vector< uint8_t > diag_vector(A_nt);
+    uint8_t* diag = diag_vector.data();
+    SLATE_UNUSED( diag ); // Used only by OpenMP
 
     // Running two listBcastMT's simultaneously can hang due to task ordering
     // This dependency avoids that
@@ -142,6 +152,7 @@ void getrf_tntpiv(
     #pragma omp parallel
     #pragma omp master
     {
+        int64_t kk = 0;
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
@@ -149,6 +160,7 @@ void getrf_tntpiv(
 
             // panel, high priority
             #pragma omp task depend(inout:column[k]) \
+                             depend(inout:diag[k]) \
                              priority(1)
             {
                 auto Apanel = Awork.sub( k, A_mt-1, k, k );
@@ -156,10 +168,14 @@ void getrf_tntpiv(
 
                 // Factor A(k:mt-1, k) using tournament pivoting to get
                 // pivots and diagonal tile, Akk in workspace Apanel.
+                int64_t iinfo;
                 internal::getrf_tntpiv_panel<target>(
                     A.sub(k, A_mt-1, k, k), std::move(Apanel),
-                    dwork_array, work_size, diag_len, ib,
-                    pivots.at(k), max_panel_threads, priority_1 );
+                    dwork_array, dwork_bytes, diag_len, ib,
+                    pivots.at(k), max_panel_threads, priority_1, &iinfo );
+                if (info == 0 && iinfo > 0) {
+                    info = kk + iinfo;
+                }
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -188,15 +204,15 @@ void getrf_tntpiv(
                                                A.sub(k, k, k+1, A_nt-1)}});
 
                 A.template listBcast<target>(
-                    bcast_list_A, host_layout, tag_k, life_1, is_shared );
+                    bcast_list_A, host_layout, tag_k );
 
                 Apanel.clear();
             }
 
             // Finish computing panel using trsm below diagonal tile.
             // A_k+1:mt,k = A_k+1:mt,k * Tkk^{-1}
-            #pragma omp task depend(inout:column[k]) \
-                             depend(inout:listBcastMT_token) \
+            #pragma omp task depend(in:diag[k]) \
+                             depend(inout:column[k]) \
                              priority(1)
             {
                 auto Akk = A.sub(k, k, k, k);
@@ -207,8 +223,13 @@ void getrf_tntpiv(
                     Side::Right,
                     one, std::move(Tkk),
                          A.sub( k+1, A_mt-1, k, k ),
-                    priority_1, Layout::ColMajor, queue_0 );
+                    priority_1, target_layout, queue_0 );
+            }
 
+            #pragma omp task depend(inout:column[k]) \
+                             depend(inout:listBcastMT_token) \
+                             priority(1)
+            {
                 BcastListTag bcast_list;
                 // bcast the tiles of the panel to the right hand side
                 for (int64_t i = k+1; i < A_mt; ++i) {
@@ -217,18 +238,18 @@ void getrf_tntpiv(
                     bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
                 A.template listBcastMT<target>(
-                    bcast_list, Layout::ColMajor, life_1, is_shared );
+                    bcast_list, target_layout );
             }
 
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
-                #pragma omp task depend(in:column[k]) \
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[j]) \
                                  priority(1)
                 {
                     // swap rows in A(k:mt-1, j)
-                    int tag_j = j;
-                    int queue_jk1 = j-k+1;
+                    int tag_j = j + A_mt;
+                    int queue_jk1 = j-(k+1)+3;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
                         target_layout, priority_1, tag_j, queue_jk1 );
@@ -241,14 +262,20 @@ void getrf_tntpiv(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub( k, k, j, j ),
-                        priority_1, Layout::ColMajor, queue_jk1 );
+                        priority_1, target_layout, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
                     A.tileBcast(
                         k, j, A.sub( k+1, A_mt-1, j, j ),
-                        Layout::ColMajor, tag_j );
+                        target_layout, tag_j );
+                }
 
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[j]) \
+                                 priority(1)
+                {
+                    int queue_jk1 = j-(k+1)+3;
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
                         -one, A.sub( k+1, A_mt-1, k, k ),
@@ -258,29 +285,14 @@ void getrf_tntpiv(
                 }
             }
 
-            // pivot to the left
-            if (k > 0) {
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[0]) \
-                                 depend(inout:column[k-1])
-                {
-                    // swap rows in A(k:mt-1, 0:k-1)
-                    int tag = 1 + k + A_mt * 2;
-                    internal::permuteRows<Target::HostTask>(
-                        Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                        host_layout, priority_0, tag, queue_0 );
-                }
-            }
-
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
-                #pragma omp task depend(in:column[k]) \
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
-                                 depend(inout:listBcastMT_token) \
                                  depend(inout:column[A_nt-1])
                 {
                     // swap rows in A(k:mt-1, kl+1:nt-1)
-                    int tag_kl1 = k+1+lookahead;
+                    int tag_kl1 = k+1+lookahead + A_mt;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
                         pivots.at(k), target_layout, priority_0, tag_kl1, queue_1 );
@@ -294,8 +306,13 @@ void getrf_tntpiv(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub( k, k, k+1+lookahead, A_nt-1 ),
-                        priority_0, Layout::ColMajor, queue_1 );
+                        priority_0, target_layout, queue_1 );
+                }
 
+                #pragma omp task depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:column[A_nt-1]) \
+                                 depend(inout:listBcastMT_token)
+                {
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
                     for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
@@ -305,8 +322,14 @@ void getrf_tntpiv(
                         bcast_list.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}, tag});
                     }
                     A.template listBcastMT<target>(
-                        bcast_list, Layout::ColMajor);
+                        bcast_list, target_layout);
 
+                }
+
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:column[A_nt-1])
+                {
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                         -one, A.sub( k+1, A_mt-1, k, k ),
@@ -315,24 +338,46 @@ void getrf_tntpiv(
                         host_layout, priority_0, queue_1 );
                 }
             }
-            if (is_shared) {
-                #pragma omp task depend(inout:column[k])
+            // pivot to the left
+            if (k > 0) {
+                #pragma omp task depend(in:diag[k]) \
+                                 depend(inout:column[0]) \
+                                 depend(inout:column[k-1])
                 {
-                    for (int64_t i = k+1; i < A_mt; ++i) {
-                        if (A.tileIsLocal(i, k)) {
-                            A.tileUpdateOrigin(i, k);
-
-                            std::set<int> dev_set;
-                            A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
-
-                            for (auto device : dev_set) {
-                                A.tileUnsetHold(i, k, device);
-                                A.tileRelease(i, k, device);
-                            }
-                        }
+                    // swap rows in A(k:mt-1, 0:k-1)
+                    int tag = A_mt * 2; // permuteRows uses tag:tag+k-1 as tags
+                    if (A.origin() == Target::Devices && target == Target::Devices) {
+                        internal::permuteRows<Target::Devices>(
+                            Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+                            target_layout, priority_0, tag, queue_2 );
+                    }
+                    else {
+                        internal::permuteRows<Target::HostTask>(
+                            Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+                            host_layout, priority_0, tag, queue_2 );
                     }
                 }
             }
+
+            #pragma omp task depend(inout:column[k])
+            {
+                auto left_panel = A.sub( k, A_mt-1, k, k );
+                auto top_panel = A.sub( k, k, k+1, A_nt-1 );
+
+                // Erase remote tiles on all devices including host
+                left_panel.releaseRemoteWorkspace();
+                top_panel.releaseRemoteWorkspace();
+
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                left_panel.tileUpdateAllOrigin();
+                top_panel.tileUpdateAllOrigin();
+
+                // Erase local workspace on devices.
+                left_panel.releaseLocalWorkspace();
+                top_panel.releaseLocalWorkspace();
+            }
+            kk += A.tileNb( k );
         }
         #pragma omp taskwait
 
@@ -346,6 +391,9 @@ void getrf_tntpiv(
             dwork_array[dev] = nullptr;
         }
     }
+
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -394,17 +442,16 @@ void getrf_tntpiv(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
-///         factorization has been completed, but the factor $U$ is exactly
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
 ///
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf_tntpiv(
+int64_t getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
@@ -413,43 +460,39 @@ void getrf_tntpiv(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::getrf_tntpiv<Target::HostTask>( A, pivots, opts );
-            break;
+            return impl::getrf_tntpiv<Target::HostTask>( A, pivots, opts );
 
         case Target::HostNest:
-            impl::getrf_tntpiv<Target::HostNest>( A, pivots, opts );
-            break;
+            return impl::getrf_tntpiv<Target::HostNest>( A, pivots, opts );
 
         case Target::HostBatch:
-            impl::getrf_tntpiv<Target::HostBatch>( A, pivots, opts );
-            break;
+            return impl::getrf_tntpiv<Target::HostBatch>( A, pivots, opts );
 
         case Target::Devices:
-            impl::getrf_tntpiv<Target::Devices>( A, pivots, opts );
-            break;
+            return impl::getrf_tntpiv<Target::Devices>( A, pivots, opts );
     }
-    // todo: return value for errors?
+    return -2;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void getrf_tntpiv<float>(
+int64_t getrf_tntpiv<float>(
     Matrix<float>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_tntpiv<double>(
+int64_t getrf_tntpiv<double>(
     Matrix<double>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_tntpiv< std::complex<float> >(
+int64_t getrf_tntpiv< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_tntpiv< std::complex<double> >(
+int64_t getrf_tntpiv< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Options const& opts);
 

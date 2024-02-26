@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -7,10 +7,11 @@
 #include "test.hh"
 #include "blas/flops.hh"
 
+#include "matrix_utils.hh"
+#include "test_utils.hh"
+
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
-#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -23,6 +24,7 @@ void test_syrk_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using slate::Norm;
+    using slate::ceildiv;
 
     // Constants
     const scalar_t zero = 0.0, one = 1.0;
@@ -34,10 +36,7 @@ void test_syrk_work(Params& params, bool run)
     int64_t k = params.dim.k();
     scalar_t alpha = params.alpha.get<scalar_t>();
     scalar_t beta = params.beta.get<scalar_t>();
-    int p = params.grid.m();
-    int q = params.grid.n();
     int64_t nrhs = params.nrhs();
-    int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
@@ -47,6 +46,9 @@ void test_syrk_work(Params& params, bool run)
     slate::Target target = params.target();
     params.matrix.mark();
     params.matrixC.mark();
+
+    mark_params_for_test_SymmetricMatrix( params );
+    mark_params_for_test_Matrix( params );
 
     // mark non-standard output values
     params.time();
@@ -61,6 +63,11 @@ void test_syrk_work(Params& params, bool run)
     if (! run)
         return;
 
+    // Check for common invalid combinations
+    if (is_invalid_parameters( params )) {
+        return;
+    }
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
@@ -72,64 +79,26 @@ void test_syrk_work(Params& params, bool run)
     // setup so op(A) is n-by-k
     int64_t Am = (transA == slate::Op::NoTrans ? n : k);
     int64_t An = (transA == slate::Op::NoTrans ? k : n);
-    int64_t Cm = n;
     int64_t Cn = n;
 
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
+    auto A_alloc = allocate_test_Matrix<scalar_t>( false, true, Am, An, params );
+    auto C_alloc = allocate_test_SymmetricMatrix<scalar_t>( ref, true, Cn, params );
 
-    // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
-    int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
-    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-
-    // Matrix C: figure out local size.
-    int64_t mlocC = num_local_rows_cols(Cm, nb, myrow, p);
-    int64_t nlocC = num_local_rows_cols(Cn, nb, mycol, q);
-    int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
-
-    // Allocate ScaLAPACK data if needed.
-    std::vector<scalar_t> A_data, C_data;
-    if (ref || origin == slate::Origin::ScaLAPACK) {
-        A_data.resize( lldA * nlocA );
-        C_data.resize( lldC * nlocC );
-    }
-
-    slate::Matrix<scalar_t> A;
-    slate::SymmetricMatrix<scalar_t> C;
-    slate::Target origin_target = origin2target(origin);
-    if (origin != slate::Origin::ScaLAPACK) {
-        // SLATE allocates CPU or GPU tiles.
-        A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin_target);
-
-        C = slate::SymmetricMatrix<scalar_t>(uplo, Cn, nb, p, q, MPI_COMM_WORLD);
-        C.insertLocalTiles(origin_target);
-    }
-    else {
-        // Create SLATE matrices from the ScaLAPACK layouts.
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(
-                Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
-                uplo, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-    }
+    auto& A         = A_alloc.A;
+    auto& C         = C_alloc.A;
+    auto& Cref      = C_alloc.Aref;
 
     slate::generate_matrix( params.matrix, A );
     slate::generate_matrix( params.matrixC, C );
 
-    #ifdef SLATE_HAVE_SCALAPACK
-        // If reference run is required, copy test data.
-        slate::SymmetricMatrix<scalar_t> Cref;
-        std::vector<scalar_t> Cref_data;
-        if (check || ref) {
-            Cref_data.resize( lldC * nlocC );
-            Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-            slate::copy( C, Cref );
-        }
-    #endif
+    // If reference run is required, record norms to be used in the check/ref.
+    real_t A_norm=0, C_orig_norm=0;
+    if (ref) {
+        slate::copy( C, Cref );
+
+        A_norm = slate::norm(norm, A);
+        C_orig_norm = slate::norm(norm, Cref);
+    }
 
     // Keep the original untransposed A matrix,
     // and make a shallow copy of it for transposing.
@@ -144,17 +113,19 @@ void test_syrk_work(Params& params, bool run)
     else slate::trace::Trace::off();
 
     // If check run, perform first half of SLATE residual check.
-    slate::Matrix<scalar_t> X, Y, Z;
+    TestMatrix<slate::Matrix<scalar_t>> X_alloc, Y_alloc, Z_alloc;
     if (check && ! ref) {
-        X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
-        X.insertLocalTiles(origin_target);
-        Y = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
-        Y.insertLocalTiles(origin_target);
-        Z = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD);
-        Z.insertLocalTiles(origin_target);
+        X_alloc = allocate_test_Matrix<scalar_t>( false, true, An, nrhs, params );
+        Y_alloc = allocate_test_Matrix<scalar_t>( false, true, Am, nrhs, params );
+        Z_alloc = allocate_test_Matrix<scalar_t>( false, true, Am, nrhs, params );
+
+        auto& X = X_alloc.A;
+        auto& Y = Y_alloc.A;
+        auto& Z = Z_alloc.A;
+
         MatrixParams mp;
         mp.kind.set_default( "rand" );
-        generate_matrix( mp, X );
+        slate::generate_matrix( mp, X );
 
         // Compute Y = alpha A (A^T X) + (beta C X).
         // Y = beta C X
@@ -186,6 +157,9 @@ void test_syrk_work(Params& params, bool run)
     params.gflops() = gflop / time;
 
     if (check && ! ref) {
+        auto& X = X_alloc.A;
+        auto& Y = Y_alloc.A;
+
         // SLATE residual check.
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
@@ -204,46 +178,26 @@ void test_syrk_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
-            // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], C_desc[9], Cref_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
-
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank_ == mpi_rank );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
+            blas_int ictxt, A_desc[9], C_desc[9], Cref_desc[9];
+            A_alloc.create_ScaLAPACK_context( &ictxt );
 
-            scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
+            C_alloc.ScaLAPACK_descriptor( ictxt, C_desc );
+            C_alloc.ScaLAPACK_descriptor( ictxt, Cref_desc );
 
-            scalapack_descinit(C_desc, Cm, Cn, nb, nb, 0, 0, ictxt, mlocC, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, 0, 0, ictxt, mlocC, &info);
-            slate_assert(info == 0);
+            auto& A_data = A_alloc.A_data;
+            auto& C_data = C_alloc.A_data;
+            auto& Cref_data = C_alloc.Aref_data;
 
             if (origin != slate::Origin::ScaLAPACK) {
+                A_data.resize( A_alloc.lld * A_alloc.nloc );
+                C_data.resize( C_alloc.lld * C_alloc.nloc );
+
                 // Copy SLATE result back from GPU or CPU tiles.
-                copy( A, &A_data[0], A_desc );
-                copy( C, &C_data[0], C_desc );
+                copy(A, &A_data[0], A_desc);
+                copy(C, &C_data[0], C_desc);
             }
-
-            // allocate workspace for norms
-            size_t ldw = nb*ceil(ceil(mlocC / (double) nb) / (scalapack_ilcm(&p, &q) / p));
-            std::vector<real_t> worklansy(2*nlocC + mlocC + ldw);
-            std::vector<real_t> worklange(std::max(mlocA, nlocA));
-
-            // get norms of the original data
-            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], 1, 1, A_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -254,11 +208,11 @@ void test_syrk_work(Params& params, bool run)
                             &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
-            // local operation: error = Cref_data - C_data
-            blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
+            // get differences C = C - Cref
+            slate::add(-one, Cref, one, C);
 
-            // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
+            // norm(C - Cref)
+            real_t C_diff_norm = slate::norm(norm, C);
 
             real_t error = C_diff_norm
                          / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * A_norm
@@ -274,7 +228,7 @@ void test_syrk_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
-            if (mpi_rank == 0)
+            if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }
@@ -284,10 +238,6 @@ void test_syrk_work(Params& params, bool run)
 void test_syrk(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_syrk_work<float> (params, run);
             break;
@@ -302,6 +252,10 @@ void test_syrk(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_syrk_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

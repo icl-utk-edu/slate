@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -193,25 +193,24 @@ void test_geadd_dev()
         };
 
     // Each tuple contains (alpha, beta)
-    std::list<
-              std::tuple< std::complex<double>, std::complex<double> >
-             > values_list{
+    std::list< std::tuple< std::complex<double>, std::complex<double> > >
+        values_list{
             // All 0
             { {   0,   0 },
               {   0,   0 } },
-            // 1 and 1
+            // alpha == 1, beta == 1
             { {   1,   0 },
               {   1,   0 } },
-            // Offdiag 0, diag != 0
+            // alpha == 0, beta != 0
             { {   0,   0 },
               { 0.5, 0.5 } },
-            // Offdiag != 0, diag 0
+            // alpha != 0, beta == 0
             { { 0.3, 0.3 },
               {   0,   0 } },
-            // Real != 0, Imag 0
+            // Real == 0, Imag != 0
             { {   0, 0.3 },
               {   0, 0.5 } },
-            // Real = 0, Imag != 0
+            // Real != 0, Imag == 0
             { { 0.3,   0 },
               { 0.5,   0 } },
             // Standard case
@@ -494,22 +493,24 @@ void test_geadd_batch_dev()
         };
 
     // Each tuple contains (alpha, beta)
-    std::list<
-              std::tuple< std::complex<double>, std::complex<double> >
-             > values_list{
+    std::list< std::tuple< std::complex<double>, std::complex<double> > >
+        values_list{
             // All 0
             { {   0,   0 },
               {   0,   0 } },
-            // Offdiag 0, diag != 0
+            // alpha == 1, beta == 1
+            { {   1,   0 },
+              {   1,   0 } },
+            // alpha == 0, beta != 0
             { {   0,   0 },
               { 0.5, 0.5 } },
-            // Offdiag != 0, diag 0
+            // alpha != 0, beta == 0
             { { 0.3, 0.3 },
               {   0,   0 } },
-            // Real != 0, Imag 0
+            // Real == 0, Imag != 0
             { {   0, 0.3 },
               {   0, 0.5 } },
-            // Real = 0, Imag != 0
+            // Real != 0, Imag == 0
             { { 0.3,   0 },
               { 0.5,   0 } },
             // Standard case

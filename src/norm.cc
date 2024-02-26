@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -43,6 +43,13 @@ norm(
     else if (A.op() == Op::Trans)
         A = transpose(A);
 
+    if (target == Target::Devices) {
+        const int64_t batch_size_default = 0;
+        const int64_t num_queues = 1;
+        A.allocateBatchArrays( batch_size_default, num_queues );
+        A.reserveDeviceWorkspace();
+    }
+
     //---------
     // max norm
     // max_{i,j} abs( A_{i,j} )
@@ -50,10 +57,6 @@ norm(
 
         real_t local_max;
         real_t global_max;
-
-        // TODO: Allocate batch arrays here, not in internal.
-        if (target == Target::Devices)
-            A.reserveDeviceWorkspace();
 
         #pragma omp parallel
         #pragma omp master
@@ -94,10 +97,6 @@ norm(
 
         std::vector<real_t> local_sums(A.n());
 
-        if (target == Target::Devices) {
-            A.reserveDeviceWorkspace();
-        }
-
         #pragma omp parallel
         #pragma omp master
         {
@@ -125,10 +124,6 @@ norm(
     else if (in_norm == Norm::Inf) {
 
         std::vector<real_t> local_sums(A.m());
-
-        if (target == Target::Devices) {
-            A.reserveDeviceWorkspace();
-        }
 
         #pragma omp parallel
         #pragma omp master
@@ -159,10 +154,6 @@ norm(
         real_t local_values[2];
         real_t local_sumsq;
         real_t global_sumsq;
-
-        if (target == Target::Devices) {
-            A.reserveDeviceWorkspace();
-        }
 
         #pragma omp parallel
         #pragma omp master

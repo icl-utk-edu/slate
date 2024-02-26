@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -49,8 +49,6 @@ void symm(
 
     // Constants
     const scalar_t one = 1.0;
-    const int priority_0 = 0;
-    const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -68,13 +66,7 @@ void symm(
     assert( B.mt() == C.mt() );
     assert( B.nt() == C.nt() );
 
-    // Use only TileReleaseStrategy::Slate for hemm.
-    // Internal hemm and gemm routines called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options opts_local = opts;
-    opts_local[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
-    int64_t lookahead = get_option<int64_t>( opts_local, Option::Lookahead, 1 );
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector( A.nt() );
@@ -156,8 +148,7 @@ void symm(
                     Side::Left,
                     alpha, A.sub( 0, 0 ),
                            std::move( Brow_0 ),
-                    beta,  C.sub( 0, 0, 0, C.nt()-1 ),
-                    priority_0, opts_local );
+                    beta,  C.sub( 0, 0, 0, C.nt()-1 ) );
 
                 // Erase local & remote tile on all devices including host.
                 A.releaseRemoteWorkspaceTile( 0, 0 );
@@ -169,7 +160,7 @@ void symm(
                         alpha, std::move( Acol_0 ),
                                std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout, priority_0, queue_0, opts_local );
+                        layout );
 
                     // Don't release local Acol_0 here, because it may be
                     // bcast again, creating a race condition.
@@ -242,7 +233,7 @@ void symm(
                         alpha,  transpose( Arow_k ),
                                 std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout, priority_0, queue_0, opts_local );
+                        layout );
 
                     Arow_k.releaseRemoteWorkspace();
                     Arow_k.releaseLocalWorkspace();
@@ -251,8 +242,7 @@ void symm(
                         Side::Left,
                         alpha,  A.sub( k, k ),
                                 std::move( Brow_k ),
-                        one,    C.sub( k, k, 0, C.nt()-1 ),
-                        priority_0, opts_local );
+                        one,    C.sub( k, k, 0, C.nt()-1 ) );
 
                     A.releaseRemoteWorkspaceTile( k, k );
                     A.releaseLocalWorkspaceTile( k, k );
@@ -263,7 +253,7 @@ void symm(
                             alpha,  std::move( Acol_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout, priority_0, queue_0, opts_local );
+                            layout );
 
                         // Don't release local Acol_k here, because it may be
                         // bcast again, creating a race condition.
@@ -349,8 +339,7 @@ void symm(
                     Side::Left,
                     alpha, A.sub( 0, 0 ),
                            std::move( Brow_0 ),
-                    beta,  C.sub( 0, 0, 0, C.nt()-1 ),
-                    priority_0, opts_local );
+                    beta,  C.sub( 0, 0, 0, C.nt()-1 ) );
 
                 A.releaseRemoteWorkspaceTile( 0, 0 );
                 A.releaseLocalWorkspaceTile( 0, 0 );
@@ -361,7 +350,7 @@ void symm(
                         alpha, transpose( Arow_0 ),
                                std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout, priority_0, queue_0, opts_local );
+                        layout );
 
                     // Don't release local Arow_0 here, because it may be
                     // bcast again, creating a race condition.
@@ -432,7 +421,7 @@ void symm(
                         alpha,  std::move( Acol_k ),
                                 std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout, priority_0, queue_0, opts_local );
+                        layout );
 
                     Acol_k.releaseRemoteWorkspace();
                     Acol_k.releaseLocalWorkspace();
@@ -441,8 +430,7 @@ void symm(
                         Side::Left,
                         alpha,  A.sub( k, k ),
                                 std::move( Brow_k ),
-                        one,    C.sub( k, k, 0, C.nt()-1 ),
-                        priority_0, opts_local );
+                        one,    C.sub( k, k, 0, C.nt()-1 ) );
 
                     A.releaseRemoteWorkspaceTile( k, k );
                     A.releaseLocalWorkspaceTile( k, k );
@@ -453,7 +441,7 @@ void symm(
                             alpha,  transpose( Arow_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout, priority_0, queue_0, opts_local );
+                            layout );
 
                         // Don't release local Arow_k here, because it may be
                         // bcast again, creating a race condition.

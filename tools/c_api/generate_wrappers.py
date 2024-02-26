@@ -33,10 +33,10 @@ for line in file:
     if re.search(r'^ *// @begin function', line):
         function_is_found = True
         continue
-    if re.search(r'^void', line) or re.search(r'^double\s*slate_(.*?)norm_', line):
+    if re.search(r'^void', line) or re.search(r'^double\s*slate_(.*?)(?:norm|rcondest)_', line):
         header_is_found = True
 
-    if re.search(r'\s*int\s*num_opts\s*,\s*slate_Options\s*opts\s*\[\s*\]\s*\)', line):
+    if re.search(r'slate_Options\s*opts\s*\)', line):
         header_is_found = False
         container2 += line.replace('\n', ';\n')
         headers.append(container2)
@@ -65,7 +65,7 @@ file_hh = open(sys.argv[2], 'w')
 file_cc = open(sys.argv[3], 'w')
 
 copyright = '''\
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -89,7 +89,7 @@ file_hh.write('\n')
 
 file_cc.write(copyright + '\n')
 file_cc.write('#include "slate/c_api/wrappers.h"\n')
-file_cc.write('#include "slate/c_api/util.hh"\n')
+file_cc.write('#include "c_api/util.hh"\n')
 file_cc.write('#include "slate/slate.hh"\n\n')
 
 file_hh.write('''\

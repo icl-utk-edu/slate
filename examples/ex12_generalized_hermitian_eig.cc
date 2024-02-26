@@ -4,6 +4,11 @@
 // 2. A B = Z Lambda Z^H
 // 3. B A = Z Lambda Z^H
 // where B is Hermitian positive definite.
+
+/// !!!   Lines between `//---------- begin label`          !!!
+/// !!!             and `//---------- end label`            !!!
+/// !!!   are included in the SLATE Users' Guide.           !!!
+
 #include <slate/slate.hh>
 
 #include "util.hh"
@@ -14,57 +19,115 @@ int grid_p = 0;
 int grid_q = 0;
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename scalar_type>
 void test_hermitian_eig()
 {
-    using real_t = blas::real_type<T>;
+    using real_t = blas::real_type<scalar_type>;
 
     print_func( mpi_rank );
 
     int64_t n=1000, nb=256;
 
-    slate::HermitianMatrix<T> A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    slate::HermitianMatrix<T> B( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    //---------- begin eig1
+    slate::HermitianMatrix<scalar_type>
+        A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD ),
+        B( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type>
+        Z( n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    std::vector<real_t> Lambda( n );
+    // ...
+    //---------- end eig1
+
     A.insertLocalTiles();
     B.insertLocalTiles();
-    std::vector<real_t> Lambda( n );
+    Z.insertLocalTiles();
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
 
+    //----------------------------------------
+    //---------- begin eig2
     // Type 1: A = B Z Lambda Z^H, eigenvalues only
-    random_matrix( A );
-    random_matrix_diag_dominant( B );
-    slate::eig_vals( 1, A, B, Lambda );  // simplified API
+    slate::eig_vals( 1, A, B, Lambda );  // simplified API, or
+    //---------- end eig2
 
-    // Or
     random_matrix( A );
     random_matrix_diag_dominant( B );
+
+    //---------- begin eig3
     slate::eig( 1, A, B, Lambda );       // simplified API
+    //---------- end eig3
 
     random_matrix( A );
     random_matrix_diag_dominant( B );
+
+    //---------- begin eig4
     slate::hegv( 1, A, B, Lambda );      // traditional API
+    //---------- end eig4
+
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+
+    //----------------------------------------
+    //---------- begin eig5
 
     // Type 2: A B = Z Lambda Z^H, eigenvalues only
+    slate::eig_vals( 2, A, B, Lambda );  // simplified API
+    //---------- end eig5
+
     random_matrix( A );
     random_matrix_diag_dominant( B );
-    slate::eig_vals( 2, A, B, Lambda );  // simplified API
+
+    //----------------------------------------
+    //---------- begin eig6
 
     // Type 3: A = B Z Lambda Z^H, eigenvalues only
-    random_matrix( A );
-    random_matrix_diag_dominant( B );
     slate::eig_vals( 3, A, B, Lambda );  // simplified API
-
-    //--------------------
-    // Eigenvectors
-    slate::Matrix<T> Z( n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    Z.insertLocalTiles();
+    //---------- end eig6
 
     random_matrix( A );
     random_matrix_diag_dominant( B );
+
+    //----------------------------------------
+    //---------- begin eig7
+
+    // Types 1, 2, and 3, with eigenvectors
     slate::eig( 1, A, B, Lambda, Z );    // simplified API
+    //---------- end eig7
 
     random_matrix( A );
     random_matrix_diag_dominant( B );
+
+    //---------- begin eig8
+    slate::eig( 2, A, B, Lambda, Z );    // simplified API
+    //---------- end eig8
+
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+
+    //---------- begin eig9
+    slate::eig( 3, A, B, Lambda, Z );    // simplified API
+    //---------- end eig9
+
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+
+    //---------- begin eig10
     slate::hegv( 1, A, B, Lambda, Z );   // traditional API
+    //---------- end eig10
+
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+
+    //---------- begin eig11
+    slate::hegv( 2, A, B, Lambda, Z );   // traditional API
+    //---------- end eig11
+
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+
+    //---------- begin eig12
+    slate::hegv( 3, A, B, Lambda, Z );   // traditional API
+    //---------- end eig12
 }
 
 //------------------------------------------------------------------------------

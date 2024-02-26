@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -10,7 +10,6 @@
 #include "print_matrix.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "auxiliary/Debug.hh"
 #include "grid_utils.hh"
@@ -142,11 +141,12 @@ void test_hegst_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             A_norm = slate::norm(slate::Norm::One, Aref);
 
-            int ictxt;
+            blas_int ictxt;
             Cblacs_get(-1, 0, &ictxt);
             Cblacs_gridinit(&ictxt, "Col", p, q);
 
-            int A_desc[9], B_desc[9], info;
+            int64_t info;
+            blas_int A_desc[9], B_desc[9];
             scalapack_descinit(
                 A_desc, n, n, nb, nb, 0, 0, ictxt, mlocal, &info);
             slate_assert(info == 0);
@@ -202,10 +202,6 @@ void test_hegst_work(Params& params, bool run)
 void test_hegst(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_hegst_work<float>(params, run);
             break;
@@ -220,6 +216,10 @@ void test_hegst(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_hegst_work<std::complex<double>>(params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

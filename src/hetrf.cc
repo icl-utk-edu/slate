@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -24,12 +24,13 @@ namespace impl {
 /// @ingroup hesv_impl
 ///
 template <Target target, typename scalar_t>
-void hetrf(
+int64_t hetrf(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
     Options const& opts)
 {
+    using real_t = blas::real_type<scalar_t>;
     using blas::conj;
     using BcastList  = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
@@ -39,17 +40,24 @@ void hetrf(
     const scalar_t one  = 1.0;
     const int64_t ione  = 1;
     const int64_t izero = 0;
+    const int priority_0 = 0;
     const int priority_1 = 1;
+    const int tag_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // Options
+    real_t pivot_threshold
+        = get_option<double>( opts, Option::PivotThreshold, 1.0 );
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-    int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
+
+    // Using > 1 thread leads to hang, reason unclear.
+    int64_t max_panel_threads = 1;  //std::max( omp_get_max_threads()/2, 1 );
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
 
+    int64_t info = 0;
     int64_t A_mt = A.mt();
 
     std::vector< uint8_t > column_vectorL(A_mt);
@@ -66,11 +74,6 @@ void hetrf(
     SLATE_UNUSED( columnH1 ); // Used only by OpenMP
     SLATE_UNUSED( columnH2 ); // Used only by OpenMP
 
-    //std::vector< uint8_t > Ind1(1);
-    //std::vector< uint8_t > Ind2(A_mt);
-    //uint8_t* ind1 = Ind1.data();
-    //uint8_t* ind2 = Ind2.data();
-
     assert(A.uplo() == Uplo::Lower); // upper not implemented, yet
 
     pivots.resize(A_mt);
@@ -80,7 +83,6 @@ void hetrf(
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < A_mt; ++k) {
-        //printf( "\n == k = %ld on rank-%d ==\n",k,rank ); fflush(stdout);
         int tag  = 1+k;
         int tag1 = 1+k+A_mt*1;
         int tag2 = 1+k+A_mt*2;
@@ -96,11 +98,9 @@ void hetrf(
                              depend(out:columnH1[k]) \
                              priority(1)
             {
-                //printf( " >> compute H(%ld, %d:%ld) on rank-%d <<\n", k, 0,k-1, rank); fflush(stdout);
                 // going by row, H(k, i) = L(k, :) * T(:, i) for i=0,..,k+1
                 // send L(k, j) that are needed to compute H(:, k)
                 for (int64_t j = 0; j < k; ++j) {
-                    //printf( " %d: >> receiving A(%ld,:%ld) <<\n",rank,k,j  );
                     A.tileBcast(k, j, H.sub(k, k, std::max(j, ione)-1, std::min(j+2, k-1)-1), layout, tag);
                 }
                 for (int64_t i = 1; i < k; ++i) {
@@ -120,7 +120,8 @@ void hetrf(
                     }
                 }
                 #pragma omp taskwait
-                //printf( " >> compute H(%ld, %d:%ld) on rank-%d done <<\n", k, 0,k-1, rank); fflush(stdout);
+
+                A.sub( k, k, 0, k-1 ).releaseRemoteWorkspace();
             }
         }
 
@@ -133,7 +134,6 @@ void hetrf(
             #pragma omp task depend(in:columnL[k_1]) \
                              depend(out:columnT[k])
             {
-                //printf( " >> copy A(%ld, %ld) into T(%ld, %ld) <<\n", k, k, k, k); fflush(stdout);
                 T.tileInsert(k, k);
                 lapack::lacpy(lapack::MatrixType::Lower,
                       A(k, k).mb(), A(k, k).nb(),
@@ -142,7 +142,6 @@ void hetrf(
                 T.tileModified(k, k);
 
                 if (k == 0) {
-                    //printf( " ++ expanding ++\n" ); fflush(stdout);
                     int64_t ldt = T(k, k).stride();
                     scalar_t *tkk = T(k, k).data();
                     for (int i = 0; i < T(k, k).mb(); ++i) {
@@ -159,7 +158,6 @@ void hetrf(
                              depend(inout:columnT[k]) \
                              priority(1)
             {
-                //printf( " >> update T(%ld, %ld) on rank-%d <<\n", k, k, rank); fflush(stdout);
                 auto Hj = H.sub(k, k, 0, k-2);
                 Hj = conj_transpose( Hj );
 
@@ -173,7 +171,8 @@ void hetrf(
                 slate::internal::gemmA<Target::HostTask>(
                     -one, A.sub(k, k,   0, k-2),
                           Hj.sub(0, k-2, 0, 0),
-                    one,  T.sub(k, k,   k, k), layout);
+                    one,  T.sub(k, k,   k, k),
+                    layout, priority_0 );
                 #endif
 
                 ReduceList reduce_list;
@@ -182,6 +181,8 @@ void hetrf(
                                         {A.sub(k, k, 0, k-2)}
                                       });
                 T.template listReduce<target>(reduce_list, layout, tag);
+
+                T.sub( k, k, k, k ).releaseRemoteWorkspace();
 
                 // T(k, k) -= L(k, k)*T(k, k-1)* L(k,k-1)'
                 // using H(k, k) as workspace
@@ -211,7 +212,6 @@ void hetrf(
                              priority(1)
             {
                 // compute T(k, k) = L(k, k)^{-1} * T(k, k) * L(k, k)^{-T}
-                //printf( " trsm for T(%ld, %ld) <<\n", k, k); fflush(stdout);
                 if (k == 1) {
                     // > otherwise L(k, k) has been already sent to T(k, k) for updating A(k, k)
                     A.tileBcast(k, k-1, T.sub(k, k, k, k), layout, tag);
@@ -227,7 +227,6 @@ void hetrf(
                         Lkk(0, 0).data(), Lkk(0, 0).stride());
                     Lkk.tileModified(0, 0);
 
-                    //printf( " ++ expanding ++\n" ); fflush(stdout);
                     int64_t ldt = T(k, k).stride();
                     scalar_t *tkk = T(k, k).data();
                     for (int i = 0; i < T(k, k).mb(); ++i) {
@@ -239,7 +238,6 @@ void hetrf(
                 }
                 if (k+1 < A_mt) {
                     // send T(k, k) for computing H(k, k), moved from below?
-                    //printf( " tileBcast(T(%ld,%ld) to H(%ld,%ld) )\n",k,k,k,k-1 );
                     T.tileBcast(k, k, H.sub(k, k, k-1, k-1), layout, tag);
                 }
             }
@@ -250,7 +248,6 @@ void hetrf(
                                  priority(1)
                 {
                     // send T(k, k) that are needed to compute H(k+1:mt-1, k-1)
-                    //printf( " %d: Bcast( T(%ld,%ld) )\n",rank,k,k ); fflush(stdout);
                     T.tileBcast(k, k, H.sub(k+1, A_mt-1, k-1, k-1), layout, tag2);
                 }
             }
@@ -263,7 +260,6 @@ void hetrf(
                                  depend(inout:columnH2[k]) \
                                  priority(1)
                 {
-                    //printf( " >> compute H(%ld, %ld) on rank-%d <<\n", k, k, rank); fflush(stdout);
                     // compute H(k, k) = T(k, k) * L(k, k)^T
                     //T.tileBcast(k, k, H.sub(k, k, k-1, k-1), tag);
                     if (H.tileIsLocal(k, k-1)) {
@@ -292,7 +288,6 @@ void hetrf(
                                      depend(inout:columnL[k]) \
                                      priority(1)
                     {
-                        //printf( " >> update A1(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                         if (k > 2) {
                             for (int64_t j = 0; j < k-1; ++j) {
                                 H.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag1);
@@ -304,7 +299,8 @@ void hetrf(
                                 slate::internal::gemmA<Target::HostTask>(
                                     -one, A.sub(k+1, A_mt-1, 0, k-2),
                                           Hj.sub(0, k-2, 0, 0),
-                                    one,  A.sub(k+1, A_mt-1, k, k), layout);
+                                    one,  A.sub(k+1, A_mt-1, k, k),
+                                    layout, priority_0 );
                             #else
                                 if (A_mt - (k+1) > max_panel_threads) {
                                     slate::internal::gemmA<Target::HostTask>(
@@ -354,7 +350,6 @@ void hetrf(
                                  depend(inout:columnL[k]) \
                                  priority(1)
                 {
-                    //printf( " >> update A2(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                     for (int64_t i2 = k+1; i2 < A_mt; ++i2) {
                         A.tileBcast(i2, k-1, A.sub(i2, i2, k, k), layout, tag1);
                     }
@@ -374,13 +369,11 @@ void hetrf(
             pivots.at(k+1).resize(diag_len);
             #pragma omp task depend(inout:columnL[k]) priority(1)
             {
-                //printf( " >> LU panel(%ld:%ld,%ld) diag_len=%ld on rank-%d <<\n", k+1, A_mt-1, k, diag_len, rank); fflush(stdout);
                 internal::getrf_panel<Target::HostTask>(
-                    A.sub(k+1, A_mt-1, k, k), diag_len, ib,
-                    pivots.at(k+1), max_panel_threads, priority_1 );
+                    A.sub(k+1, A_mt-1, k, k), diag_len, ib, pivots.at(k+1),
+                    pivot_threshold, max_panel_threads, priority_1, tag_0, &info );
 
                 // copy U(k, k) into T(k+1, k)
-                //printf( " >> compute T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
                 if (T.tileIsLocal(k+1, k)) {
                     T.tileInsert(k+1, k);
                     lapack::lacpy(
@@ -411,7 +404,6 @@ void hetrf(
             {
                 if (k > 0) {
                     // T(k+1,k) /= L(k,k)^T
-                    //printf( " >> update T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
                     A.tileBcast(k, k-1, T.sub(k+1, k+1, k, k), layout, tag);
 
                     if (T.tileIsLocal(k+1, k)) {
@@ -425,7 +417,6 @@ void hetrf(
                     }
                 }
                 // copy T(k+1, k)^T into T(k, k+1)
-                //printf( " >> copy T(%ld,%ld) on rank-%d <<\n", k, k+1, rank); fflush(stdout);
                 T.tileBcast(k+1, k, T.sub(k, k, k+1, k+1), layout, tag);
                 if (T.tileIsLocal(k, k+1)) {
                     T.tileInsert(k, k+1);
@@ -444,11 +435,10 @@ void hetrf(
                     T.tileModified(k, k+1);
                 }
                 if (k > 0 && k+1 < A_mt) {
-                    // send T(i, j) that are needed to compute H(k, :)
-                    T.tileBcast(k, k+1, H.sub(k+1, A_mt-1, k,   k), layout, tag);
-
                     //T.tileBcast(k+1, k, H.sub(k+1, A_mt-1, k-1, k-1), tag);
                     BcastList bcast_list_T;
+                    // send T(i, j) that are needed to compute H(k, :)
+                    bcast_list_T.push_back({k, k+1, {H.sub(k+1, A_mt-1, k, k)}});
                     // for computing H(j, 1:j-1)
                     bcast_list_T.push_back({k+1, k, {A.sub(k+1, A_mt-1, k-1, k-1)}});
                     // for computing T(j, j)
@@ -459,7 +449,6 @@ void hetrf(
             #pragma omp task depend(inout:columnL[k])
             {
                 {
-                    //printf( " MPI_Bcast(pivot(%ld): size=%ld\n",k+1,pivots.at(k+1).size() );
                     trace::Block trace_block("MPI_Bcast");
                     MPI_Bcast(pivots.at(k+1).data(),
                               sizeof(Pivot)*pivots.at(k+1).size(),
@@ -467,7 +456,6 @@ void hetrf(
                 }
                 if (k > 0) {
                     // swap previous rows in A(k+1:mt-1, 0:k-1)
-                    //printf( " +++ swap previous L (%ld: Asub(%ld:%ld, 0:%ld))\n",k,k+1,A_mt-1,k-1);
                     #pragma omp task
                     {
                         internal::permuteRows<Target::HostTask>(
@@ -476,7 +464,6 @@ void hetrf(
                     }
                 }
                 // symmetric swap of A(k+1:mt-1, k+1:mt-1)
-                //printf( " +++ symmetric swap A(%ld:%ld, %ld:%ld) +++\n",k+1,A_mt-1, k+1,A_mt-1 );
                 #pragma omp task
                 {
                     internal::permuteRowsCols<Target::HostTask>(
@@ -486,12 +473,41 @@ void hetrf(
                 #pragma omp taskwait
             }
         }
+
+        // All tasks that use tiles from row k of A or H depend on
+        // columnT[k], columnH1[k], or columnH2[k].
+        // Subsequent iterations only access [k] and [k+1] of those arrays.
+        #pragma omp task depend(inout:columnT[k]) depend(inout:columnH1[k]) \
+                         depend(inout:columnH2[k])
+        {
+            auto A_panel = A.sub( k, k, 0, k );
+
+            // Erase remote tiles on all devices, including host
+            A_panel.releaseRemoteWorkspace();
+
+            // Update the origin tiles before their
+            // workspace copies on devices are erased.
+            A_panel.tileUpdateAllOrigin();
+
+            // Erase local workspace on devices
+            A_panel.releaseLocalWorkspace();
+
+            if (k > 0) {
+                for (int64_t i = 0; i < k; ++i) {
+                    if (H.tileIsLocal( k, i )) {
+                        H.releaseLocalWorkspaceTile( k, i );
+                        // H is locally allocated workspace, so erase it's tiles
+                        H.tileErase( k, i );
+                    }
+                    else {
+                        H.releaseRemoteWorkspaceTile( k, i );
+                    }
+                }
+            }
+        }
     }
 
-    // Debug::checkTilesLives(A);
-    // Debug::printTilesLives(A);
-
-    // second-stage (facorization of band matrix)
+    // second-stage (factorization of band matrix)
     gbtrf(T, pivots2, {
         {Option::InnerBlocking, ib},
         {slate::Option::Lookahead, lookahead},
@@ -499,7 +515,8 @@ void hetrf(
 
     A.clearWorkspace();
 
-    // Debug::printTilesMaps(A);
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -560,10 +577,13 @@ void hetrf(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
+/// @return 0: successful exit
+/// @return i > 0: the band LU factorization failed on the $i$-th column.
+///
 /// @ingroup hesv_computational
 ///
 template <typename scalar_t>
-void hetrf(
+int64_t hetrf(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
@@ -574,49 +594,46 @@ void hetrf(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::hetrf<Target::HostTask>( A, pivots, T, pivots2, H, opts );
-            break;
+            return impl::hetrf<Target::HostTask>( A, pivots, T, pivots2, H, opts );
 
         case Target::HostNest:
-            impl::hetrf<Target::HostNest>( A, pivots, T, pivots2, H, opts );
-            break;
+            return impl::hetrf<Target::HostNest>( A, pivots, T, pivots2, H, opts );
 
         case Target::HostBatch:
-            impl::hetrf<Target::HostBatch>( A, pivots, T, pivots2, H, opts );
-            break;
+            return impl::hetrf<Target::HostBatch>( A, pivots, T, pivots2, H, opts );
 
         case Target::Devices:
             slate_not_implemented( "hetrf not yet implemented for GPU devices" );
             break;
     }
-    // todo: return value for errors?
+    return -6;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void hetrf<float>(
+int64_t hetrf<float>(
     HermitianMatrix<float>& A, Pivots& pivots,
          BandMatrix<float>& T, Pivots& pivots2,
              Matrix<float>& H,
     Options const& opts);
 
 template
-void hetrf<double>(
+int64_t hetrf<double>(
     HermitianMatrix<double>& A, Pivots& pivots,
          BandMatrix<double>& T, Pivots& pivots2,
              Matrix<double>& H,
     Options const& opts);
 
 template
-void hetrf< std::complex<float> >(
+int64_t hetrf< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A, Pivots& pivots,
          BandMatrix< std::complex<float> >& T, Pivots& pivots2,
              Matrix< std::complex<float> >& H,
     Options const& opts);
 
 template
-void hetrf< std::complex<double> >(
+int64_t hetrf< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A, Pivots& pivots,
          BandMatrix< std::complex<double> >& T, Pivots& pivots2,
              Matrix< std::complex<double> >& H,

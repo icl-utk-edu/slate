@@ -1,5 +1,5 @@
 #include "hip/hip_runtime.h"
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -53,7 +53,7 @@ __global__ void trnorm_max_kernel(
     int chunk;
 
     // Save partial results in shared memory.
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
 
     if (threadIdx.x < blockDim.x) {
@@ -292,7 +292,7 @@ __global__ void trnorm_fro_kernel(
     int chunk;
 
     // Save partial results in shared memory.
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
 
@@ -336,11 +336,11 @@ __global__ void trnorm_fro_kernel(
         }
 
         combine_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
-        __syncthreads();
     }
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
+    __syncthreads();
     if (threadIdx.x == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];
@@ -436,7 +436,8 @@ void trnorm(
         else {
             assert(ldv == 1);
             size_t shared_mem = sizeof(real_t) * nb;
-            hipLaunchKernelGGL(trnorm_max_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, diag, m, n, Aarray, lda, values);
+            trnorm_max_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
+                (uplo, diag, m, n, Aarray, lda, values);
         }
     }
     //---------
@@ -447,7 +448,8 @@ void trnorm(
         }
         else {
             assert(ldv >= n);
-            hipLaunchKernelGGL(trnorm_one_kernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, diag, m, n, Aarray, lda, values, ldv);
+            trnorm_one_kernel<<<batch_count, nb, 0, queue.stream()>>>
+                (uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -458,7 +460,8 @@ void trnorm(
         }
         else {
             assert(ldv >= m);
-            hipLaunchKernelGGL(trnorm_inf_kernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, diag, m, n, Aarray, lda, values, ldv);
+            trnorm_inf_kernel<<<batch_count, nb, 0, queue.stream()>>>
+                (uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -470,7 +473,8 @@ void trnorm(
         else {
             assert(ldv == 2);
             size_t shared_mem = sizeof(real_t) * nb * 2;
-            hipLaunchKernelGGL(trnorm_fro_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, diag, m, n, Aarray, lda, values);
+            trnorm_fro_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
+                (uplo, diag, m, n, Aarray, lda, values);
         }
     }
 
@@ -496,21 +500,33 @@ void trnorm(
     double* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void trnorm(
     lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    hipFloatComplex const* const* Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    trnorm( norm, uplo, diag, m, n,
+            (rocblas_float_complex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
-template
+template <>
 void trnorm(
     lapack::Norm norm, lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    hipDoubleComplex const* const* Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    trnorm( norm, uplo, diag, m, n,
+            (rocblas_double_complex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

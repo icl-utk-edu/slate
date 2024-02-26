@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -40,6 +40,18 @@ public:
 #define test_assert(cond) \
     do { \
         if (! (cond)) { \
+            throw AssertError(#cond, __FILE__, __LINE__); \
+        } \
+    } while(0)
+
+//------------------------------------------------------------------------------
+/// Throws AssertError if cond is false on any process.
+/// The macro prevents hangs when only some processes fail.
+#define test_assert_all_ranks(cond, mpi_comm) \
+    do { \
+        bool result = (cond); \
+        MPI_Allreduce( MPI_IN_PLACE, &result, 1, MPI_CXX_BOOL, MPI_LAND, mpi_comm ); \
+        if (! (result)) { \
             throw AssertError(#cond, __FILE__, __LINE__); \
         } \
     } while(0)

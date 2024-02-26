@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -7,6 +7,7 @@
 #include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
@@ -170,8 +171,6 @@ void ge2tb(
 
     // Workspace for transposed panels needs one column of tiles.
     auto AT = A.emptyLike(0, 0, Op::ConjTrans);
-    // todo: we really only want to insert 1 column's worth at a time.
-    AT.insertLocalTiles();
 
     // No lookahead is possible, so no need to track dependencies --
     // just execute tasks in order. Also, priority isn't needed.
@@ -189,24 +188,11 @@ void ge2tb(
             auto TUl_panel =  TUlocal.sub(k, A_mt-1, k, k);
             auto TUr_panel = TUreduce.sub(k, A_mt-1, k, k);
 
-            // Find ranks in this column.
-            std::set<int> ranks_set;
-            U_panel.getRanks(&ranks_set);
-            assert(ranks_set.size() > 0);
-
             // Find each rank's first (top-most) row in this panel,
             // where the triangular tile resulting from local geqrf panel
             // will reside.
-            std::vector< int64_t > first_indices;
-            first_indices.reserve(ranks_set.size());
-            for (int r: ranks_set) {
-                for (int64_t i = 0; i < U_panel.mt(); ++i) {
-                    if (U_panel.tileRank(i, 0) == r) {
-                        first_indices.push_back(i+k);
-                        break;
-                    }
-                }
-            }
+            std::vector< int64_t > first_indices
+                            = internal::geqrf_compute_first_indices(U_panel, k);
 
             //--------------------
             // QR of U panel
@@ -215,36 +201,27 @@ void ge2tb(
                             std::move(U_panel),
                             std::move(TUl_panel),
                             dwork_array, work_size,
-                            ib, max_panel_threads);
+                            ib, max_panel_threads );
 
             // triangle-triangle reductions
             // ttqrt handles tile transfers internally
             internal::ttqrt<Target::HostTask>(
                             std::move(U_panel),
-                            std::move(TUr_panel));
+                            std::move(TUr_panel) );
 
-            // if a trailing matrix exists
-            if (k < A_nt-1) {
+            //--------------------
+            // QR update trailing submatrix.
+            if (k+1 < A_nt) {
 
                 // bcast V across row for trailing matrix update
                 if (k < A_mt) {
-                    BcastList bcast_list_V_first;
                     BcastList bcast_list_V;
                     for (int64_t i = k; i < A_mt; ++i) {
                         // send A(i, k) across row A(i, k+1:nt-1)
-                        // Vs in first_indices (except main diagonal one)
-                        // need three lives.
-                        if ((std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) && (i > k)) {
-                            bcast_list_V_first.push_back(
-                                {i, k, {A.sub(i, i, k+1, A_nt-1)}});
-                        }
-                        else {
-                            bcast_list_V.push_back(
-                                {i, k, {A.sub(i, i, k+1, A_nt-1)}});
-                        }
+                        bcast_list_V.push_back(
+                            {i, k, {A.sub(i, i, k+1, A_nt-1)}});
                     }
-                    A.template listBcast(bcast_list_V_first, layout, 0, 3);
-                    A.template listBcast(bcast_list_V, layout, 0, 2);
+                    A.template listBcast<target>(bcast_list_V, layout, 0);
                 }
 
                 // bcast TUlocal across row for trailing matrix update
@@ -270,11 +247,7 @@ void ge2tb(
                     }
                     TUreduce.template listBcast(bcast_list_T, layout);
                 }
-            }
 
-            //--------------------
-            // QR update trailing submatrix.
-            if (k+1 < A_nt) {
                 int64_t j = k+1;
                 auto A_trail_j = A.sub(k, A_mt-1, j, A_nt-1);
 
@@ -284,7 +257,7 @@ void ge2tb(
                                 std::move(U_panel),
                                 std::move(TUl_panel),
                                 std::move(A_trail_j),
-                                W.sub(k, A_mt-1, j, A_nt-1));
+                                W.sub(k, A_mt-1, j, A_nt-1) );
 
                 // Apply triangle-triangle reduction reflectors
                 // ttmqr handles the tile broadcasting internally
@@ -293,7 +266,34 @@ void ge2tb(
                                 std::move(U_panel),
                                 std::move(TUr_panel),
                                 std::move(A_trail_j),
-                                j);
+                                j );
+            }
+
+            // Can release tiles parallel to the main execution
+            #pragma omp task
+            {
+                // Ensure the origin is up to date, then remove the panel's workspace
+                U_panel.tileUpdateAllOrigin();
+                U_panel.releaseLocalWorkspace();
+                U_panel.releaseRemoteWorkspace();
+
+                for (int64_t i : first_indices) {
+                    if (TUlocal.tileIsLocal( i, k )) {
+                        // TUlocal and TUreduce have the same process distribution
+                        TUlocal.tileUpdateOrigin( i, k );
+                        TUlocal.releaseLocalWorkspaceTile( i, k );
+                        if (i != k) {
+                            // i == k is the root of the reduction tree
+                            // TUreduce( k, k ) isn't allocated
+                            TUreduce.tileUpdateOrigin( i, k );
+                            TUreduce.releaseLocalWorkspaceTile( i, k );
+                        }
+                    }
+                    else {
+                        TUlocal.releaseRemoteWorkspaceTile( i, k );
+                        TUreduce.releaseRemoteWorkspaceTile( i, k );
+                    }
+                }
             }
 
             //----------------------------------------
@@ -306,24 +306,7 @@ void ge2tb(
                 auto   VT_panel =       AT.sub(k+1, A_nt-1, k, k);
                 auto TVlT_panel = TVlocalT.sub(k+1, A_nt-1, k, k);
 
-                // Find ranks in this row.
-                ranks_set.clear();
-                V_panel.getRanks(&ranks_set);
-                assert(ranks_set.size() > 0);
-
-                // Find each rank's first (left-most) col in this panel,
-                // where the triangular tile resulting from local gelqf panel
-                // will reside.
-                first_indices.clear();
-                first_indices.reserve(ranks_set.size());
-                for (int r: ranks_set) {
-                    for (int64_t j = 0; j < V_panel.nt(); ++j) {
-                        if (V_panel.tileRank(0, j) == r) {
-                            first_indices.push_back(k+1+j);
-                            break;
-                        }
-                    }
-                }
+                first_indices = internal::gelqf_compute_first_indices(V_panel, k+1);
 
                 //--------------------
                 // LQ of V panel
@@ -334,7 +317,8 @@ void ge2tb(
                 for (int64_t j = 0; j < V_panel.nt(); ++j) {
                     if (V_panel.tileIsLocal(0, j)) {
                         V_panel.tileGetForReading( 0, j, HostNum, LayoutConvert(layout) );
-                        VT_panel.tileGetForWriting( j, 0, HostNum, LayoutConvert(layout) );
+                        VT_panel.tileInsert( j, 0 );
+                        VT_panel.tileModified( j, 0, HostNum );
                         tile::deepConjTranspose( V_panel(0, j), VT_panel(j, 0) );
                     }
                 }
@@ -344,15 +328,15 @@ void ge2tb(
                                 std::move(VT_panel),
                                 std::move(TVlT_panel),
                                 dwork_array, work_size,
-                                ib, max_panel_threads);
+                                ib, max_panel_threads );
 
                 // Find first local tile, which is triangular factor
                 // (T in I - V T^H V^H), and copy it to TVlocal.
                 for (int64_t i = 0; i < TVlT_panel.mt(); ++i) {
                     if (TVl_panel.tileIsLocal(0, i)) {
-                        TVl_panel.tileInsert(0, i);
                         TVlT_panel.tileGetForReading( i, 0, HostNum, LayoutConvert(layout) );
-                        TVl_panel.tileGetForWriting( 0, i, HostNum, LayoutConvert(layout) );
+                        TVl_panel.tileInsert(0, i);
+                        TVl_panel.tileModified( 0, i, HostNum );
                         tile::gecopy( TVlT_panel(i, 0), TVl_panel(0, i) );
                         break;
                     }
@@ -364,39 +348,29 @@ void ge2tb(
                         VT_panel.tileGetForReading( j, 0, HostNum, LayoutConvert(layout) );
                         V_panel.tileGetForWriting( 0, j, HostNum, LayoutConvert(layout) );
                         tile::deepConjTranspose( VT_panel(j, 0), V_panel(0, j) );
+                        VT_panel.tileErase(j, 0, AllDevices);
                     }
                 }
-                // todo: VT_panel.clear();
                 //----------
 
                 // triangle-triangle reductions
                 // ttlqt handles tile transfers internally
                 internal::ttlqt<Target::HostTask>(
                                 std::move(V_panel),
-                                std::move(TVr_panel));
+                                std::move(TVr_panel) );
 
-                // if a trailing matrix exists
-                if (k < A_mt-1) {
+                //--------------------
+                // LQ update trailing submatrix
+                if (k+1 < A_mt) {
 
                     // bcast V down col for trailing matrix update
                     if (k+1 < A_nt) {
-                        BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
                         for (int64_t j = k+1; j < A_nt; ++j) {
-                            // send A(k, j) down col A(k+1:mt-1, j)
-                            // Vs in first_indices (except main diagonal one)
-                            // need three lives.
-                            if ((std::find(first_indices.begin(), first_indices.end(), j) != first_indices.end()) && (j > k+1)) {
-                                bcast_list_V_first.push_back(
-                                    {k, j, {A.sub(k+1, A_mt-1, j, j)}});
-                            }
-                            else {
-                                bcast_list_V.push_back(
-                                    {k, j, {A.sub(k+1, A_mt-1, j, j)}});
-                            }
+                            bcast_list_V.push_back(
+                                {k, j, {A.sub(k+1, A_mt-1, j, j)}});
                         }
-                        A.template listBcast(bcast_list_V_first, layout, 0, 3);
-                        A.template listBcast(bcast_list_V, layout, 0, 2);
+                        A.template listBcast<target>(bcast_list_V, layout, 0);
                     }
 
                     // bcast TVlocal down col for trailing matrix update
@@ -422,11 +396,7 @@ void ge2tb(
                         }
                         TVreduce.template listBcast(bcast_list_T, layout);
                     }
-                }
 
-                //--------------------
-                // LQ update trailing submatrix
-                if (k+1 < A_mt) {
                     int64_t i = k+1;
                     auto A_trail_i = A.sub(i, A_mt-1, k+1, A_nt-1);
 
@@ -436,7 +406,7 @@ void ge2tb(
                                     std::move(V_panel),
                                     std::move(TVl_panel),
                                     std::move(A_trail_i),
-                                    W.sub(i, A_mt-1, k+1, A_nt-1));
+                                    W.sub(i, A_mt-1, k+1, A_nt-1) );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
@@ -445,7 +415,34 @@ void ge2tb(
                                     std::move(V_panel),
                                     std::move(TVr_panel),
                                     std::move(A_trail_i),
-                                    i);
+                                    i );
+                }
+
+                // Can release tiles parallel to the main execution
+                #pragma omp task
+                {
+                    // Ensure the origin is up to date, then remove the panel's workspace
+                    V_panel.tileUpdateAllOrigin();
+                    V_panel.releaseLocalWorkspace();
+                    V_panel.releaseRemoteWorkspace();
+
+                    for (int64_t j : first_indices) {
+                        if (TVlocal.tileIsLocal( k, j )) {
+                            // TVlocal and TVreduce have the same process distribution
+                            TVlocal.tileUpdateOrigin( k, j );
+                            TVlocal.releaseLocalWorkspaceTile( k, j );
+                            if (j != k+1) {
+                                // j == k+1 is the root of the reduction tree
+                                // TVreduce( k, k+1 ) isn't allocated
+                                TVreduce.tileUpdateOrigin( k, j );
+                                TVreduce.releaseLocalWorkspaceTile( k, j );
+                            }
+                        }
+                        else {
+                            TVlocal.releaseRemoteWorkspaceTile( k, j );
+                            TVreduce.releaseRemoteWorkspaceTile( k, j );
+                        }
+                    }
                 }
             }
         }

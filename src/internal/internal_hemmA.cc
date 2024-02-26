@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -28,7 +28,7 @@ void hemmA(Side side,
            scalar_t alpha, HermitianMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
            scalar_t beta,  Matrix<scalar_t>&& C,
-           int priority)
+           int priority )
 {
     // check dimensions
     assert(A.mt() == 1);
@@ -50,7 +50,7 @@ void hemmA(Side side,
           alpha, A,
                  B,
           beta,  C,
-          priority);
+          priority );
 }
 
 //------------------------------------------------------------------------------
@@ -64,7 +64,7 @@ void hemmA(internal::TargetType<Target::HostTask>,
            scalar_t alpha, HermitianMatrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           int priority)
+           int priority )
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
@@ -83,7 +83,8 @@ void hemmA(internal::TargetType<Target::HostTask>,
             if (A.tileIsLocal(i, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B, C, err ) \
-                    firstprivate(i, j, layout, side, alpha, beta) priority(priority)
+                    firstprivate( i, j, layout, side, alpha, beta ) \
+                    priority(priority)
                 {
                     try {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -94,10 +95,6 @@ void hemmA(internal::TargetType<Target::HostTask>,
                                 side,
                                 alpha, A(i, j), B(j, k),
                                 beta,  C(i, k) );
-
-                            // todo: should tileRelease()?
-                            A.tileTick(i, j);
-                            B.tileTick(j, k);
                         }
                     }
                     catch (std::exception& e) {
@@ -123,7 +120,7 @@ void hemmA(internal::TargetType<Target::HostNest>,
            scalar_t alpha, HermitianMatrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           int priority)
+           int priority )
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
@@ -134,7 +131,7 @@ void hemmA(internal::TargetType<Target::HostNest>,
     int err = 0;
     if (side == Side::Left) {
         #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
-            shared(A, B, C, err) firstprivate(side, layout, alpha, beta)
+            shared( A, B, C, err ) firstprivate( side, layout, alpha, beta )
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 try {
@@ -145,9 +142,6 @@ void hemmA(internal::TargetType<Target::HostNest>,
                         side,
                         alpha, A(0, 0), B(0, j),
                         beta,  C(0, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
-                    B.tileTick(0, j);
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -158,7 +152,7 @@ void hemmA(internal::TargetType<Target::HostNest>,
     else {
         // side == Right
         #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
-            shared(A, B, C, err) firstprivate(side, layout, alpha, beta)
+            shared( A, B, C, err ) firstprivate( side, layout, alpha, beta )
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
                 try {
@@ -169,9 +163,6 @@ void hemmA(internal::TargetType<Target::HostNest>,
                         side,
                         alpha, A(0, 0), B(i, 0),
                         beta,  C(i, 0) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
-                    B.tileTick(i, 0);
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -193,7 +184,7 @@ void hemmA< Target::HostTask, float >(
     float alpha, HermitianMatrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    int priority );
 
 template
 void hemmA<Target::HostNest, float>(
@@ -201,7 +192,7 @@ void hemmA<Target::HostNest, float>(
     float alpha, HermitianMatrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    int priority );
 
 // ----------------------------------------
 template
@@ -210,7 +201,7 @@ void hemmA<Target::HostTask, double>(
     double alpha, HermitianMatrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    int priority );
 
 template
 void hemmA<Target::HostNest, double>(
@@ -218,7 +209,7 @@ void hemmA<Target::HostNest, double>(
     double alpha, HermitianMatrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    int priority );
 
 // ----------------------------------------
 template
@@ -227,7 +218,7 @@ void hemmA< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, HermitianMatrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    int priority );
 
 template
 void hemmA< Target::HostNest, std::complex<float> >(
@@ -235,7 +226,7 @@ void hemmA< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, HermitianMatrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    int priority );
 
 // ----------------------------------------
 template
@@ -244,7 +235,7 @@ void hemmA< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, HermitianMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    int priority );
 
 template
 void hemmA< Target::HostNest, std::complex<double> >(
@@ -252,7 +243,7 @@ void hemmA< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, HermitianMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    int priority );
 
 } // namespace internal
 } // namespace slate

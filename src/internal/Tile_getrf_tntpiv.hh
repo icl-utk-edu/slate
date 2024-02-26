@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -91,7 +91,8 @@ void getrf_tntpiv_local(
     std::vector< scalar_t >& max_value,
     std::vector< int64_t  >& max_index,
     std::vector< int64_t  >& max_offset,
-    std::vector< scalar_t >& top_block)
+    std::vector< scalar_t >& top_block,
+    int64_t* info )
 {
     trace::Block trace_block( "lapack::getrf_tntpiv" );
 
@@ -235,11 +236,10 @@ void getrf_tntpiv_local(
                             tile.at( i, j ) /= aux_pivot[ 0 ][ j ].value();
                     }
                 }
-                else {
-                    // aux_pivot[ 0 ][ j ].value() == 0:
-                    // The factorization has been completed
-                    // but the factor U is exactly singular
-                    // todo: how to handle a zero pivot
+                else if (*info == 0 && idx == 0) {
+                    // U(j,j) = 0; save info on thread with diagonal tile,
+                    // using 1-based index.
+                    *info = j + 1;
                 }
 
                 // trailing update

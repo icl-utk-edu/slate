@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -21,10 +21,11 @@ void unmlq(Side side, Op op,
            Matrix<scalar_t>&& V,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           Matrix<scalar_t>&& W)
+           Matrix<scalar_t>&& W,
+           int priority, int64_t queue_index )
 {
     unmlq<target>(internal::TargetType<target>(),
-          side, op, V, T, C, W);
+          side, op, V, T, C, W, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -43,7 +44,8 @@ void unmlq(internal::TargetType<target>,
            Matrix<scalar_t>  V,  // pass by value, not reference, for slicing
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
-           Matrix<scalar_t>& W)
+           Matrix<scalar_t>& W,
+           int priority, int64_t queue_index )
 {
     const scalar_t one = 1;
 
@@ -90,7 +92,7 @@ void unmlq(internal::TargetType<target>,
 
         // Get corresponding row of W to match the local matrix distribution.
         auto Wr = W.sub(first, first, 0, nt-1);
-        Wr.insertLocalTiles();
+        Wr.insertLocalTiles(target);
 
         // V = [ V0  V0b  V1 ]
         // V0  is triangular part (mb-by-mb)
@@ -160,19 +162,23 @@ void unmlq(internal::TargetType<target>,
 
         // W <- C0
         // W <- V0 W
-        internal::copy(std::move(C0), std::move(Wr));
-        internal::trmm<Target::HostTask>(
+        internal::copy<target>(
+                std::move(C0), std::move(Wr),
+                priority, queue_index );
+        internal::trmm<target>(
                 Side::Left,
                 one, std::move(V0tr),
-                     std::move(Wr));
+                     std::move(Wr),
+                priority, queue_index );
 
         if (trapezoid) {
             // W <- V0b C0b + W
-            internal::gemm<Target::HostTask>(
+            internal::gemm<target>(
                     one, std::move(V0b),
                          std::move(C0b),
                     one, std::move(Wr),
-                    layout);
+                    layout,
+                    priority, queue_index );
         }
 
         // W <- V1 C1 + W
@@ -187,15 +193,17 @@ void unmlq(internal::TargetType<target>,
                     one, V.sub(0, 0, row, row),
                          std::move(Ci),
                     one, std::move(Wr),
-                    layout);
+                    layout,
+                    priority, queue_index );
         }
 
         // --------------------
         // 2. W <- op(T0) W; op is already applied to T0tr.
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Left,
                 one, std::move(T0tr),
-                     std::move(Wr));
+                     std::move(Wr),
+                priority, queue_index );
 
         // --------------------
         // 3. C = C - V^H W
@@ -205,28 +213,32 @@ void unmlq(internal::TargetType<target>,
                     -one, conj_transpose( V.sub( 0, 0, row_indices[1], mt-1 ) ),
                           std::move(Wr),
                     one,  C.sub(row_indices[1], mt-1, 0, nt-1),
-                    layout);
+                    layout,
+                    priority, queue_index );
         }
 
         if (trapezoid) {
             // C0b <- C0b - V0b^H W
-            internal::gemm<Target::HostTask>(
+            internal::gemm<target>(
                     -one, conj_transpose( std::move( V0b ) ),
                           std::move(Wr),
                     one,  std::move(C0b),
-                    layout);
+                    layout,
+                    priority, queue_index );
         }
 
         // W <- V0^H W
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Left,
                 one, conj_transpose( V0tr ),
-                     std::move(Wr));
+                     std::move(Wr),
+                priority, queue_index );
 
         // C0 <- C0 - W
-        internal::add<Target::HostTask>(
+        internal::add<target>(
                 -one, std::move(Wr),
-                one,  std::move(C0));
+                one,  std::move(C0),
+                priority, queue_index );
 
         // free workspace
         // todo: Wr.clear();
@@ -267,7 +279,7 @@ void unmlq(internal::TargetType<target>,
 
         // Get corresponding col of W to match the local matrix distribution.
         auto Wc = W.sub(0, mt-1, first, first);
-        Wc.insertLocalTiles();
+        Wc.insertLocalTiles(target);
 
         // V = [ V0  V0b  V1 ]
         // V0  is triangular part (mb-by-mb)
@@ -336,19 +348,23 @@ void unmlq(internal::TargetType<target>,
 
         // W <- C0
         // W <- W V0^H
-        internal::copy(std::move(C0), std::move(Wc));
-        internal::trmm<Target::HostTask>(
+        internal::copy<target>(
+                std::move(C0), std::move(Wc),
+                priority, queue_index );
+        internal::trmm<target>(
                 Side::Right,
                 one, conj_transpose( V0tr ),
-                     std::move(Wc));
+                     std::move(Wc),
+                priority, queue_index );
 
         if (trapezoid) {
             // W <- C0b V0b^H + W
-            internal::gemm<Target::HostTask>(
+            internal::gemm<target>(
                     one, std::move(C0b),
                          conj_transpose( V0b ),
                     one, std::move(Wc),
-                    layout);
+                    layout,
+                    priority, queue_index );
         }
 
         // W <- C1 V1^H + W
@@ -363,15 +379,17 @@ void unmlq(internal::TargetType<target>,
                     one, std::move(Ci),
                          conj_transpose( V.sub( 0, 0, col, col ) ),
                     one, std::move(Wc),
-                    layout);
+                    layout,
+                    priority, queue_index );
         }
 
         // --------------------
         // 2. W <- W op(T0); op is already applied to T0tr.
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Right,
                 one, std::move(T0tr),
-                     std::move(Wc));
+                     std::move(Wc),
+                priority, queue_index );
 
         // --------------------
         // 3. C = C - W V
@@ -381,28 +399,32 @@ void unmlq(internal::TargetType<target>,
                     -one, std::move(Wc),
                           V.sub(0, 0,    col_indices[1], nt-1),
                     one,  C.sub(0, mt-1, col_indices[1], nt-1),
-                    layout);
+                    layout,
+                    priority, queue_index );
         }
 
         if (trapezoid) {
             // C0b <- C0b - W V0b
-            internal::gemm<Target::HostTask>(
+            internal::gemm<target>(
                     -one, std::move(Wc),
                           std::move(V0b),
                     one,  std::move(C0b),
-                    layout);
+                    layout,
+                    priority, queue_index );
         }
 
         // W <- W V0
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Right,
                 one, std::move(V0tr),
-                     std::move(Wc));
+                     std::move(Wc),
+                priority, queue_index );
 
         // C0 <- C0 - W
-        internal::add<Target::HostTask>(
+        internal::add<target>(
                 -one, std::move(Wc),
-                one,  std::move(C0));
+                one,  std::move(C0),
+                priority, queue_index );
 
         // free workspace
         // todo: Wc.clear();
@@ -423,7 +445,8 @@ void unmlq<Target::HostTask, float>(
     Matrix<float>&& V,
     Matrix<float>&& T,
     Matrix<float>&& C,
-    Matrix<float>&& W);
+    Matrix<float>&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::HostNest, float>(
@@ -431,7 +454,8 @@ void unmlq<Target::HostNest, float>(
     Matrix<float>&& V,
     Matrix<float>&& T,
     Matrix<float>&& C,
-    Matrix<float>&& W);
+    Matrix<float>&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::HostBatch, float>(
@@ -439,7 +463,8 @@ void unmlq<Target::HostBatch, float>(
     Matrix<float>&& V,
     Matrix<float>&& T,
     Matrix<float>&& C,
-    Matrix<float>&& W);
+    Matrix<float>&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::Devices, float>(
@@ -447,7 +472,8 @@ void unmlq<Target::Devices, float>(
     Matrix<float>&& V,
     Matrix<float>&& T,
     Matrix<float>&& C,
-    Matrix<float>&& W);
+    Matrix<float>&& W,
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -456,7 +482,8 @@ void unmlq<Target::HostTask, double>(
     Matrix<double>&& V,
     Matrix<double>&& T,
     Matrix<double>&& C,
-    Matrix<double>&& W);
+    Matrix<double>&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::HostNest, double>(
@@ -464,7 +491,8 @@ void unmlq<Target::HostNest, double>(
     Matrix<double>&& V,
     Matrix<double>&& T,
     Matrix<double>&& C,
-    Matrix<double>&& W);
+    Matrix<double>&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::HostBatch, double>(
@@ -472,7 +500,8 @@ void unmlq<Target::HostBatch, double>(
     Matrix<double>&& V,
     Matrix<double>&& T,
     Matrix<double>&& C,
-    Matrix<double>&& W);
+    Matrix<double>&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq<Target::Devices, double>(
@@ -480,7 +509,8 @@ void unmlq<Target::Devices, double>(
     Matrix<double>&& V,
     Matrix<double>&& T,
     Matrix<double>&& C,
-    Matrix<double>&& W);
+    Matrix<double>&& W,
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -489,7 +519,8 @@ void unmlq< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
-    Matrix< std::complex<float> >&& W);
+    Matrix< std::complex<float> >&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::HostNest, std::complex<float> >(
@@ -497,7 +528,8 @@ void unmlq< Target::HostNest, std::complex<float> >(
     Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
-    Matrix< std::complex<float> >&& W);
+    Matrix< std::complex<float> >&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::HostBatch, std::complex<float> >(
@@ -505,7 +537,8 @@ void unmlq< Target::HostBatch, std::complex<float> >(
     Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
-    Matrix< std::complex<float> >&& W);
+    Matrix< std::complex<float> >&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::Devices, std::complex<float> >(
@@ -513,7 +546,8 @@ void unmlq< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& V,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
-    Matrix< std::complex<float> >&& W);
+    Matrix< std::complex<float> >&& W,
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -522,7 +556,8 @@ void unmlq< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
-    Matrix< std::complex<double> >&& W);
+    Matrix< std::complex<double> >&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::HostNest, std::complex<double> >(
@@ -530,7 +565,8 @@ void unmlq< Target::HostNest, std::complex<double> >(
     Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
-    Matrix< std::complex<double> >&& W);
+    Matrix< std::complex<double> >&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::HostBatch, std::complex<double> >(
@@ -538,7 +574,8 @@ void unmlq< Target::HostBatch, std::complex<double> >(
     Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
-    Matrix< std::complex<double> >&& W);
+    Matrix< std::complex<double> >&& W,
+    int priority, int64_t queue_index );
 
 template
 void unmlq< Target::Devices, std::complex<double> >(
@@ -546,7 +583,8 @@ void unmlq< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& V,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
-    Matrix< std::complex<double> >&& W);
+    Matrix< std::complex<double> >&& W,
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

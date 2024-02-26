@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -153,7 +153,7 @@ void hbmm(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, 0, 0, C.nt()-1));
+                    beta,  C.sub(0, 0, 0, C.nt()-1) );
 
                 int64_t i_end = min(0 + kdt + 1, A.mt());
 
@@ -162,7 +162,7 @@ void hbmm(
                         alpha, A.sub(1, i_end-1, 0, 0),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, i_end-1, 0, C.nt()-1),
-                        layout);
+                        layout );
                 }
 
                 if (beta != one) {
@@ -184,6 +184,22 @@ void hbmm(
                     }
                     #pragma omp taskwait
                 }
+            }
+
+            #pragma omp task depend(in:gemm[0])
+            {
+                auto A_rowblock = A.sub( 0, 0, 0, 0 );
+                // A.sub( 1, i_end-1, 0, 0 ) is released in later iterations
+                auto B_rowblock = B.sub(0, 0, 0, B.nt()-1);
+
+                // Erase remote tiles on all devices including host
+                // A_rowblock was received twice, so decrement the receive count twice
+                A_rowblock.releaseRemoteWorkspace( 2 );
+                B_rowblock.releaseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_rowblock.releaseLocalWorkspace();
+                B_rowblock.releaseLocalWorkspace();
             }
 
             for (int64_t k = 1; k < A.nt(); ++k) {
@@ -237,21 +253,38 @@ void hbmm(
                         alpha, conj_transpose( Arow_k ),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(i_begin, k-1, 0, C.nt()-1),
-                        layout);
+                        layout );
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, B.nt()-1),
-                        one,   C.sub(k, k, 0, C.nt()-1));
+                        one,   C.sub(k, k, 0, C.nt()-1) );
 
                     if (i_end-1 > k) {
+                        auto Acol_k = A.sub( k+1, i_end-1, k, k );
                         internal::gemm<target>(
-                            alpha, A.sub(k+1, i_end-1, k, k),
+                            alpha, std::move( Acol_k ),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, i_end-1, 0, C.nt()-1),
-                            layout);
+                            layout );
                     }
+                }
+
+                #pragma omp task depend(in:gemm[k])
+                {
+                    auto A_rowblock = A.sub( k, k, i_begin, k );
+                    // A.sub( k+1, i_end-1, k, k ) is released in later iterations
+                    auto B_rowblock = B.sub( k, k, 0, B.nt()-1 );
+
+                    // Erase remote tiles on all devices including host
+                    // A_rowblock was received twice, so decrement the receive count twice
+                    A_rowblock.releaseRemoteWorkspace( 2 );
+                    B_rowblock.releaseRemoteWorkspace();
+
+                    // Erase local workspace on devices.
+                    A_rowblock.releaseLocalWorkspace();
+                    B_rowblock.releaseLocalWorkspace();
                 }
             }
         }
@@ -315,7 +348,7 @@ void hbmm(
                     Side::Left,
                     alpha, A.sub(0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
-                    beta,  C.sub(0, 0, 0, C.nt()-1));
+                    beta,  C.sub(0, 0, 0, C.nt()-1) );
 
                 int64_t i_end = min(0 + kdt + 1, A.mt());
 
@@ -325,7 +358,7 @@ void hbmm(
                         alpha, conj_transpose( Arow_k ),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, i_end-1, 0, C.nt()-1),
-                        layout);
+                        layout );
                 }
 
                 if (beta != one) {
@@ -344,6 +377,22 @@ void hbmm(
                     }
                     #pragma omp taskwait
                 }
+            }
+
+            #pragma omp task depend(in:gemm[0])
+            {
+                auto A_colblock = A.sub( 0, 0, 0, 0 );
+                // A.sub( 0, 0, 1, i_end-1 ) is released in later iterations
+                auto B_rowblock = B.sub( 0, 0, 0, B.nt()-1 );
+
+                // Erase remote tiles on all devices including host
+                // A_colblock was received twice, so decrement the receive count twice
+                A_colblock.releaseRemoteWorkspace( 2 );
+                B_rowblock.releaseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_colblock.releaseLocalWorkspace();
+                B_rowblock.releaseLocalWorkspace();
             }
 
             for (int64_t k = 1; k < A.nt(); ++k) {
@@ -391,17 +440,18 @@ void hbmm(
                                  depend(in:gemm[k-1]) \
                                  depend(out:gemm[k])
                 {
+                    auto Acol_k = A.sub( i_begin, k-1, k, k );
                     internal::gemm<target>(
-                        alpha, A.sub(i_begin, k-1, k, k),
+                        alpha, std::move( Acol_k ),
                                B.sub(k, k, 0, B.nt()-1),
                         one,   C.sub(i_begin, k-1, 0, C.nt()-1),
-                        layout);
+                        layout );
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
                         alpha, A.sub(k, k),
                                B.sub(k, k, 0, B.nt()-1),
-                        one,   C.sub(k, k, 0, C.nt()-1));
+                        one,   C.sub(k, k, 0, C.nt()-1) );
 
                     if (i_end-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, i_end-1);
@@ -409,8 +459,25 @@ void hbmm(
                             alpha, conj_transpose( Arow_k ),
                                    B.sub(k, k, 0, B.nt()-1),
                             one,   C.sub(k+1, i_end-1, 0, C.nt()-1),
-                            layout);
+                            layout );
                     }
+                }
+
+                #pragma omp task depend(in:gemm[k])
+                {
+                    auto A_colblock = A.sub( i_begin, k, k, k );
+                    // A.sub( k, k, k+1, i_end-1 ) is released in later iterations
+                    auto A_rowblock = A.sub( k, k, k+1, i_end-1 );
+                    auto B_rowblock = B.sub( k, k, 0, B.nt()-1 );
+
+                    // Erase remote tiles on all devices including host
+                    // A_colblock was received twice, so decrement the receive count twice
+                    A_colblock.releaseRemoteWorkspace( 2 );
+                    B_rowblock.releaseRemoteWorkspace();
+
+                    // Erase local workspace on devices.
+                    A_colblock.releaseLocalWorkspace();
+                    B_rowblock.releaseLocalWorkspace();
                 }
             }
         }

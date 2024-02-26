@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -21,6 +21,7 @@ typedef blas::Side Side;
 typedef blas::Layout Layout;
 
 using lapack::Equed;
+using lapack::RowCol;
 typedef lapack::Norm Norm;
 typedef lapack::Direction Direction;
 
@@ -36,13 +37,6 @@ enum class Target : char {
     HostNest  = 'N',    ///< computation using OpenMP nested parallel for loops on host
     HostBatch = 'B',    ///< computation using batch BLAS on host (Intel MKL)
     Devices   = 'D',    ///< computation using batch BLAS on devices (cuBLAS)
-};
-
-enum class TileReleaseStrategy : char {
-    None      = 'N',    ///< tiles are not release at all
-    Internal  = 'I',    ///< tiles are released by routines in slate::internal namespace
-    Slate     = 'S',    ///< tiles are released by routines directly in slate namespace
-    All       = 'A',    ///< tiles are released by rotines in all namespaces
 };
 
 namespace internal {
@@ -74,10 +68,15 @@ enum class Option : char {
     MaxPanelThreads,    ///< max number of threads for panel, >= 1
     Tolerance,          ///< tolerance for iterative methods, default epsilon
     Target,             ///< computation method (@see Target)
-    TileReleaseStrategy,///< tile releasing strategy used by routines
     HoldLocalWorkspace, ///< do not erase local workspace tiles for enabling
                         ///< resue of the tiles by the next routine
-    PrintVerbose,       ///< verbose, 0: no printing,
+    Depth,              ///< depth for the RBT solver
+    MaxIterations,      ///< maximum iteration count
+    UseFallbackSolver,  ///< whether to fallback to a robust solver if iterations do not converge
+    PivotThreshold,     ///< threshold for pivoting, >= 0, <= 1
+
+    // Printing parameters
+    PrintVerbose = 50,  ///< verbose, 0: no printing,
                         ///< verbose, 1: print metadata only (dimensions, uplo, etc.)
                         ///< verbose, 2: print first & last PrintEdgeItems rows & cols
                         ///< from the four corner tiles
@@ -88,10 +87,9 @@ enum class Option : char {
     PrintWidth,         ///< width print format specifier
     PrintPrecision,     ///< precision print format specifier
                         ///< For correct printing, PrintWidth = PrintPrecision + 6.
-    PivotThreshold,     ///< threshold for pivoting, >= 0, <= 1
 
     // Methods, listed alphabetically.
-    MethodCholQR,       ///< Select the algorithm to compute A^H * A
+    MethodCholQR = 60,  ///< Select the algorithm to compute A^H * A
     MethodEig,          ///< Select the algorithm to compute eigenpairs of tridiagonal matrix
     MethodGels,         ///< Select the gels algorithm
     MethodGemm,         ///< Select the gemm algorithm
@@ -134,6 +132,17 @@ enum class GridOrder : char {
 const int HostNum = -1;
 const int AllDevices = -2;
 const int AnyDevice  = -3;
+
+//------------------------------------------------------------------------------
+/// A tile state in the MOSI coherency protocol
+enum MOSI {
+    Modified = 0x100,   ///< tile data is modified, other instances should be Invalid, cannot be purged
+    OnHold = 0x1000,  ///< a hold is placed on this tile instance, cannot be purged
+    Shared = 0x010,   ///< tile data is up-to-date, other instances may be Shared, or Invalid, may be purged
+    Invalid = 0x001,   ///< tile data is obsolete, other instances may be Modified, Shared, or Invalid, may be purged
+};
+typedef short MOSI_State;
+
 
 } // namespace slate
 

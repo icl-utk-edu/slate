@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -53,12 +53,19 @@ void test_gbsv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
 
     // mark non-standard output values
     params.time();
+    if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time2.name( "gbtrf (s)" );
+        params.time3.name( "gbtrs (s)" );
+    }
     //params.gflops();
     //params.ref_time();
     //params.ref_gflops();
@@ -202,6 +209,10 @@ void test_gbsv_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "gbsv::gbtrf" ];
+            params.time3() = slate::timers[ "gbsv::gbtrs" ];
+        }
         ///params.gflops() = gflop / time;
 
         if (verbose > 1) {
@@ -285,10 +296,6 @@ void test_gbsv_work(Params& params, bool run)
 void test_gbsv(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_gbsv_work<float>(params, run);
             break;
@@ -303,6 +310,10 @@ void test_gbsv(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_gbsv_work<std::complex<double>>(params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

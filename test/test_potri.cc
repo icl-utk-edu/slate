@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,9 +8,9 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "matgen.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "grid_utils.hh"
 
@@ -24,6 +24,7 @@ template <typename scalar_t>
 void test_potri_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using slate::ceildiv;
 
     // Constants
     const scalar_t zero = 0;
@@ -171,10 +172,10 @@ void test_potri_work(Params& params, bool run)
         #if 0 // #ifdef SLATE_HAVE_SCALAPACK
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], Aref_desc[9];
-            int Cchk_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int A_desc[9], Aref_desc[9];
+            blas_int Cchk_desc[9];
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -188,6 +189,7 @@ void test_potri_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
@@ -229,9 +231,9 @@ void test_potri_work(Params& params, bool run)
 
             // Norm of Cchk_data ( = I - inv(A) * A )
             // allocate work space for lange and lanhe
-            int lcm = scalapack_ilcm(&p, &q);
-            int ldw = nb*slate::ceildiv(int(slate::ceildiv(nlocA, nb)), (lcm / p));
-            int lwork = std::max(n, 2*mlocA + nlocA + ldw);
+            int64_t ldw = nb*ceildiv( ceildiv( nlocA, nb ),
+                                      scalapack_ilcm( p, q ) / p );
+            int64_t lwork = std::max(n, 2*mlocA + nlocA + ldw);
             std::vector<real_t> worknorm(lwork);
             real_t C_norm = scalapack_plange(
                                 "One", n, n, &Cchk_data[0], 1, 1, Cchk_desc, &worknorm[0]);
@@ -263,10 +265,6 @@ void test_potri_work(Params& params, bool run)
 void test_potri(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_potri_work<float> (params, run);
             break;
@@ -281,6 +279,10 @@ void test_potri(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_potri_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

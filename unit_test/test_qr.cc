@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -170,6 +170,7 @@ void test_tpqrt_work( int m2, int k, int l, int cn, int ib )
         print( "Q^H C2", C2 );
     }
 
+    // Trans applies only to real.
     if (! blas::is_complex< scalar_t >::value) {
         slate::tpmqrt( slate::Side::Left, slate::Op::Trans, l, A2, T, C1, C2 );
         if (verbose > 1) {
@@ -180,8 +181,9 @@ void test_tpqrt_work( int m2, int k, int l, int cn, int ib )
     else {
         // LAPACK xerbla may print error, e.g.,
         // "On entry to ZTPMQRT parameter number  2 had an illegal value"
-        test_assert_throw_std(
-            slate::tpmqrt( slate::Side::Left, slate::Op::Trans, l, A2, T, C1, C2 ));
+        // By default, xerbla will exit, so disable this for routine testing.
+        //test_assert_throw_std(
+        //    slate::tpmqrt( slate::Side::Left, slate::Op::Trans, l, A2, T, C1, C2 ));
     }
 
     //---------------------
@@ -218,6 +220,7 @@ void test_tpqrt_work( int m2, int k, int l, int cn, int ib )
         print( "D2 Q^H", D2 );
     }
 
+    // Trans applies only to real.
     if (! blas::is_complex< scalar_t >::value) {
         slate::tpmqrt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 );
         if (verbose > 1) {
@@ -228,8 +231,9 @@ void test_tpqrt_work( int m2, int k, int l, int cn, int ib )
     else {
         // LAPACK xerbla may print error, e.g.,
         // "On entry to ZTPMQRT parameter number  2 had an illegal value"
-        test_assert_throw_std(
-            slate::tpmqrt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 ));
+        // By default, xerbla will exit, so disable this for routine testing.
+        //test_assert_throw_std(
+        //    slate::tpmqrt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 ));
     }
 }
 
@@ -380,7 +384,8 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         slate::Side::Left, slate::Op::NoTrans,
         std::move( A_panel ),
         std::move( T ),
-        std::move( R ));
+        std::move( R ),
+        0 );
     if (verbose > 1) {
         slate::print( "QR", R );
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -18,12 +18,13 @@ namespace internal {
 /// @ingroup posv_internal
 ///
 template <Target target, typename scalar_t>
-void potrf(HermitianMatrix< scalar_t >&& A,
-           int priority, int64_t queue_index,
-           lapack::device_info_int* device_info)
+int64_t potrf(
+    HermitianMatrix< scalar_t >&& A,
+    int priority, int64_t queue_index,
+    lapack::device_info_int* device_info)
 {
-    potrf(internal::TargetType<target>(), A, priority,
-          queue_index, device_info);
+    return potrf( internal::TargetType<target>(), A, priority,
+                  queue_index, device_info );
 }
 
 //------------------------------------------------------------------------------
@@ -31,19 +32,21 @@ void potrf(HermitianMatrix< scalar_t >&& A,
 /// @ingroup posv_internal
 ///
 template <typename scalar_t>
-void potrf(internal::TargetType<Target::HostTask>,
-           HermitianMatrix<scalar_t>& A,
-           int priority, int64_t queue_index,
-           lapack::device_info_int* device_info)
+int64_t potrf(
+    internal::TargetType<Target::HostTask>,
+    HermitianMatrix<scalar_t>& A,
+    int priority, int64_t queue_index,
+    lapack::device_info_int* device_info)
 {
     assert(A.mt() == 1);
     assert(A.nt() == 1);
 
-    if (A.tileIsLocal(0, 0))
-        {
-            A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
-            potrf(A(0, 0));
-        }
+    int64_t info = 0;
+    if (A.tileIsLocal( 0, 0 )) {
+        A.tileGetForWriting( 0, 0, LayoutConvert::ColMajor );
+        info = potrf( A( 0, 0 ) );
+    }
+    return info;
 }
 
 //------------------------------------------------------------------------------
@@ -51,14 +54,16 @@ void potrf(internal::TargetType<Target::HostTask>,
 /// @ingroup posv_internal
 ///
 template <typename scalar_t>
-void potrf(internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t>& A,
-           int priority, int64_t queue_index,
-           lapack::device_info_int* device_info)
+int64_t potrf(
+    internal::TargetType<Target::Devices>,
+    HermitianMatrix<scalar_t>& A,
+    int priority, int64_t queue_index,
+    lapack::device_info_int* device_info)
 {
     assert(A.mt() == 1);
     assert(A.nt() == 1);
 
+    int64_t info = 0;
     if (A.tileIsLocal(0, 0)) {
         int device = A.tileDevice( 0, 0 );
         A.tileGetForWriting(0, 0, device, LayoutConvert::ColMajor);
@@ -67,63 +72,67 @@ void potrf(internal::TargetType<Target::Devices>,
         lapack::potrf(
             A00.uploPhysical(), A00.mb(), A00.data(),
             A00.stride(), device_info, *queue );
+        lapack::device_info_int host_info;
+        blas::device_memcpy( &host_info, device_info, 1, *queue );
         queue->sync();
+        info = int64_t( host_info );
     }
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
-void potrf<Target::HostTask, float>(
+int64_t potrf<Target::HostTask, float>(
     HermitianMatrix<float>&& A,
     int priority, int64_t queue_index,
     lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
-void potrf<Target::HostTask, double>(
+int64_t potrf<Target::HostTask, double>(
     HermitianMatrix<double>&& A,
     int priority, int64_t queue_index,
     lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
-void potrf< Target::HostTask, std::complex<float> >(
+int64_t potrf< Target::HostTask, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
     int priority, int64_t queue_index,
     lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
-void potrf< Target::HostTask, std::complex<double> >(
+int64_t potrf< Target::HostTask, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
     int priority, int64_t queue_index,
     lapack::device_info_int* device_info);
 
 template
-void potrf<Target::Devices, float>(
+int64_t potrf<Target::Devices, float>(
     HermitianMatrix<float>&& A,
     int priority, int64_t queue_index,
     lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
-void potrf<Target::Devices, double>(
+int64_t potrf<Target::Devices, double>(
     HermitianMatrix<double>&& A,
     int priority, int64_t queue_index,
     lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
-void potrf< Target::Devices, std::complex<float> >(
+int64_t potrf< Target::Devices, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
     int priority, int64_t queue_index,
     lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
-void potrf< Target::Devices, std::complex<double> >(
+int64_t potrf< Target::Devices, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
     int priority, int64_t queue_index,
     lapack::device_info_int* device_info);

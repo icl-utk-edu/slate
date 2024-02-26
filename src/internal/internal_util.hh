@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -70,6 +70,84 @@ inline bool compareSecond(
     return a.second < b.second;
 }
 
+//------------------------------------------------------------------------------
+/// A helper function to find each rank's first (top-most) row in panel k for
+/// the QR-family of routines.
+///
+/// @param[in] A_panel
+///     Current panel, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Index of the current panel in the input matrix $A$.
+///
+/// @return The array of computed indices.
+///
+/// @ingroup geqrf_impl
+///
+template <typename scalar_t>
+std::vector< int64_t > geqrf_compute_first_indices(
+    Matrix<scalar_t>& A_panel, int64_t k)
+{
+    // Find ranks in this column.
+    std::set<int> ranks_set;
+    A_panel.getRanks(&ranks_set);
+    assert(ranks_set.size() > 0);
+
+    // Find each rank's first (top-most) row in this panel,
+    // where the triangular tile resulting from local geqrf panel
+    // will reside.
+    std::vector< int64_t > first_indices;
+    first_indices.reserve(ranks_set.size());
+    for (int r: ranks_set) {
+        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+            if (A_panel.tileRank(i, 0) == r) {
+                first_indices.push_back(i+k);
+                break;
+            }
+        }
+    }
+    return first_indices;
+}
+
+//------------------------------------------------------------------------------
+/// A helper function to find each rank's first (left-most) row in panel k for
+/// the LQ-family of routines.
+///
+/// @param[in] A_panel
+///     Current panel, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Index of the current panel in the input matrix $A$.
+///
+/// @return The array of computed indices.
+///
+/// @ingroup gelqf_impl
+///
+template <typename scalar_t>
+std::vector< int64_t > gelqf_compute_first_indices(
+    Matrix<scalar_t> A_panel, int64_t k)
+{
+    // Find ranks in this column.
+    std::set<int> ranks_set;
+    A_panel.getRanks(&ranks_set);
+    assert(ranks_set.size() > 0);
+
+    // Find each rank's first (top-most) row in this panel,
+    // where the triangular tile resulting from local geqrf panel
+    // will reside.
+    std::vector< int64_t > first_indices;
+    first_indices.reserve(ranks_set.size());
+    for (int r: ranks_set) {
+        for (int64_t j = 0; j < A_panel.nt(); ++j) {
+            if (A_panel.tileRank(0, j) == r) {
+                first_indices.push_back(j+k);
+                break;
+            }
+        }
+    }
+    return first_indices;
+}
+
 
 //------------------------------------------------------------------------------
 /// Helper function to check convergence in iterative methods
@@ -109,6 +187,33 @@ slate::Matrix<scalar_t> alloc_basis(slate::BaseMatrix<scalar_t>& A, int64_t n,
     return V;
 }
 
+//------------------------------------------------------------------------------
+/// Computes the global index for each tile
+///
+/// @param[in] dim
+///     Whether to compute the row or column indices
+///
+/// @param[in] A
+///     The matrix to get tile sizes from
+///
+/// @return a vector mapping tile indices to global indices
+template <typename scalar_t>
+std::vector<int64_t> tile_offsets( RowCol dim, slate::BaseMatrix<scalar_t>& A )
+{
+    bool want_rows = dim == RowCol::Row;
+
+    int64_t kt = want_rows ? A.mt() : A.nt();
+
+    std::vector< int64_t > offset_list;
+    offset_list.reserve( kt );
+
+    int64_t offset = 0;
+    for (int64_t k = 0; k < kt; ++k) {
+        offset_list.push_back( offset );
+        offset += want_rows ? A.tileMb( k ) : A.tileNb( k );
+    }
+    return offset_list;
+}
 
 
 } // namespace internal

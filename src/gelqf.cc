@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -7,6 +7,7 @@
 #include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
@@ -32,6 +33,7 @@ void gelqf(
     using blas::real;
 
     // Constants
+    const int priority_0 = 0;
     const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -69,9 +71,11 @@ void gelqf(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays();
+        const int64_t batch_size_default = 0; // use default batch size
+        int num_queues = 3 + lookahead;
+        A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays();
+        W.allocateBatchArrays( batch_size_default, num_queues );
         // todo: this is demanding too much device workspace memory
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole A is being allocated
@@ -79,8 +83,8 @@ void gelqf(
         // For now, allocate workspace tiles 1-by-1.
         //W.reserveDeviceWorkspace();
 
-        // Needed for calling internal::geqrf on device.
-        int64_t mlocal = 0;
+        // Find largest panel size and device for copying to
+        // contiguous memory within internal geqrf routine
         int64_t nlocal = 0;
         int64_t first_panel_seen = -1;
         // Assume transpose on panel-evaluation
@@ -89,8 +93,6 @@ void gelqf(
                 if (A.tileIsLocal( i, j )) {
                     if (first_panel_seen < 0) {
                         first_panel_seen = i;
-                        mlocal = A.tileMb( i );
-                        nlocal = A.tileNb( i );
                     }
                     if (first_panel_seen == i) {
                         if (panel_device < 0) {
@@ -109,11 +111,12 @@ void gelqf(
 
             queue = A.compute_queue( panel_device );
 
-            size_t  size_tau = (size_t) std::min( nlocal, mlocal );
-            size_t  size_A   = (size_t) blas::max( 1, nlocal ) * mlocal;
+            int64_t mb       = A.tileMb(0);
+            size_t  size_tau = (size_t) std::min( nlocal, mb );
+            size_t  size_A   = (size_t) blas::max( 1, nlocal ) * mb;
             size_t  hsize, dsize;
 
-            lapack::geqrf_work_size_bytes( nlocal, mlocal, dwork_array[0], nlocal,
+            lapack::geqrf_work_size_bytes( nlocal, mb, dwork_array[0], nlocal,
                                            &dsize, &hsize, *queue );
 
             work_size = size_A + size_tau + ceildiv( dsize, sizeof( scalar_t ) )
@@ -128,8 +131,6 @@ void gelqf(
 
     // Workspace for transposed panels needs one column of tiles.
     auto AT = A.emptyLike(0, 0, Op::ConjTrans);
-    // todo: we really only want to insert 1 column's worth at a time.
-    AT.insertLocalTiles();
 
     // LQ tracks dependencies by block-row.
     // OpenMP needs pointer types, but vectors are exception safe
@@ -151,24 +152,8 @@ void gelqf(
             auto  AT_panel =      AT.sub(k, A_nt-1, k, k);
             auto TlT_panel = TlocalT.sub(k, A_nt-1, k, k);
 
-            // Find ranks in this row.
-            std::set<int> ranks_set;
-            A_panel.getRanks(&ranks_set);
-            assert(ranks_set.size() > 0);
-
-            // Find each rank's first (left-most) col in this panel,
-            // where the triangular tile resulting from local gelqf panel
-            // will reside.
-            std::vector< int64_t > first_indices;
-            first_indices.reserve(ranks_set.size());
-            for (int r: ranks_set) {
-                for (int64_t j = 0; j < A_panel.nt(); ++j) {
-                    if (A_panel.tileRank(0, j) == r) {
-                        first_indices.push_back(j+k);
-                        break;
-                    }
-                }
-            }
+            std::vector< int64_t > first_indices
+                            = internal::gelqf_compute_first_indices(A_panel, k);
 
             // panel, high priority
             #pragma omp task depend(inout:block[k]) priority(1)
@@ -180,7 +165,9 @@ void gelqf(
                 for (int64_t j = 0; j < A_panel.nt(); ++j) {
                     if (A_panel.tileIsLocal(0, j)) {
                         // Needed if origin is device
-                        A_panel.tileGetForWriting( 0, j, LayoutConvert( layout ) );
+                        A_panel.tileGetForReading( 0, j, LayoutConvert( layout ) );
+                        AT_panel.tileInsert( j, 0 );
+                        AT_panel.tileModified( j, 0, HostNum );
                         tile::deepConjTranspose( A_panel(0, j), AT_panel(j, 0) );
                     }
                 }
@@ -199,6 +186,7 @@ void gelqf(
                         // the tile for reading on Host, it is not updated
                         TlT_panel.tileGetForReading( i, 0, LayoutConvert( layout ) );
                         Tl_panel.tileInsert(0, i);
+                        Tl_panel.tileModified( 0, i, HostNum );
                         tile::gecopy( TlT_panel(i, 0), Tl_panel(0, i) );
                         break;
                     }
@@ -208,35 +196,30 @@ void gelqf(
                     if (A_panel.tileIsLocal(0, j)) {
                         // Same as above for TlT
                         AT_panel.tileGetForReading( j, 0, LayoutConvert( layout ) );
+                        A_panel.tileGetForWriting( 0, j, LayoutConvert( layout ) );
                         tile::deepConjTranspose( AT_panel(j, 0), A_panel(0, j) );
+                        AT_panel.tileErase(j, 0, AllDevices);
                     }
                 }
-                // todo: AT_panel.clear();
                 //--------------------
 
                 // triangle-triangle reductions
                 // ttlqt handles tile transfers internally
                 internal::ttlqt<Target::HostTask>(
                                 std::move(A_panel),
-                                std::move(Tr_panel));
+                                std::move(Tr_panel) );
 
                 // if a trailing matrix exists
                 if (k < A_mt-1) {
 
                     // bcast V down col for trailing matrix update
                     if (k < A_nt) {
-                        BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
                         for (int64_t j = k; j < A_nt; ++j) {
                             // send A(k, j) down col A(k+1:mt-1, j)
-                            // Vs in first_indices (except the main diagonal one) need three lives
-                            if ((std::find(first_indices.begin(), first_indices.end(), j) != first_indices.end()) && (j > k))
-                                bcast_list_V_first.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
-                            else
-                                bcast_list_V.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
+                            bcast_list_V.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                         }
-                        A.template listBcast(bcast_list_V_first, layout, 0, 3);
-                        A.template listBcast(bcast_list_V, layout, 0, 2);
+                        A.template listBcast<target>( bcast_list_V, layout );
                     }
 
                     // bcast Tlocal down col for trailing matrix update
@@ -245,7 +228,7 @@ void gelqf(
                         for (int64_t col : first_indices) {
                             bcast_list_T.push_back({k, col, {Tlocal.sub(k+1, A_mt-1, col, col)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T, layout);
+                        Tlocal.template listBcast<target>( bcast_list_T, layout );
                     }
 
                     // bcast Treduce down col for trailing matrix update
@@ -269,21 +252,24 @@ void gelqf(
                                  priority(1)
                 {
                     // Apply local reflectors
-                    internal::unmlq<Target::HostTask>(
+                    int queue_ik1 = i-k+1;
+                    internal::unmlq<target>(
                                     Side::Right, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_i),
-                                    W.sub(i, i, k, A_nt-1));
+                                    W.sub(i, i, k, A_nt-1),
+                                    priority_1, queue_ik1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
+                    int tag_i = i;
                     internal::ttmlq<Target::HostTask>(
                                     Side::Right, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_i),
-                                    i);
+                                    tag_i );
                 }
             }
 
@@ -297,21 +283,56 @@ void gelqf(
                                  depend(inout:block[A_mt-1])
                 {
                     // Apply local reflectors
+                    int queue_ik1 = i-k+1;
                     internal::unmlq<target>(
                                     Side::Right, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_i),
-                                    W.sub(i, A_mt-1, k, A_nt-1));
+                                    W.sub(i, A_mt-1, k, A_nt-1),
+                                    priority_0, queue_ik1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
+                    int tag_i = i;
                     internal::ttmlq<Target::HostTask>(
                                     Side::Right, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_i),
-                                    i);
+                                    tag_i );
+                }
+            }
+
+            #pragma omp task depend(inout:block[k])
+            {
+                // Release the whole row, not just the panel
+                for (int64_t j = 0; j < A_nt; ++j) {
+                    if (A.tileIsLocal(k, j)) {
+                        A.tileUpdateOrigin(k, j);
+                        A.releaseLocalWorkspaceTile(k, j);
+                    }
+                    else {
+                        A.releaseRemoteWorkspaceTile(k, j);
+                    }
+                }
+
+                for (int64_t j : first_indices) {
+                    if (Tlocal.tileIsLocal( k, j )) {
+                        // Tlocal and Treduce have the same process distribution
+                        Tlocal.tileUpdateOrigin( k, j );
+                        Tlocal.releaseLocalWorkspaceTile( k, j );
+                        if (j != k) {
+                            // j == k is the root of the reduction tree
+                            // Treduce( k, k ) isn't allocated
+                            Treduce.tileUpdateOrigin( k, j );
+                            Treduce.releaseLocalWorkspaceTile( k, j );
+                        }
+                    }
+                    else {
+                        Tlocal.releaseRemoteWorkspaceTile( k, j );
+                        Treduce.releaseRemoteWorkspaceTile( k, j );
+                    }
                 }
             }
         }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -27,10 +27,10 @@ void ttmlq(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           int tag)
+           int tag )
 {
     ttmlq(internal::TargetType<target>(),
-          side, op, A, T, C, tag);
+          side, op, A, T, C, tag );
 }
 
 //------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
-           int tag)
+           int tag )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -80,9 +80,9 @@ void ttmlq(internal::TargetType<Target::HostTask>,
     int nlevels = int( ceil( log2( nranks ) ) );
 
     // Apply reduction tree.
-    // If Left, NoTrans or Right, Trans, apply descending from root to leaves,
+    // If Left, Trans or Right, NoTrans, apply descending from root to leaves,
     // i.e., in reverse order of how they were created.
-    // If Left, Trans or Right, NoTrans, apply ascending from leaves to root,
+    // If Left, NoTrans or Right, Trans, apply ascending from leaves to root,
     // i.e., in same order as they were created.
     // Example for A.mt == 8.
     // Leaves:
@@ -95,7 +95,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
     //     ttqrt( a4, a6 )
     // Root:
     //     ttqrt( a0, a4 )
-    bool descend = (side == Side::Left) == (op == Op::NoTrans);
+    bool descend = (side == Side::Left) != (op == Op::NoTrans);
     int step;
     if (descend)
         step = pow(2, nlevels - 1);
@@ -112,43 +112,104 @@ void ttmlq(internal::TargetType<Target::HostTask>,
         k_end = C.mt();
     }
 
+    std::vector<MPI_Request> requests;
     for (int level = 0; level < nlevels; ++level) {
         for (int index = 0; index < nranks; index += step) {
             int64_t rank_ind = rank_indices[ index ].second;
-            // if (side == left), scan rows of C for local tiles;
-            // if (side == right), scan cols of C for local tiles
-            // Three for-loops: 1) send, receive 2) update 3) receive, send
-            for (int64_t k = 0; k < k_end; ++k) {
-                if (side == Side::Left) {
-                    i = rank_ind;
-                    j = k;
+            requests.clear();
+
+            if (index % (2*step) == 0) {
+                if (index + step >= nranks) {
+                    break;
                 }
-                else {
-                    i = k;
-                    j = rank_ind;
-                }
-                if (C.tileIsLocal(i, j)) {
-                    if (index % (2*step) == 0) {
-                        if (index + step < nranks) {
-                            // Send tile to dst.
-                            int64_t k_dst = rank_indices[ index + step ].second;
-                            if (side == Side::Left) {
-                                i_dst = k_dst;
-                                j_dst = k;
-                            }
-                            else {
-                                i_dst = k;
-                                j_dst = k_dst;
-                            }
-                            int dst = C.tileRank(i_dst, j_dst);
-                            // GetForWriting because it will be received in the later loop
-                            C.tileGetForWriting(i, j, LayoutConvert(layout));
-                            C.tileSend(i, j, dst, tag);
-                        }
+                int64_t k_dst = rank_indices[ index + step ].second;
+
+                size_t message_count = 0;
+                // if (side == left), scan rows of C for local tiles;
+                // if (side == right), scan cols of C for local tiles
+                // Three for-loops: 1) send, receive 2) update 3) receive, send
+                for (int64_t k = 0; k < k_end; ++k) {
+                    if (side == Side::Left) {
+                        i = rank_ind;
+                        j = k;
                     }
                     else {
+                        i = k;
+                        j = rank_ind;
+                    }
+                    if (C.tileIsLocal(i, j)) {
+                        // Send tile to dst.
+                        if (side == Side::Left) {
+                            i_dst = k_dst;
+                            j_dst = k;
+                        }
+                        else {
+                            i_dst = k;
+                            j_dst = k_dst;
+                        }
+                        int dst = C.tileRank(i_dst, j_dst);
+                        // Don't need to wait since the tile isn't modified
+                        // until receiving it back
+                        MPI_Request req;
+                        C.tileIsend( i, j, dst, tag+k, &req );
+                        MPI_Request_free( &req );
+                        message_count++;
+                    }
+                }
+
+
+                if (message_count == 0) {
+                    continue;
+                }
+
+                // Avoid incrementally reallocating
+                requests.reserve(message_count);
+
+                for (int64_t k = 0; k < k_end; ++k) {
+                    if (side == Side::Left) {
+                        i = rank_ind;
+                        j = k;
+                    }
+                    else {
+                        i = k;
+                        j = rank_ind;
+                    }
+                    if (C.tileIsLocal(i, j)) {
+                        // Receive updated tile back.
+                        if (side == Side::Left) {
+                            i_dst = k_dst;
+                            j_dst = k;
+                        }
+                        else {
+                            i_dst = k;
+                            j_dst = k_dst;
+                        }
+                        int dst = C.tileRank(i_dst, j_dst);
+                        MPI_Request req;
+                        C.tileIrecv( i, j, dst, layout, tag+k, &req );
+                        requests.push_back( req );
+                    }
+                }
+                slate_mpi_call(
+                    MPI_Waitall( requests.size(), requests.data(), MPI_STATUSES_IGNORE ) );
+            }
+            else {
+                int64_t k_src = rank_indices[ index - step ].second;
+                size_t message_count = 0;
+                // if (side == left), scan rows of C for local tiles;
+                // if (side == right), scan cols of C for local tiles
+                // Three for-loops: 1) send, receive 2) update 3) receive, send
+                for (int64_t k = 0; k < k_end; ++k) {
+                    if (side == Side::Left) {
+                        i = rank_ind;
+                        j = k;
+                    }
+                    else {
+                        i = k;
+                        j = rank_ind;
+                    }
+                    if (C.tileIsLocal(i, j)) {
                         // Receive tile from src.
-                        int64_t k_src = rank_indices[ index - step ].second;
                         if (side == Side::Left) {
                             i1 = k_src;
                             j1 = k;
@@ -158,25 +219,31 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                             j1 = k_src;
                         }
 
-                        int     src   = C.tileRank(i1, j1);
-                        C.tileRecv(i1, j1, src, layout, tag);
+                        int src = C.tileRank( i1, j1 );
+                        MPI_Request req;
+                        C.tileIrecv( i1, j1, src, layout, tag+k, &req );
+                        requests.push_back( req );
+                        message_count++;
                     }
                 }
-            }
 
-            #pragma omp taskgroup
-            for (int64_t k = 0; k < k_end; ++k) {
-                if (side == Side::Left) {
-                    i = rank_ind;
-                    j = k;
+                if (message_count == 0) {
+                    continue;
                 }
-                else {
-                    i = k;
-                    j = rank_ind;
-                }
-                if (C.tileIsLocal(i, j)) {
-                    if (!(index % (2*step) == 0)) {
-                        int64_t k_src = rank_indices[ index - step ].second;
+
+                // The above and below loops iterate in the same order, so incrementing
+                // this counter gives the right request object
+                int64_t recv_index = 0;
+                for (int64_t k = 0; k < k_end; ++k) {
+                    if (side == Side::Left) {
+                        i = rank_ind;
+                        j = k;
+                    }
+                    else {
+                        i = k;
+                        j = rank_ind;
+                    }
+                    if (C.tileIsLocal(i, j)) {
                         if (side == Side::Left) {
                             i1 = k_src;
                             j1 = k;
@@ -187,9 +254,13 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                         }
 
                         #pragma omp task slate_omp_default_none \
-                            shared( A, T, C ) \
-                            firstprivate(i, j, layout, rank_ind, i1, j1, side, op)
+                            shared( A, T, C, requests ) \
+                            firstprivate( i, j, k, rank_ind, layout, i1, j1 ) \
+                            firstprivate( side, op, tag, recv_index )
                         {
+                            // Don't start compute until the tile's been recieved
+                            MPI_Wait( &requests[ recv_index ], MPI_STATUS_IGNORE );
+
                             A.tileGetForReading(0, rank_ind, LayoutConvert(layout));
                             T.tileGetForReading(0, rank_ind, LayoutConvert(layout));
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
@@ -199,58 +270,18 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                                    A(0, rank_ind), T(0, rank_ind),
                                    C(i1, j1), C(i, j));
 
-                            // todo: should tileRelease()?
-                            A.tileTick(0, rank_ind);
-                            T.tileTick(0, rank_ind);
+                            int src = C.tileRank( i1, j1 );
+                            // Send updated tile back.
+                            C.tileIsend( i1, j1, src, tag+k, &requests[ recv_index ] );
                         }
+                        recv_index++;
                     }
                 }
+                #pragma omp taskwait
+                slate_mpi_call(
+                    MPI_Waitall( requests.size(), requests.data(), MPI_STATUSES_IGNORE ) );
             }
-
-            for (int64_t k = 0; k < k_end; ++k) {
-                if (side == Side::Left) {
-                    i = rank_ind;
-                    j = k;
-                }
-                else {
-                    i = k;
-                    j = rank_ind;
-                }
-                if (C.tileIsLocal(i, j)) {
-                    if (index % (2*step) == 0) {
-                        if (index + step < nranks) {
-                            // Receive updated tile back.
-                            int64_t k_dst = rank_indices[ index + step ].second;
-                            if (side == Side::Left) {
-                                i_dst = k_dst;
-                                j_dst = k;
-                            }
-                            else {
-                                i_dst = k;
-                                j_dst = k_dst;
-                            }
-                            int dst = C.tileRank(i_dst, j_dst);
-                            assert( (C.tileState( i, j, HostNum ) & MOSI::Modified) != 0 );
-                            C.tileRecv(i, j, dst, layout, tag);
-                        }
-                    }
-                    else {
-                        int64_t k_src = rank_indices[ index - step ].second;
-                        if (side == Side::Left) {
-                            i1 = k_src;
-                            j1 = k;
-                        }
-                        else {
-                            i1 = k;
-                            j1 = k_src;
-                        }
-                        int     src   = C.tileRank(i1, j1);
-                        // Send updated tile back.
-                        C.tileSend(i1, j1, src, tag);
-                        C.tileTick(i1, j1);
-                    }
-                }
-            }
+            break;
         }
         if (descend)
             step /= 2;
@@ -268,7 +299,7 @@ void ttmlq<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& T,
     Matrix<float>&& C,
-    int tag);
+    int tag );
 
 // ----------------------------------------
 template
@@ -277,7 +308,7 @@ void ttmlq<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& T,
     Matrix<double>&& C,
-    int tag);
+    int tag );
 
 // ----------------------------------------
 template
@@ -286,7 +317,7 @@ void ttmlq< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
-    int tag);
+    int tag );
 
 // ----------------------------------------
 template
@@ -295,7 +326,7 @@ void ttmlq< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
-    int tag);
+    int tag );
 
 } // namespace internal
 } // namespace slate

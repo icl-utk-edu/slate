@@ -1,5 +1,5 @@
 #include "hip/hip_runtime.h"
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -65,6 +65,9 @@ __global__ void tzscale_kernel(
     }
 }
 
+//==============================================================================
+namespace batch {
+
 //------------------------------------------------------------------------------
 /// Batched routine for element-wise trapezoidal tile scale.
 /// Sets upper or lower part of
@@ -118,7 +121,7 @@ void tzscale(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    hipLaunchKernelGGL(tzscale_kernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(),
+    tzscale_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         uplo, m, n,
         numer, denom, Aarray, lda);
 
@@ -142,21 +145,34 @@ void tzscale(
     double numer, double denom, double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void tzscale(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
     float numer, float denom,
-    hipFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    tzscale( uplo, m, n, numer, denom,
+             (rocblas_float_complex**) Aarray, lda,
+             batch_count, queue );
+}
 
-template
+template <>
 void tzscale(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
     double numer, double denom,
-    hipDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    tzscale( uplo, m, n, numer, denom,
+             (rocblas_double_complex**) Aarray, lda,
+             batch_count, queue );
+}
 
+} // namespace batch
 } // namespace device
 } // namespace slate

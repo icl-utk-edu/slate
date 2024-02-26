@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -156,6 +156,7 @@ public:
 
     int64_t getMaxHostTiles();
     int64_t getMaxDeviceTiles(int device);
+    int64_t getMaxDeviceTiles();
     void allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1);
     void reserveHostWorkspace();
     void reserveDeviceWorkspace();
@@ -174,6 +175,8 @@ Matrix<scalar_t>::Matrix():
 /// Constructor creates an m-by-n matrix, with no tiles allocated,
 /// where tileMb, tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
+///
+/// @see slate::func for common functions.
 ///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.
@@ -676,7 +679,7 @@ void swap(Matrix<scalar_t>& A, Matrix<scalar_t>& B)
 //------------------------------------------------------------------------------
 /// Returns number of local tiles of the matrix on this rank.
 //
-// todo: numLocalTiles? use for life as well?
+// todo: numLocalTiles?
 template <typename scalar_t>
 int64_t Matrix<scalar_t>::getMaxHostTiles()
 {
@@ -706,6 +709,25 @@ int64_t Matrix<scalar_t>::getMaxDeviceTiles(int device)
 }
 
 //------------------------------------------------------------------------------
+/// Returns the largest number of local tiles of the matrix on this rank for
+/// any devices.
+template <typename scalar_t>
+int64_t Matrix<scalar_t>::getMaxDeviceTiles()
+{
+    if (this->num_devices() > 0) {
+        std::vector<int64_t> num_tiles( this->num_devices() );
+        for (int64_t j = 0; j < this->nt(); ++j)
+            for (int64_t i = 0; i < this->mt(); ++i)
+                if (this->tileIsLocal(i, j))
+                    num_tiles[ this->tileDevice( i, j ) ] += 1;
+        return *std::max_element( num_tiles.begin(), num_tiles.end() );
+    }
+    else {
+        return 0;
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Allocates batch arrays and BLAS++ queues for all devices.
 /// This overrides BaseMatrix::allocateBatchArrays
 /// to use the number of local tiles in a general matrix.
@@ -724,10 +746,9 @@ void Matrix<scalar_t>::allocateBatchArrays(
     int64_t batch_size, int64_t num_arrays)
 {
     if (batch_size == 0) {
-        for (int device = 0; device < this->num_devices_; ++device)
-            batch_size = std::max(batch_size, getMaxDeviceTiles(device));
+        batch_size = getMaxDeviceTiles();
     }
-    this->storage_->allocateBatchArrays(batch_size, num_arrays);
+    this->storage_->allocateBatchArrays( batch_size, num_arrays );
 }
 
 //------------------------------------------------------------------------------
@@ -735,7 +756,7 @@ void Matrix<scalar_t>::allocateBatchArrays(
 template <typename scalar_t>
 void Matrix<scalar_t>::reserveHostWorkspace()
 {
-    this->storage_->reserveHostWorkspace(getMaxHostTiles());
+    this->storage_->reserveHostWorkspace( getMaxHostTiles() );
 }
 
 //------------------------------------------------------------------------------
@@ -743,10 +764,7 @@ void Matrix<scalar_t>::reserveHostWorkspace()
 template <typename scalar_t>
 void Matrix<scalar_t>::reserveDeviceWorkspace()
 {
-    int64_t num_tiles = 0;
-    for (int device = 0; device < this->num_devices_; ++device)
-        num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    this->storage_->reserveDeviceWorkspace(num_tiles);
+    this->storage_->reserveDeviceWorkspace( getMaxDeviceTiles() );
 }
 
 //------------------------------------------------------------------------------
@@ -778,7 +796,6 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                                       &A[(size_t)lda*jj + ii], lda );
                     auto Aij = this->at(i, j);
                     Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
-                    this->tileLayout(i, j, this->layout_);
                 }
                 else {
                     this->tileGetForReading(i, j, LayoutConvert(this->layout()));

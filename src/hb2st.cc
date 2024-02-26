@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -223,17 +223,19 @@ void hb2st(
                     || (ii > jj && ii - (jj + A.tileNb(j) - 1) <= band + 1) ) )
             {
                 if (i == j && j < A.nt()-1) {
-                    auto T_ptr = A.tileInsertWorkspace( i, j+1 );
+                    auto tile = A.tileInsertWorkspace( i, j+1 );
+                    A.tileModified( i, j+1 );
                     lapack::laset(
-                        lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                        zero, zero, T_ptr->data(), T_ptr->stride());
+                        lapack::MatrixType::General, tile.mb(), tile.nb(),
+                        zero, zero, tile.data(), tile.stride());
                 }
 
                 if (j > 0 && i == j + 1) {
-                    auto T_ptr = A.tileInsertWorkspace( i, j-1 );
+                    auto tile = A.tileInsertWorkspace( i, j-1 );
+                    A.tileModified( i, j-1 );
                     lapack::laset(
-                        lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                        zero, zero, T_ptr->data(), T_ptr->stride());
+                        lapack::MatrixType::General, tile.mb(), tile.nb(),
+                        zero, zero, tile.data(), tile.stride());
                 }
 
                 if (i == j) {

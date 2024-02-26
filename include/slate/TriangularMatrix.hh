@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -150,6 +150,8 @@ TriangularMatrix<scalar_t>::TriangularMatrix()
 /// Constructor creates an n-by-n matrix, with no tiles allocated,
 /// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
+///
+/// @see slate::func for common functions.
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(

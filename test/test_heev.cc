@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -9,7 +9,6 @@
 #include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -46,6 +45,7 @@ void test_heev_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::MethodEig method_eig = params.method_eig();
@@ -59,6 +59,18 @@ void test_heev_work(Params& params, bool run)
     params.error.name( "value err" );
     params.error2.name( "back err" );
     params.ortho.name( "Z orth." );
+    if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time5();
+        params.time6();
+        params.time2.name( "he2hb (s)" );
+        params.time3.name( "hb2st (s)" );
+        params.time4.name( "stev (s)" );
+        params.time5.name( "unmtr_hb2st (s)" );
+        params.time6.name( "unmtr_he2hb (s)" );
+    }
 
     if (! run)
         return;
@@ -175,6 +187,13 @@ void test_heev_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "heev::he2hb" ];
+            params.time3() = slate::timers[ "heev::hb2st" ];
+            params.time4() = slate::timers[ "heev::stev" ];
+            params.time5() = slate::timers[ "heev::unmtr_hb2st" ];
+            params.time6() = slate::timers[ "heev::unmtr_he2hb" ];
+        }
 
         if (check && jobz == slate::Job::Vec) {
             //==================================================
@@ -251,8 +270,8 @@ void test_heev_work(Params& params, bool run)
             // Run reference routine from ScaLAPACK
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -266,11 +285,12 @@ void test_heev_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int A_desc[9];
+            int64_t info;
+            blas_int A_desc[9];
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            int Z_desc[9];
+            blas_int Z_desc[9];
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
@@ -279,7 +299,7 @@ void test_heev_work(Params& params, bool run)
             int64_t lwork = -1, lrwork = -1, liwork = -1;
             std::vector<scalar_t> work(1);
             std::vector<real_t> rwork(1);
-            std::vector<int> iwork(1);
+            std::vector<blas_int> iwork(1);
             if (method_eig == slate::MethodEig::DC && jobz == slate::Job::Vec) {
                 scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
                                 &Aref_data[0], 1, 1, A_desc,
@@ -359,10 +379,6 @@ void test_heev_work(Params& params, bool run)
 void test_heev(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_heev_work<float> (params, run);
             break;
@@ -377,6 +393,10 @@ void test_heev(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_heev_work< std::complex<double> > (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

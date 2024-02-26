@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -11,7 +11,6 @@
 #include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -45,6 +44,7 @@ void test_gels_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Method methodGels = params.method_gels();
@@ -64,6 +64,23 @@ void test_gels_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+    if (timer_level >= 2 && (methodGels == slate::MethodGels::Auto
+                             || methodGels == slate::MethodGels::Geqrf)) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time2.name( "geqrf (s)" );
+        params.time3.name( "unmqr (s)" );
+        params.time4.name( "trsm (s)" );
+    }
+    else if (timer_level >= 2 && methodGels == slate::MethodGels::Cholqr) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time2.name( "cholqr (s)" );
+        params.time3.name( "gemm (s)" );
+        params.time4.name( "trsm (s)" );
+    }
 
     if (! run)
         return;
@@ -233,6 +250,18 @@ void test_gels_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
+        if (timer_level >= 2 && (methodGels == slate::MethodGels::Auto
+                                 || methodGels == slate::MethodGels::Geqrf)) {
+            params.time2() = slate::timers[ "gels::geqrf" ];
+            params.time3() = slate::timers[ "gels::unmqr" ];
+            params.time4() = slate::timers[ "gels::trsm"  ];
+        }
+        else if (timer_level >= 2 && methodGels == slate::MethodGels::Cholqr) {
+            params.time2() = slate::timers[ "gels_cholqr::cholqr" ];
+            params.time3() = slate::timers[ "gels_cholqr::gemm" ];
+            params.time4() = slate::timers[ "gels_cholqr::trsm" ];
+        }
+
         print_matrix( "A2", A, params );
         print_matrix( "BX2", BX, params );
     }
@@ -387,8 +416,8 @@ void test_gels_work(Params& params, bool run)
             // A comparison with a reference routine from ScaLAPACK for timing only
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -406,7 +435,8 @@ void test_gels_work(Params& params, bool run)
             int64_t lwork;
             std::vector<scalar_t> work;
 
-            int Aref_desc[9], BXref_desc[9];
+            int64_t info;
+            blas_int Aref_desc[9], BXref_desc[9];
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
@@ -452,10 +482,6 @@ void test_gels_work(Params& params, bool run)
 void test_gels(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_gels_work<float> (params, run);
             break;
@@ -470,6 +496,10 @@ void test_gels(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_gels_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

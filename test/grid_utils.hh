@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -7,6 +7,7 @@
 #define SLATE_GRID_UTILS_HH
 
 #include "slate/slate.hh"
+#include "scalapack_wrappers.hh"
 
 #include <stdint.h>
 
@@ -55,5 +56,35 @@ inline void gridinfo(
 {
     gridinfo( mpi_rank, slate::GridOrder::Col, p, q, my_row, my_col );
 }
+
+//------------------------------------------------------------------------------
+#ifdef SLATE_HAVE_SCALAPACK
+// Sets up a BLACS context with the given grid
+inline void create_ScaLAPACK_context( slate::GridOrder grid_order,
+                                      int p, int q,
+                                      blas_int* ictxt )
+{
+    // BLACS/MPI variables
+    int mpi_rank, myrow, mycol;
+    blas_int p_, q_, myrow_, mycol_;
+    blas_int mpi_rank_ = 0, nprocs = 1;
+
+    // initialize BLACS and ScaLAPACK
+    MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
+    Cblacs_pinfo( &mpi_rank_, &nprocs );
+    slate_assert( mpi_rank_ == mpi_rank );
+
+    Cblacs_get( -1, 0, ictxt );
+
+    slate_assert( p*q <= nprocs );
+    Cblacs_gridinit( ictxt, grid_order2str( grid_order ), p, q );
+    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
+    Cblacs_gridinfo( *ictxt, &p_, &q_, &myrow_, &mycol_ );
+    slate_assert( p == p_ );
+    slate_assert( q == q_ );
+    slate_assert( myrow == myrow_ );
+    slate_assert( mycol == mycol_ );
+}
+#endif // SLATE_HAVE_SCALAPACK
 
 #endif // SLATE_GRID_UTILS_HH

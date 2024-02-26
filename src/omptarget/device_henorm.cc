@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -70,6 +70,7 @@ void henorm(
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using real_t = blas::real_type<scalar_t>;
     ////int64_t nb = 512;
 
@@ -216,6 +217,9 @@ void henorm(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

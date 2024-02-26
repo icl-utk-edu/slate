@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -46,7 +46,7 @@ void copyTile(
     slate::BaseMatrix<scalar_t>& A,
     scalar_t* B, lapack_int descB[9],
     int64_t i, int64_t j,
-    int p, int q)
+    blas_int p, blas_int q )
 {
     int64_t mb  = descB[ Descriptor::mb ];
     int64_t nb  = descB[ Descriptor::nb ];
@@ -94,7 +94,7 @@ void copyTile(
     scalar_t const* B, lapack_int descB[9],
     slate::BaseMatrix<scalar_t>& A,
     int64_t i, int64_t j,
-    int p, int q)
+    blas_int p, blas_int q )
 {
     int64_t mb  = descB[ Descriptor::mb ];
     int64_t nb  = descB[ Descriptor::nb ];
@@ -155,7 +155,7 @@ void copy(
     slate::Matrix<scalar_t>& A )
 {
     // todo: verify A and B have same distribution.
-    int p, q, myrow, mycol;
+    blas_int p, q, myrow, mycol;
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.
@@ -189,7 +189,7 @@ void copy(
     scalar_t* B, lapack_int descB[9] )
 {
     // todo: verify A and B have same distribution.
-    int p, q, myrow, mycol;
+    blas_int p, q, myrow, mycol;
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.
@@ -224,7 +224,7 @@ void copy(
     slate::BaseTrapezoidMatrix<scalar_t>& A )
 {
     // todo: verify A and B have same distribution.
-    int p, q, myrow, mycol;
+    blas_int p, q, myrow, mycol;
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.
@@ -262,7 +262,7 @@ void copy(
     scalar_t* B, lapack_int descB[9] )
 {
     // todo: verify A and B have same distribution.
-    int p, q, myrow, mycol;
+    blas_int p, q, myrow, mycol;
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.

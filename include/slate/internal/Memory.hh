@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -41,10 +41,10 @@ public:
     ~Memory();
 
     // todo: change add* to reserve*?
-    void addHostBlocks(int64_t num_blocks);
+    void addHostBlocks(int64_t num_blocks) { /* No host pool currently */ }
     void addDeviceBlocks(int device, int64_t num_blocks, blas::Queue *queue);
 
-    void clearHostBlocks();
+    void clearHostBlocks() { /* No host pool currently */ }
     void clearDeviceBlocks(int device, blas::Queue *queue);
 
     void* alloc(int device, size_t size, blas::Queue *queue);
@@ -54,14 +54,20 @@ public:
     /// which can be host.
     size_t available(int device) const
     {
-        return free_blocks_.at(device).size();
+        if (device == HostNum)
+            return 0;
+        else
+            return free_blocks_.at(device).size();
     }
 
     /// @return total number of blocks in device's memory pool,
     /// which can be host.
     size_t capacity(int device) const
     {
-        return capacity_.at(device);
+        if (device == HostNum)
+            return 0;
+        else
+            return capacity_.at(device);
     }
 
     /// @return total number of allocated blocks from device's memory pool,
@@ -89,9 +95,9 @@ private:
     size_t block_size_;
 
     // map device number to stack of blocks
-    std::map< int, std::stack<void*> > free_blocks_;
-    std::map< int, std::stack<void*> > allocated_mem_;
-    std::map< int, size_t > capacity_;
+    std::vector< std::stack<void*> > free_blocks_;
+    std::vector< std::stack<void*> > allocated_mem_;
+    std::vector< size_t > capacity_;
 };
 
 } // namespace slate

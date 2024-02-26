@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,7 +13,7 @@ namespace internal {
 
 //------------------------------------------------------------------------------
 /// Apply local reflectors on a Hermitian trailing submatrix. Compute Wi = sum_j Aij Vj.
-/// Wher, A is the Hermitian trailing submatrix.
+/// Where, A is the Hermitian trailing submatrix.
 /// B contains the local reflectors Vj from local QR factorization
 /// of a panel of A
 /// C is the output matrix contains the Wi = sum_j Aij Vj
@@ -28,7 +28,7 @@ void he2hb_hemm(
     Matrix<scalar_t>&& B,
     Matrix<scalar_t>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index )
 {
     he2hb_hemm( internal::TargetType<target>(),
                 A, B, C, panel_rank_rows, priority, queue_index );
@@ -46,7 +46,7 @@ void he2hb_hemm(
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index )
 {
     int64_t mt = A.mt();
     const scalar_t one  = 1;
@@ -77,8 +77,6 @@ void he2hb_hemm(
                             tile::gemm( one, A( i, j ), B( j, 0 ),
                                         one, C( i, 0 ) );
                         }
-                        A.tileTick( i, j );
-                        B.tileTick( j, 0 );
                     }
                 }
                 else { // upper
@@ -88,8 +86,6 @@ void he2hb_hemm(
                         C.tileGetForWriting( i, 0, layoutc );
                         tile::gemm( one, conj_transpose( A( j, i ) ), B( j, 0 ),
                                     one, C( i, 0 ) );
-                        A.tileTick( j, i );
-                        B.tileTick( j, 0 );
                     }
                 }
             }
@@ -256,32 +252,6 @@ void he2hb_hemm(
                 blas::Queue* queue = C.compute_queue( device, i );
                 queue->sync();
             }
-
-            // todo: release tiles in top-level routine.
-            // for (int64_t j : panel_rank_rows) {
-            //     for (int64_t i = 0; i < mt; ++i) {
-            //         if (i >= j) { // lower or diagonal
-            //             if (A.tileIsLocal( i, j )
-            //                 && device == C.tileDevice( i, 0 )) {
-            //                 C.tileModified( i, 0, device );
-            //                 A.tileRelease( i, j, device );
-            //                 B.tileRelease( j, 0, device );
-            //                 A.tileTick( i, j );
-            //                 B.tileTick( j, 0 );
-            //             }
-            //         }
-            //         else { // upper
-            //             if (A.tileIsLocal( j, i )
-            //                 && device == C.tileDevice( i, 0 )) {
-            //                 C.tileModified( i, 0, device );
-            //                 A.tileRelease( j, i, device );
-            //                 B.tileRelease( j, 0, device );
-            //                 A.tileTick( j, i );
-            //                 B.tileTick( j, 0 );
-            //             }
-            //         }
-            //     } //i loop
-            // } // j loop
         } // pragma
     } // devices
 }
@@ -738,30 +708,6 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                 }
 
                 queue->sync();
-
-                // todo: release tiles in top-level routine.
-                // for (int64_t i = 0; i < mt; ++i) {
-                //     if (i >= j) { // lower or diagonal
-                //         if (A.tileIsLocal( i, j )) {
-                //             if (device == C.tileDevice( i, 0 )) {
-                //                 A.tileRelease( i, j, device );
-                //                 B.tileRelease( j, 0, device );
-                //                 A.tileTick( i, j );
-                //                 B.tileTick( j, 0 );
-                //             }
-                //         }
-                //     }
-                //     else { // upper
-                //         if (A.tileIsLocal( j, i )) {
-                //             if (device == C.tileDevice( i, 0 )) {
-                //                 A.tileRelease( j, i, device );
-                //                 B.tileRelease( j, 0, device );
-                //                 A.tileTick( j, i );
-                //                 B.tileTick( j, 0 );
-                //             }
-                //         }
-                //     }
-                // }
             } // j = panel_rank_rows
         } // task
     } // device
@@ -781,7 +727,7 @@ void he2hb_hemm<Target::HostTask, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -790,7 +736,7 @@ void he2hb_hemm<Target::HostTask, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -799,7 +745,7 @@ void he2hb_hemm< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -808,7 +754,7 @@ void he2hb_hemm< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -817,7 +763,7 @@ void he2hb_hemm<Target::Devices, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -826,7 +772,7 @@ void he2hb_hemm<Target::Devices, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -835,7 +781,7 @@ void he2hb_hemm< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -844,7 +790,7 @@ void he2hb_hemm< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

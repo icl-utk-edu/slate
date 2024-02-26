@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -32,7 +32,7 @@ public:
 
     // ---- test matrix generation parameters
     testsweeper::ParamString kind;
-    testsweeper::ParamScientific cond, cond_used;
+    testsweeper::ParamScientific cond_request, cond_actual;
     testsweeper::ParamScientific condD;
     testsweeper::ParamInt seed;
     testsweeper::ParamInt label;
@@ -50,8 +50,8 @@ public:
     {
         verbose     = y.verbose;
         kind()      = y.kind();
-        cond()      = y.cond();
-        cond_used() = y.cond_used();
+        cond_request() = y.cond_request();
+        cond_actual()  = y.cond_actual();
         condD()     = y.condD();
         seed()      = y.seed();
         return *this;
@@ -72,9 +72,9 @@ inline bool same( double a, double b )
 inline bool operator == ( MatrixParams const& x, MatrixParams const& y )
 {
     return x.kind() == y.kind()
-           && same( x.cond(),      y.cond()      )
-           && same( x.cond_used(), y.cond_used() )
-           && same( x.condD(),     y.condD()     );
+           && same( x.cond_request(), y.cond_request() )
+           && same( x.cond_actual(),  y.cond_actual() )
+           && same( x.condD(),        y.condD() );
 }
 
 //------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -46,6 +46,7 @@ void gescale_row_col_batch_kernel(
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     queue.sync(); // sync queue before switching to openmp device execution
     #pragma omp target is_device_ptr(Rarray, Carray, Aarray) device(queue.device())
     #pragma omp teams distribute
@@ -62,6 +63,9 @@ void gescale_row_col_batch_kernel(
                 rowA[ j*lda ] = rowA[ j*lda ] * (ri * C[ j ]);
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -99,6 +103,7 @@ void gescale_col_batch_kernel(
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     queue.sync(); // sync queue before switching to openmp device execution
     #pragma omp target is_device_ptr(Carray, Aarray) device(queue.device())
     #pragma omp teams distribute
@@ -113,6 +118,9 @@ void gescale_col_batch_kernel(
                 rowA[ j*lda ] = rowA[ j*lda ] * C[ j ];
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -150,6 +158,7 @@ void gescale_row_batch_kernel(
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     queue.sync(); // sync queue before switching to openmp device execution
     #pragma omp target is_device_ptr(Rarray, Aarray) device(queue.device())
     #pragma omp teams distribute
@@ -165,6 +174,9 @@ void gescale_row_batch_kernel(
                 rowA[ j*lda ] = rowA[ j*lda ] * ri;
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -210,6 +222,7 @@ void gescale_row_col_batch(
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (batch_count == 0)
         return;
@@ -227,6 +240,9 @@ void gescale_row_col_batch(
         gescale_row_col_batch_kernel(
             m, n, Rarray, Carray, Aarray, lda, batch_count, queue );
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

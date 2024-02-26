@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -238,38 +238,27 @@ void lu_solve(
 
 // gesv
 template <typename scalar_t>
-void lu_solve(
+int64_t lu_solve(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
     Pivots pivots;
-    gesv(A, pivots, B, opts);
+    return gesv( A, pivots, B, opts );
 }
 
 //-----------------------------------------
 // lu_solve_nopiv()
 
-// todo
-// gbsv_nopiv
-// template <typename scalar_t>
-// void lu_solve_nopiv(
-//     BandMatrix<scalar_t>& A,
-//         Matrix<scalar_t>& B,
-//     Options const& opts = Options())
-// {
-//     gbsv_nopiv(A, B, opts);
-// }
-
 // gesv_nopiv
-// todo: deprecate, use lu_solve( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
-void lu_solve_nopiv(
+[[deprecated( "Use lu_solve( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
+int64_t lu_solve_nopiv(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
-    gesv_nopiv(A, B, opts);
+    return gesv_nopiv( A, B, opts );
 }
 
 //-----------------------------------------
@@ -286,34 +275,24 @@ void lu_factor(
 
 // getrf
 template <typename scalar_t>
-void lu_factor(
+int64_t lu_factor(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options())
 {
-    getrf(A, pivots, opts);
+    return getrf( A, pivots, opts );
 }
 
 //-----------------------------------------
 // lu_factor_nopiv()
 
-// todo
-// gbtrf_nopiv
-// template <typename scalar_t>
-// void lu_factor_nopiv(
-//     BandMatrix<scalar_t>& A,
-//     Options const& opts = Options())
-// {
-//     gbtrf_nopiv(A, opts);
-// }
-
 // getrf_nopiv
-// todo: deprecate, use lu_factor_nopiv( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
-void lu_factor_nopiv(
+[[deprecated( "Use lu_factor( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
+int64_t lu_factor_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    getrf_nopiv(A, opts);
+    return getrf_nopiv( A, opts );
 }
 
 //-----------------------------------------
@@ -342,20 +321,9 @@ void lu_solve_using_factor(
 //-----------------------------------------
 // lu_solve_using_factor_nopiv()
 
-// todo
-// gbtrs_nopiv
-// template <typename scalar_t>
-// void lu_solve_using_factor_nopiv(
-//     BandMatrix<scalar_t>& A,
-//         Matrix<scalar_t>& B,
-//     Options const& opts = Options())
-// {
-//     gbtrs_nopiv(A, B, opts);
-// }
-
 // getrs_nopiv
-// todo: deprecate, use lu_solve_using_factor( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
+[[deprecated( "Use lu_solve_using_factor( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
 void lu_solve_using_factor_nopiv(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
@@ -391,6 +359,20 @@ void lu_inverse_using_factor_out_of_place(
 }
 
 //-----------------------------------------
+// lu_rcondest_using_factor()
+
+// gecondest
+template <typename scalar_t>
+blas::real_type<scalar_t> lu_rcondest_using_factor(
+    Norm in_norm,
+    Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options())
+{
+    return gecondest( in_norm, A, Anorm, opts );
+}
+
+//-----------------------------------------
 // Cholesky
 
 //-----------------------------------------
@@ -408,24 +390,24 @@ void chol_solve(
 
 // posv
 template <typename scalar_t>
-void chol_solve(
+int64_t chol_solve(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
-    posv(A, B, opts);
+    return posv( A, B, opts );
 }
 
 // forward real-symmetric matrices to posv;
 // disabled for complex
 template <typename scalar_t>
-void chol_solve(
+int64_t chol_solve(
     SymmetricMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    posv(A, B, opts);
+    return posv( A, B, opts );
 }
 
 //-----------------------------------------
@@ -433,31 +415,31 @@ void chol_solve(
 
 // pbtrf
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     HermitianBandMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    pbtrf(A, opts);
+    return pbtrf( A, opts );
 }
 
 // potrf
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     HermitianMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    potrf(A, opts);
+    return potrf( A, opts );
 }
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void chol_factor(
+int64_t chol_factor(
     SymmetricMatrix<scalar_t>& A,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    potrf(A, opts);
+    return potrf( A, opts );
 }
 
 //-----------------------------------------
@@ -508,6 +490,20 @@ void chol_inverse_using_factor(
 }
 
 //-----------------------------------------
+// chol_rcondest_using_factor()
+
+// pocondest
+template <typename scalar_t>
+blas::real_type<scalar_t> chol_rcondest_using_factor(
+    Norm in_norm,
+    HermitianMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options())
+{
+    return pocondest( in_norm, A, Anorm, opts );
+}
+
+//-----------------------------------------
 // Symmetric indefinite -- block Aasen's
 
 //-----------------------------------------
@@ -515,7 +511,7 @@ void chol_inverse_using_factor(
 
 // hesv
 template <typename scalar_t>
-void indefinite_solve(
+int64_t indefinite_solve(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options())
@@ -528,13 +524,13 @@ void indefinite_solve(
     auto T = slate::BandMatrix<scalar_t>::emptyLike(A, kl, ku);
 
     Pivots pivots, pivots2;
-    hesv(A, pivots, T, pivots2, H, B, opts);
+    return hesv( A, pivots, T, pivots2, H, B, opts );
 }
 
 // forward real-symmetric matrices to hesv;
 // disabled for complex
 template <typename scalar_t>
-void indefinite_solve(
+int64_t indefinite_solve(
     SymmetricMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
@@ -548,7 +544,7 @@ void indefinite_solve(
     auto T = slate::BandMatrix<scalar_t>::emptyLike(A, kl, ku);
 
     Pivots pivots, pivots2;
-    sysv(A, pivots, T, pivots2, H, B, opts);
+    return sysv( A, pivots, T, pivots2, H, B, opts );
 }
 
 //-----------------------------------------
@@ -556,26 +552,26 @@ void indefinite_solve(
 
 // hetrf
 template <typename scalar_t>
-void indefinite_factor(
+int64_t indefinite_factor(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
     Options const& opts = Options())
 {
-    hetrf(A, pivots, T, pivots2, H, opts);
+    return hetrf( A, pivots, T, pivots2, H, opts );
 }
 
 // forward real-symmetric matrices to hetrf;
 // disabled for complex
 template <typename scalar_t>
-void indefinite_factor(
+int64_t indefinite_factor(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    sytrf(A, pivots, T, pivots2, H, opts);
+    return sytrf( A, pivots, T, pivots2, H, opts );
 }
 
 //-----------------------------------------
@@ -679,6 +675,20 @@ void lq_multiply_by_q(
     Options const& opts = Options())
 {
     unmlq(side, op, A, T, C, opts);
+}
+
+//-----------------------------------------
+// triangular_rcondest()
+
+// trcondest
+template <typename scalar_t>
+blas::real_type<scalar_t> triangular_rcondest(
+    Norm in_norm,
+    TriangularMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options())
+{
+    return trcondest( in_norm, A, Anorm, opts );
 }
 
 //------------------------------------------------------------------------------

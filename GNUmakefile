@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -57,10 +57,20 @@ dir_strip = $(patsubst %/,%,$(dir $(1)))
 prefix          ?= /opt/slate
 
 blas_int        ?= int
-blas_threaded   ?= 0
 openmp          ?= 1
 c_api           ?= 0
 fortran_api     ?= 0
+
+# Strip whitespace.
+blas            := $(strip $(blas))
+
+# MKL doesn't oversubscribe within OpenMP tasks, so it's safe and
+# desirable to use multi-threaded BLAS.
+ifeq ($(blas),mkl)
+    blas_threaded ?= 1
+else
+    blas_threaded ?= 0
+endif
 
 NVCC            ?= nvcc
 HIPCC           ?= hipcc
@@ -73,7 +83,6 @@ python          ?= python3
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
-blas            := $(strip $(blas))
 blas_int        := $(strip $(blas_int))
 blas_threaded   := $(strip $(blas_threaded))
 blas_fortran    := $(strip $(blas_fortran))
@@ -95,7 +104,7 @@ export CXX blas blas_int blas_threaded openmp static gpu_backend
 
 CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
-HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
+HIPCCFLAGS += -std=c++14 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
 
@@ -443,20 +452,20 @@ libslate_src += \
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
-        src/internal/internal_transpose.cc \
         src/internal/internal_util.cc \
         # End. Add alphabetically.
 
 # Most unit testers don't need the whole library, only the above subset.
 ifneq ($(only_unit),1)
     libslate_src += \
-        src/device/dev_gescale_row_col.cc \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
         src/internal/internal_gebr.cc \
         src/internal/internal_gecopy.cc \
+        src/internal/internal_gerbt.cc \
+        src/internal/internal_rbt_generate.cc \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemmA.cc \
         src/internal/internal_genorm.cc \
@@ -482,6 +491,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_hettmqr.cc \
         src/internal/internal_norm1est.cc \
         src/internal/internal_potrf.cc \
+        src/internal/internal_reduce_info.cc \
         src/internal/internal_swap.cc \
         src/internal/internal_symm.cc \
         src/internal/internal_synorm.cc \
@@ -507,6 +517,7 @@ ifneq ($(only_unit),1)
         # End. Add alphabetically.
 endif
 
+#-------------------------------------------------------------------------------
 # device
 cuda_src := \
         src/cuda/device_geadd.cu \
@@ -549,21 +560,17 @@ omptarget_src := \
         src/omptarget/device_tzset.cc \
         # End. Add alphabetically.
 
-omptarget_hdr := \
-        src/omptarget/device_util.hh
-
-ifeq ($(cuda),1)
-    libslate_src += $(cuda_src)
-endif
-
-ifeq ($(hip),1)
+ifeq (${cuda},1)
+    libslate_src += ${cuda_src}
+else ifeq (${hip},1)
     libslate_src += ${hip_src}
+else
+    # Used for both OpenMP offload (${omptarget} == 1) and as stubs for
+    # CPU-only build.
+    libslate_src += ${omptarget_src}
 endif
 
-ifeq ($(omptarget),1)
-    libslate_src += $(omptarget_src)
-endif
-
+#-------------------------------------------------------------------------------
 # driver
 ifneq ($(only_unit),1)
     libslate_src += \
@@ -579,6 +586,7 @@ ifneq ($(only_unit),1)
         src/ge2tb.cc \
         src/gecondest.cc \
         src/gelqf.cc \
+        src/gerbt.cc \
         src/gels.cc \
         src/gels_cholqr.cc \
         src/gels_qr.cc \
@@ -590,6 +598,7 @@ ifneq ($(only_unit),1)
         src/gesv_mixed.cc \
         src/gesv_mixed_gmres.cc \
         src/gesv_nopiv.cc \
+        src/gesv_rbt.cc \
         src/getrf.cc \
         src/getrf_nopiv.cc \
         src/getrf_tntpiv.cc \
@@ -615,6 +624,7 @@ ifneq ($(only_unit),1)
         src/pbsv.cc \
         src/pbtrf.cc \
         src/pbtrs.cc \
+        src/pocondest.cc \
         src/posv.cc \
         src/posv_mixed.cc \
         src/posv_mixed_gmres.cc \
@@ -626,6 +636,7 @@ ifneq ($(only_unit),1)
         src/scale.cc \
         src/scale_row_col.cc \
         src/set.cc \
+        src/set_lambdas.cc \
         src/stedc.cc \
         src/stedc_deflate.cc \
         src/stedc_merge.cc \
@@ -688,11 +699,18 @@ ifeq ($(fortran_api),1)
         # End. Add alphabetically.
 endif
 
+# matrix generator
+libmatgen_src += \
+        matgen/generate_matrix_ge.cc \
+        matgen/generate_matrix_he_and_tz.cc \
+        matgen/generate_matrix_utils.cc \
+        matgen/random.cc \
+        # End. Add alphabetically.
+
 # main tester
 tester_src += \
-        test/matrix_generator.cc \
         test/matrix_params.cc \
-        test/random.cc \
+        test/matrix_utils.cc \
         test/test.cc \
         test/test_add.cc \
         test/test_bdsqr.cc \
@@ -722,6 +740,7 @@ tester_src += \
         test/test_herk.cc \
         test/test_hesv.cc \
         test/test_pbsv.cc \
+        test/test_pocondest.cc \
         test/test_posv.cc \
         test/test_potri.cc \
         test/test_scale.cc \
@@ -785,6 +804,7 @@ unit_src = \
     unit_test/test_TrapezoidMatrix.cc \
     unit_test/test_TriangularBandMatrix.cc \
     unit_test/test_TriangularMatrix.cc \
+    unit_test/test_func.cc \
     unit_test/test_geadd.cc \
     unit_test/test_gecopy.cc \
     unit_test/test_gescale.cc \
@@ -810,11 +830,12 @@ endif
 unit_test_obj = \
         unit_test/unit_test.o
 
-libslate_obj = $(addsuffix .o, $(basename $(libslate_src)))
-tester_obj   = $(addsuffix .o, $(basename $(tester_src)))
-unit_obj     = $(addsuffix .o, $(basename $(unit_src)))
-dep          = $(addsuffix .d, $(basename $(libslate_src) $(tester_src) \
-                                          $(unit_src) $(unit_test_obj)))
+libslate_obj  = $(addsuffix .o, $(basename $(libslate_src)))
+libmatgen_obj = $(addsuffix .o, $(basename $(libmatgen_src)))
+tester_obj    = $(addsuffix .o, $(basename $(tester_src)))
+unit_obj      = $(addsuffix .o, $(basename $(unit_src)))
+dep           = $(addsuffix .d, $(basename $(libslate_src) $(libmatgen_src) \
+                                           $(tester_src) $(unit_src) $(unit_test_obj)))
 
 tester    = test/tester
 unit_test = $(basename $(unit_src))
@@ -868,7 +889,7 @@ TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-TEST_LIBS    += -lslate -ltestsweeper
+TEST_LIBS    += -lslate -lslate_matgen -ltestsweeper
 ifneq (${SCALAPACK_LIBRARIES},none)
     TEST_LIBS += ${SCALAPACK_LIBRARIES}
     CXXFLAGS  += -DSLATE_HAVE_SCALAPACK
@@ -915,7 +936,6 @@ install: lib ${pkg}
 	if [ ${c_api} -eq 1 ]; then \
 		mkdir -p ${DESTDIR}${abs_prefix}/include/slate/c_api; \
 		cp include/slate/c_api/*.h  ${DESTDIR}${abs_prefix}/include/slate/c_api; \
-		cp include/slate/c_api/*.hh ${DESTDIR}${abs_prefix}/include/slate/c_api; \
 	fi
 	if [ ${fortran_api} -eq 1 ]; then \
 		cp slate.mod                ${DESTDIR}${abs_prefix}/include/; \
@@ -944,22 +964,20 @@ ifeq ($(c_api),1)
 		${python} tools/c_api/generate_wrappers.py $< $@ \
 			src/c_api/wrappers_precisions.cc
 
-    include/slate/c_api/matrix.h: include/slate/Tile.hh
-		${python} tools/c_api/generate_matrix.py $< $@ \
-			src/c_api/matrix.cc
+    include/slate/c_api/matrix.h: include/slate/Tile.hh include/slate/types.hh
+		${python} tools/c_api/generate_matrix.py $^ $@ src/c_api/matrix.cc
 
-    include/slate/c_api/util.hh: include/slate/c_api/types.h
-		${python} tools/c_api/generate_util.py $< $@ \
-			src/c_api/util.cc
+    src/c_api/util.hh: include/slate/c_api/types.h
+		${python} tools/c_api/generate_util.py $< $@ src/c_api/util.cc
 
-    src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
-    src/c_api/matrix.cc: include/slate/c_api/matrix.h
-    src/c_api/util.cc: include/slate/c_api/util.hh
-    src/c_api/wrappers.o: include/slate/c_api/wrappers.h
+    src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h src/c_api/util.hh
+    src/c_api/matrix.cc: include/slate/c_api/matrix.h src/c_api/util.hh
+    src/c_api/util.cc: src/c_api/util.hh
+    src/c_api/wrappers.o: include/slate/c_api/wrappers.h src/c_api/util.hh
 
     generate: include/slate/c_api/wrappers.h
     generate: include/slate/c_api/matrix.h
-    generate: include/slate/c_api/util.hh
+    generate: src/c_api/util.hh
 endif
 
 #-------------------------------------------------------------------------------
@@ -1053,6 +1071,30 @@ include/clean:
 	$(RM) include/*/*.gch test/*.gch
 
 #-------------------------------------------------------------------------------
+# libslate_matgen library
+libmatgen_a  = lib/libslate_matgen.a
+libmatgen_so = lib/libslate_matgen.so
+libmatgen    = lib/libslate_matgen.$(lib_ext)
+
+MATGEN_LDFLAGS += -L./lib
+MATGEN_LIBS    += -lslate
+
+$(libmatgen_a): $(libmatgen_obj)
+	mkdir -p lib
+	-rm $@
+	ar cr $@ $(libmatgen_obj)
+	ranlib $@
+
+$(libmatgen_so): $(libmatgen_obj) $(libslate_so)
+	mkdir -p lib
+	$(LD) $(MATGEN_LDFLAGS) $(LDFLAGS) \
+		$(libmatgen_obj) \
+		$(MATGEN_LIBS) $(LIBS) \
+		-shared $(install_name) -o $@
+
+matgen: $(libmatgen)
+
+#-------------------------------------------------------------------------------
 # main tester
 # Note 'test' is sub-directory rule; 'tester' is CMake-compatible rule.
 test: $(tester)
@@ -1061,7 +1103,7 @@ tester: $(tester)
 test/clean:
 	rm -f $(tester) $(tester_obj)
 
-$(tester): $(tester_obj) $(libslate) $(testsweeper)
+$(tester): $(tester_obj) $(libslate) $(libmatgen) $(testsweeper)
 	$(LD) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
 		$(TEST_LIBS) $(LIBS) \
 		-o $@
@@ -1092,12 +1134,16 @@ scalapack_api_so = lib/libslate_scalapack_api.so
 scalapack_api    = lib/libslate_scalapack_api.$(lib_ext)
 
 scalapack_api_src += \
+        scalapack_api/scalapack_gecon.cc \
         scalapack_api/scalapack_gels.cc \
         scalapack_api/scalapack_gemm.cc \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_gesv_mixed.cc \
+        scalapack_api/scalapack_gesvd.cc \
         scalapack_api/scalapack_getrf.cc \
         scalapack_api/scalapack_getrs.cc \
+        scalapack_api/scalapack_heev.cc \
+        scalapack_api/scalapack_heevd.cc \
         scalapack_api/scalapack_hemm.cc \
         scalapack_api/scalapack_her2k.cc \
         scalapack_api/scalapack_herk.cc \
@@ -1105,6 +1151,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_lansy.cc \
         scalapack_api/scalapack_lantr.cc \
+        scalapack_api/scalapack_pocon.cc \
         scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_potrf.cc \
         scalapack_api/scalapack_potri.cc \
@@ -1112,6 +1159,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_symm.cc \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \
+        scalapack_api/scalapack_trcon.cc \
         scalapack_api/scalapack_trmm.cc \
         scalapack_api/scalapack_trsm.cc \
         # End. Add alphabetically.
@@ -1150,13 +1198,17 @@ lapack_api_so = lib/libslate_lapack_api.so
 lapack_api    = lib/libslate_lapack_api.$(lib_ext)
 
 lapack_api_src += \
+        lapack_api/lapack_gecon.cc \
         lapack_api/lapack_gels.cc \
         lapack_api/lapack_gemm.cc \
         lapack_api/lapack_gesv.cc \
         lapack_api/lapack_gesv_mixed.cc \
+        lapack_api/lapack_gesvd.cc \
         lapack_api/lapack_getrf.cc \
         lapack_api/lapack_getri.cc \
         lapack_api/lapack_getrs.cc \
+        lapack_api/lapack_heev.cc \
+        lapack_api/lapack_heevd.cc \
         lapack_api/lapack_hemm.cc \
         lapack_api/lapack_her2k.cc \
         lapack_api/lapack_herk.cc \
@@ -1164,12 +1216,14 @@ lapack_api_src += \
         lapack_api/lapack_lanhe.cc \
         lapack_api/lapack_lansy.cc \
         lapack_api/lapack_lantr.cc \
+        lapack_api/lapack_pocon.cc \
         lapack_api/lapack_posv.cc \
         lapack_api/lapack_potrf.cc \
         lapack_api/lapack_potri.cc \
         lapack_api/lapack_symm.cc \
         lapack_api/lapack_syr2k.cc \
         lapack_api/lapack_syrk.cc \
+        lapack_api/lapack_trcon.cc \
         lapack_api/lapack_trmm.cc \
         lapack_api/lapack_trsm.cc \
         # End. Add alphabetically.
@@ -1234,14 +1288,12 @@ comma := ,
 # so they are _always_ generated and never removed.
 # Perl updates includes and removes excess spaces that fail style hook.
 ${hip_src}: src/hip/%.hip.cc: src/cuda/%.cu.md5 | src/hip
-	@${call if_md5_outdated, \
-	        ${hipify} ${basename $<} > $@; \
-	        perl -pi -e 's/\.cuh/.hip.hh/g; s/ +(${comma}|;|$$)/$$1/g;' $@}
-
 ${hip_hdr}: src/hip/%.hip.hh: src/cuda/%.cuh.md5 | src/hip
+
+${hip_src} ${hip_hdr}:
 	@${call if_md5_outdated, \
 	        ${hipify} ${basename $<} > $@; \
-	        perl -pi -e 's/\.cuh/.hip.hh/g; s/ +(${comma}|;|$$)/$$1/g;' $@}
+	        ./tools/slate-hipify.pl $@ }
 
 hipify: ${hip_src} ${hip_hdr}
 
@@ -1262,23 +1314,26 @@ LDFLAGS_clean  = ${filter-out -fPIC -L./%, ${LDFLAGS}}
 
 .PHONY: ${pkg}
 ${pkg}:
-	perl -pe "s'#VERSION'2023.01.00'; \
+	perl -pe "s'#VERSION'2023.11.05'; \
 	          s'#PREFIX'${abs_prefix}'; \
 	          s'#CXX\b'${CXX}'; \
 	          s'#CXXFLAGS'${CXXFLAGS_clean}'; \
 	          s'#CPPFLAGS'${CPPFLAGS_clean}'; \
 	          s'#LDFLAGS'${LDFLAGS_clean}'; \
 	          s'#LIBS'${LIBS}'; \
-	          s'#SCALAPACK'${SCALAPACK_LIBRARIES}';" \
+	          s'#SCALAPACK_LIBRARIES'${SCALAPACK_LIBRARIES}'; \
+	          s'#C_API'${c_api}'; \
+	          s'#FORTRAN_API'${fortran_api}';" \
 	          $@.in > $@
 
 #-------------------------------------------------------------------------------
 # general rules
 
-lib: $(libslate)
+lib: $(libslate) $(libmatgen)
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
-	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep)
+	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep) \
+			$(libmatgen_a) $(libmatgen_so) $(libmatgen_obj)
 	rm -f trace_*.svg
 
 distclean: clean
@@ -1344,6 +1399,7 @@ hooks: ${hooks}
 # Extra dependencies to force TestSweeper, BLAS++, LAPACK++ to be compiled before SLATE.
 
 $(libslate_obj):      | $(libblaspp) $(liblapackpp)
+$(libmatgen_obj):     | $(libblaspp) $(liblapackpp)
 $(tester_obj):        | $(libblaspp) $(liblapackpp)
 $(unit_test_obj):     | $(libblaspp) $(liblapackpp)
 $(unit_obj):          | $(libblaspp) $(liblapackpp)
@@ -1386,10 +1442,18 @@ echo:
 	@echo "libslate      = $(libslate)"
 	@echo "pkg           = ${pkg}"
 	@echo
+	@echo "libmatgen_a   = $(libmatgen_a)"
+	@echo "libmatgen_so  = $(libmatgen_so)"
+	@echo "libmatgen     = $(libmatgen)"
+	@echo
 	@echo "---------- Files"
 	@echo "libslate_src  = $(libslate_src)"
 	@echo
 	@echo "libslate_obj  = $(libslate_obj)"
+	@echo
+	@echo "libmatgen_src = $(libmatgen_src)"
+	@echo
+	@echo "libmatgen_obj = $(libmatgen_obj)"
 	@echo
 	@echo "tester_src    = $(tester_src)"
 	@echo
@@ -1452,7 +1516,6 @@ echo:
 	@echo "---------- OMP target-offload kernel options"
 	@echo "omptarget     = '${omptarget}'"
 	@echo "omptarget_src = ${omptarget_src}"
-	@echo "omptarget_hdr = ${omptarget_hdr}"
 	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"

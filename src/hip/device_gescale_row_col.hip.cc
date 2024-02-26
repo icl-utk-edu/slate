@@ -1,5 +1,5 @@
 #include "hip/hip_runtime.h"
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -191,15 +191,15 @@ void gescale_row_col_batch(
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
     if (equed == Equed::Row) {
-        hipLaunchKernelGGL(gescale_row_batch_kernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(),
+        gescale_row_batch_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
             m, n, Rarray, Aarray, lda );
     }
     else if (equed == Equed::Col) {
-        hipLaunchKernelGGL(gescale_col_batch_kernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(),
+        gescale_col_batch_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
             m, n, Carray, Aarray, lda );
     }
     else if (equed == Equed::Both) {
-        hipLaunchKernelGGL(gescale_row_col_batch_kernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(),
+        gescale_row_col_batch_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
             m, n, Rarray, Carray, Aarray, lda );
     }
 
@@ -225,39 +225,69 @@ void gescale_row_col_batch(
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
 // real R, C
-template
+template <>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
     float const* const* Rarray,
     float const* const* Carray,
-    hipFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    gescale_row_col_batch(
+        equed, m, n, Rarray, Carray,
+        (rocblas_float_complex**) Aarray, lda,
+        batch_count, queue );
+}
 
-template
+template <>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
     double const* const* Rarray,
     double const* const* Carray,
-    hipDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    gescale_row_col_batch(
+        equed, m, n, Rarray, Carray,
+        (rocblas_double_complex**) Aarray, lda,
+        batch_count, queue );
+}
 
 // complex R, C
-template
+template <>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
-    hipFloatComplex const* const* Rarray,
-    hipFloatComplex const* const* Carray,
-    hipFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<float> const* const* Rarray,
+    std::complex<float> const* const* Carray,
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    gescale_row_col_batch(
+        equed, m, n,
+        (rocblas_float_complex**) Rarray,
+        (rocblas_float_complex**) Carray,
+        (rocblas_float_complex**) Aarray, lda,
+        batch_count, queue );
+}
 
-template
+template <>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
-    hipDoubleComplex const* const* Rarray,
-    hipDoubleComplex const* const* Carray,
-    hipDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    std::complex<double> const* const* Rarray,
+    std::complex<double> const* const* Carray,
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+    gescale_row_col_batch(
+        equed, m, n,
+        (rocblas_double_complex**) Rarray,
+        (rocblas_double_complex**) Carray,
+        (rocblas_double_complex**) Aarray, lda,
+        batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

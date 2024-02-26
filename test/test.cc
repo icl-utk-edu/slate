@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -12,7 +12,7 @@
 
 #include "test.hh"
 #include "slate/slate.hh"
-#include "matrix_generator.hh"
+#include "slate/generate_matrix.hh"
 
 // -----------------------------------------------------------------------------
 using testsweeper::ParamType;
@@ -115,6 +115,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "gesv_tntpiv",        test_gesv,         Section::gesv },
     { "gesv_mixed",         test_gesv,         Section::gesv },
     { "gesv_mixed_gmres",   test_gesv,         Section::gesv },
+    { "gesv_rbt",           test_gesv,         Section::gesv },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -156,6 +157,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "potri",              test_potri,        Section::posv },
     { "",                   nullptr,           Section::newline },
+    { "pocondest",          test_pocondest,    Section::posv },
 
     // -----
     // symmetric indefinite
@@ -331,6 +333,12 @@ Params::Params():
     print_precision("print-precision", 0, ParamType::Value, 4,    1, 17,
                     "number of digits to print after the decimal point"),
 
+    timer_level(
+        "timer-level", 0, ParamType::Value,   1,   1,   2,
+        "timer level of detail:\n"
+        "                     1: driver routine (e.g., gels; default)\n"
+        "                     2: computational routines (e.g., geqrf, unmqr, trsm inside gels)" ),
+
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
 
@@ -348,9 +356,8 @@ Params::Params():
     method_lu     ("lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "PartialPiv, CALU, NoPiv"),
     method_trsm   ("trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "auto=auto, A=trsmA, B=trsmB"),
 
-    grid_order("go",      3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
-    tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
-    dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
+    grid_order("go",      3,    ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
+    dev_order ("do",      3,    ParamType::List, slate::GridOrder::Row,   str2grid_order, grid_order2str, "(do) Device grid order: c=Col, r=Row"),
 
     //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
     layout    ("layout",  6,    ParamType::List, slate::Layout::ColMajor, blas::char2layout, blas::layout2char, blas::layout2str, "layout: r=row major, c=column major"),
@@ -396,8 +403,8 @@ Params::Params():
     panel_threads("pt",   2,    ParamType::List, std::max( omp_get_max_threads() / 2, 1 ),
                                                           0, 1000000, "(pt) max number of threads used in panel; default omp_num_threads / 2"),
     align     ("align",   5,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
-    nonuniform_nb("nonuniform_nb",
-                          0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
+    nonuniform_nb("nonuniform-nb",
+                          0,    ParamType::List, 'n', "ny", "generate matrix with nonuniform tile sizes"),
     debug     ("debug",   0,    ParamType::Value, -1,     0, 1000000,
                "given rank waits for debugger (gdb/lldb) to attach"),
     pivot_threshold(
@@ -405,6 +412,9 @@ Params::Params():
     deflate   ("deflate", 12,   ParamType::List, "",
                "multiple space-separated (index or /-separated index pairs)"
                " to deflate, e.g., --deflate '1 2/4 3/5'"),
+    itermax   ("itermax", 7,    ParamType::List, 30,     -1, 1000000, "Maximum number of iterations for refinement"),
+    fallback  ("fallback",0,    ParamType::List, 'y',  "ny",          "If refinement fails, fallback to a robust solver"),
+    depth     ("depth",   5,    ParamType::List,  2,      0, 1000,    "Number of butterflies to apply"),
 
     // ----- output parameters
     // min, max are ignored
@@ -426,8 +436,18 @@ Params::Params():
     // 12.3 allows 99999999.999 Gflop/s = 100 Pflop/s
     time      ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "time to solution"),
     gflops    ("gflop/s",      12, 3, ParamType::Output, no_data_flag,   0,   0, "Gflop/s rate"),
-    time2     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "time to solution"),
+    time2     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
     gflops2   ("gflop/s",      12, 3, ParamType::Output, no_data_flag,   0,   0, "Gflop/s rate"),
+    time3     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time4     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time5     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time6     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time7     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time8     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time9     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time10    ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time11    ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time12    ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
     iters     ("iters",         5,    ParamType::Output,            0,   0,   0, "iterations to solution"),
 
     ref_time  ("ref time (s)", 12, 3, ParamType::Output, no_data_flag,   0,   0, "reference time to solution"),
@@ -443,6 +463,7 @@ Params::Params():
     lookahead.name("la", "lookahead");
     panel_threads.name("pt", "panel-threads");
     grid_order.name("go", "grid-order");
+    dev_order.name("do", "dev-order");
 
     // Change name for the methods to use less space in the stdout
     method_cholQR.name("cholQR", "method-cholQR");
@@ -455,14 +476,14 @@ Params::Params():
 
     // change names of matrix B's params
     matrixB.kind.name( "matrixB" );
-    matrixB.cond.name( "condB" );
+    matrixB.cond_request.name( "condB" );
     matrixB.condD.name( "condD_B" );
     matrixB.seed.name( "seedB" );
     matrixB.label.name( "B" );
 
     // change names of matrix C's params
     matrixC.kind.name( "matrixC" );
-    matrixC.cond.name( "condC" );
+    matrixC.cond_request.name( "condC" );
     matrixC.condD.name( "condD_C" );
     matrixC.seed.name( "seedC" );
     matrixC.label.name( "C" );
@@ -673,6 +694,10 @@ int run(int argc, char** argv)
                 params.help(routine);
             throw;
         }
+
+        // After parsing parameters, call test routine again (with run=false)
+        // to mark any new fields as used (e.g., timers).
+        test_routine( params, false );
 
         slate_assert(params.grid.m() * params.grid.n() == mpi_size);
 

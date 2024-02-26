@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -59,7 +59,12 @@ public:
     template <typename T>
     friend void swap(TriangularBandMatrix<T>& A, TriangularBandMatrix<T>& B);
 
-    void    gatherAll(std::set<int>& rank_set, int tag = 0, int64_t life_factor = 1);
+    void    gatherAll(std::set<int>& rank_set, int tag = 0);
+    [[deprecated( "Tile life has been removed. The 3 argument gatherAll will be removed 2024-12." )]]
+    void    gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor) {
+        gatherAll( rank_set, tag );
+    }
+
     void    ge2tbGather(Matrix<scalar_t>& A);
 
     Diag diag() { return diag_; }
@@ -81,6 +86,8 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix()
 /// Constructor creates an n-by-n matrix, with no tiles allocated,
 /// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
+///
+/// @see slate::func for common functions.
 ///
 template <typename scalar_t>
 TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
@@ -279,7 +286,7 @@ void swap(TriangularBandMatrix<scalar_t>& A, TriangularBandMatrix<scalar_t>& B)
 // avoid if possible.
 //
 template <typename scalar_t>
-void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor)
+void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag)
 {
     trace::Block trace_block("slate::gatherAll");
 
@@ -299,19 +306,8 @@ void TriangularBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag,
         for (int64_t i = istart; i <= iend; ++i) {
 
             // If receiving the tile.
-            if (! this->tileIsLocal(i, j)) {
-                // Create tile to receive data, with life span.
-                // If tile already exists, add to its life span.
-                LockGuard guard(this->storage_->getTilesMapLock()); // todo: accessor
-                auto iter = this->storage_->find( this->globalIndex( i, j, HostNum ) );
-
-                int64_t life = life_factor;
-                if (iter == this->storage_->end())
-                    this->tileInsertWorkspace( i, j, HostNum );
-                else
-                    life += this->tileLife(i, j); // todo: use temp tile to receive
-                this->tileLife(i, j, life);
-            }
+            this->storage_->tilePrepareToReceive( this->globalIndex( i, j ), HostNum,
+                                                  this->layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, rank_set);

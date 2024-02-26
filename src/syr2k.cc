@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -50,12 +50,6 @@ void syr2k(
     assert(A.mt() == C.mt());
     assert(B.mt() == C.mt());
     assert(A.nt() == B.nt());
-
-    // Use only TileReleaseStrategy::Slate for syr2k.
-    // Internal syr2k routine called here won't release
-    // any tiles. This routine will clean up tiles.
-    Options const opts_local =  {
-        {slate::Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
@@ -127,7 +121,7 @@ void syr2k(
                 alpha, std::move( A_col0 ),
                        std::move( B_col0 ),
                 beta,  std::move( C ),
-                priority_0, queue_0, layout, opts_local );
+                priority_0, queue_0, layout );
 
             // Erase remote tiles on all devices including host
             A_col0.releaseRemoteWorkspace();
@@ -174,7 +168,7 @@ void syr2k(
                     alpha, std::move( A_colk ),
                            std::move( B_colk ),
                     one,   std::move( C ),
-                    priority_0, queue_0, layout, opts_local );
+                    priority_0, queue_0, layout );
 
                 // Erase remote tiles on all devices including host
                 A_colk.releaseRemoteWorkspace();

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -37,6 +37,7 @@ void getri(
 
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
+    const int priority_0 = 0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -70,7 +71,10 @@ void getri(
             auto Wkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, W);
             internal::trsm<Target::HostTask>(
                 Side::Right,
-                one, std::move( Wkk ), A.sub(0, A.nt()-1, k, k) );
+                one, std::move( Wkk ), A.sub(0, A.nt()-1, k, k),
+                priority_0, layout );
+
+            // W is deleted here, releasing its tiles
         }
         --k;
 
@@ -108,7 +112,8 @@ void getri(
             internal::gemmA<Target::HostTask>(
                 -one, A.sub(0, A.nt()-1, k+1, A.nt()-1),
                       W.sub(1, W.mt()-1, 0, 0),
-                one,  A.sub(0, A.nt()-1, k, k), layout);
+                one,  A.sub(0, A.nt()-1, k, k),
+                layout );
 
             // reduce A(0:nt-1, k)
             ReduceList reduce_list_A;
@@ -121,6 +126,9 @@ void getri(
             }
             A.template listReduce(reduce_list_A, layout);
 
+            // Release workspace tiles from gemmA
+            A.sub(0, A.nt()-1, k, k).releaseRemoteWorkspace();
+
             // send W(0, 0) down col A(0:nt-1, k)
             W.tileBcast(0, 0, A.sub(0, A.nt()-1, k, k), layout);
 
@@ -128,7 +136,10 @@ void getri(
             auto Tkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Wkk);
             internal::trsm<Target::HostTask>(
                 Side::Right,
-                one, std::move( Tkk ), A.sub(0, A.nt()-1, k, k) );
+                one, std::move( Tkk ), A.sub(0, A.nt()-1, k, k),
+                priority_0, layout );
+
+            // W is deleted here, releasing its tiles
         }
 
         // Apply column pivoting.

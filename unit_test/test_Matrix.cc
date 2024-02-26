@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -191,25 +191,9 @@ void test_Matrix_lambda()
     {
         return (j % 2 == 0 ? 2*nb_ : nb_);
     };
-
-    // 1D block column cyclic
-    int p_ = p;  // local copy to capture
-    std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileRank = [p_](std::tuple<int64_t, int64_t> ij)
-    {
-        int64_t i = std::get<0>(ij);
-        int64_t j = std::get<1>(ij);
-        return int(i%p_ + j*p_);
-    };
-
-    // 1D block row cyclic
-    int num_devices_ = num_devices;  // local copy to capture
-    std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
-    {
-        int64_t i = std::get<0>(ij);
-        return int(i)%num_devices_;
-    };
+    auto tileRank = slate::func::process_1d_grid( slate::GridOrder::Col, p );
+    // NB. this is process_1d_grid because we want a true cyclic device distribution
+    auto tileDevice = slate::func::process_1d_grid( slate::GridOrder::Row, num_devices );
 
     // ----------
     slate::Matrix<double> A(m, n, tileMb, tileNb, tileRank, tileDevice, mpi_comm);
@@ -237,15 +221,15 @@ void test_Matrix_lambda()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
-    // SLATE doesn't know distribution.
+    // SLATE detects the distribution.
     GridOrder order;
     int myp, myq, myrow, mycol;
     A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
-    test_assert( order == GridOrder::Unknown );
-    test_assert( myp == -1 );
-    test_assert( myq == -1 );
-    test_assert( myrow == -1 );
-    test_assert( mycol == -1 );
+    test_assert( order != GridOrder::Unknown );
+    test_assert( myp == p );
+    test_assert( myq == 1 );
+    test_assert( myrow == (mpi_rank < p ? mpi_rank : -1) );
+    test_assert( mycol == (mpi_rank < p ? 0 : -1) );
 
     auto tileMb_     = A.tileMbFunc();
     auto tileNb_     = A.tileNbFunc();
@@ -899,13 +883,13 @@ void test_Matrix_tileInsert_new()
             int ib = std::min( mb, m - i*mb );
             int jb = std::min( nb, n - j*nb );
 
-            auto T_ptr = A.tileInsert( i, j, HostNum );
-            test_assert( T_ptr->mb() == ib );
-            test_assert( T_ptr->nb() == jb );
-            test_assert( T_ptr->op() == slate::Op::NoTrans );
-            test_assert( T_ptr->uplo() == slate::Uplo::General );
+            auto tile = A.tileInsert( i, j, HostNum );
+            test_assert( tile.mb() == ib );
+            test_assert( tile.nb() == jb );
+            test_assert( tile.op() == slate::Op::NoTrans );
+            test_assert( tile.uplo() == slate::Uplo::General );
 
-            T_ptr->at(0, 0) = i + j / 10000.;
+            tile.at(0, 0) = i + j / 10000.;
         }
     }
 
@@ -976,14 +960,14 @@ void test_Matrix_tileInsert_data()
                 else
                     Td = A22;
             }
-            auto T_ptr = A.tileInsert( i, j, HostNum, Td, ib );
-            test_assert( T_ptr->data() == Td );
-            test_assert( T_ptr->mb() == ib );
-            test_assert( T_ptr->nb() == jb );
-            test_assert( T_ptr->op() == slate::Op::NoTrans );
-            test_assert( T_ptr->uplo() == slate::Uplo::General );
+            auto tile = A.tileInsert( i, j, HostNum, Td, ib );
+            test_assert( tile.data() == Td );
+            test_assert( tile.mb() == ib );
+            test_assert( tile.nb() == jb );
+            test_assert( tile.op() == slate::Op::NoTrans );
+            test_assert( tile.uplo() == slate::Uplo::General );
 
-            T_ptr->at(0, 0) = i + j / 10000.;
+            tile.at(0, 0) = i + j / 10000.;
         }
     }
 
@@ -1002,47 +986,6 @@ void test_Matrix_tileInsert_data()
             test_assert( T.nb() == jb );
             test_assert( T.op() == slate::Op::NoTrans );
             test_assert( T.uplo() == slate::Uplo::General );
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-/// Test tileLife.
-void test_Matrix_tileLife()
-{
-    int lda = roundup(m, mb);
-    std::vector<double> Ad( lda*n );
-    auto A = slate::Matrix<double>::fromLAPACK(
-        m, n, Ad.data(), lda, mb, nb, p, q, mpi_comm );
-
-    const int max_life = 4;
-    for (int j = 0; j < A.nt(); ++j) {
-        for (int i = 0; i < A.mt(); ++i) {
-            if (! A.tileIsLocal(i, j))
-                A.tileInsert(i, j);
-            A.tileLife(i, j, max_life);
-        }
-    }
-
-    for (int life = max_life; life > 0; --life) {
-        for (int j = 0; j < A.nt(); ++j) {
-            for (int i = 0; i < A.mt(); ++i) {
-                if (! A.tileIsLocal(i, j)) {
-                    // non-local tiles get decremented, and deleted when life reaches 0.
-                    test_assert( A.tileLife(i, j) == life );
-                    A.tileTick(i, j);
-                    if (life - 1 == 0)
-                        test_assert_throw_std( A.at(i, j) ); // std::exception (map::at)
-                    else
-                        test_assert( A.tileLife(i, j) == life - 1 );
-                }
-                else {
-                    // local tiles don't get decremented
-                    test_assert( A.tileLife(i, j) == max_life );
-                    A.tileTick(i, j);
-                    test_assert( A.tileLife(i, j) == max_life );
-                }
-            }
         }
     }
 }
@@ -1692,6 +1635,75 @@ void test_tileSend_tileRecv()
     }
 }
 
+//------------------------------------------------------------------------------
+void test_releaseRemoteWorkspace()
+{
+    if (mpi_size <= 1) {
+        test_skip("requires mpi_size > 1");
+    }
+
+    int lda = roundup(m, nb);
+    std::vector<double> Ad( lda*n );
+
+    auto A = slate::Matrix<double>::fromLAPACK(
+        m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    bool is_rank_0  = (mpi_rank == 0);
+    bool is_rank_01 = (mpi_rank <= 1);
+
+    // Start w/ only rank 0 holding the tile
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_0, mpi_comm );
+
+    // Send the tile to rank 1
+    if (mpi_rank == 0) {
+        A.tileSend( 0, 0, 1 );
+    }
+    else if (mpi_rank == 1) {
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+    }
+    std::cout << mpi_rank << ": " << A.tileExists(0, 0) << std::endl;
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_01, mpi_comm );
+
+    // Release the tile
+    A.releaseRemoteWorkspace();
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_0, mpi_comm );
+
+    // Send the tile to rank 1 twice
+    if (mpi_rank == 0) {
+        A.tileSend( 0, 0, 1 );
+        A.tileSend( 0, 0, 1 );
+    }
+    else if (mpi_rank == 1) {
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+    }
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_01, mpi_comm );
+
+    // Release the tile once -- still have receive_count == 1
+    A.releaseRemoteWorkspace();
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_01, mpi_comm );
+
+    // Release the tile again -- actually gets released
+    A.releaseRemoteWorkspace();
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_0, mpi_comm );
+
+    // Send the tile to rank 1 twice
+    if (mpi_rank == 0) {
+        A.tileSend( 0, 0, 1 );
+        A.tileSend( 0, 0, 1 );
+    }
+    else if (mpi_rank == 1) {
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+        A.tileRecv( 0, 0, 0, slate::Layout::ColMajor );
+    }
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_01, mpi_comm );
+
+    // Release the tile w/ a count of 2 -- actually gets released
+    A.releaseRemoteWorkspace( 2 );
+    test_assert_all_ranks( A.tileExists( 0, 0 ) == is_rank_0, mpi_comm );
+}
+
+
 //==============================================================================
 // tile MOSI & Layout conversion
 
@@ -1752,6 +1764,8 @@ void test_Matrix_MOSI()
 
     A.reserveDeviceWorkspace();
 
+    // Copy tiles to GPU for reading with the same layout.
+    // assert on tileState to be Shared on CPU and GPU.
     A.tileGetAllForReadingOnDevices(slate::LayoutConvert::None);
 
     for (int j = 0; j < A.nt(); ++j) {
@@ -1763,6 +1777,8 @@ void test_Matrix_MOSI()
         }
     }
 
+    // Copy tiles to GPU for writing with the same layout.
+    // assert on tileState to be Invalid on CPU and Modified GPU.
     A.tileGetAllForWritingOnDevices(slate::LayoutConvert::None);
 
     for (int j = 0; j < A.nt(); ++j) {
@@ -1774,6 +1790,8 @@ void test_Matrix_MOSI()
         }
     }
 
+    // Update tiles on CPU.
+    // assert on tileState to be Shared on CPU and GPU.
     A.tileUpdateAllOrigin();
 
     for (int j = 0; j < A.nt(); ++j) {
@@ -1789,6 +1807,8 @@ void test_Matrix_MOSI()
 
     A.releaseWorkspace();
 
+    // Copy tiles to CPU for reading with the RowMajor layout.
+    // assert on RowMajor layout.
     A.tileGetAllForReading( HostNum, slate::LayoutConvert::RowMajor );
 
     for (int j = 0; j < A.nt(); ++j) {
@@ -1801,6 +1821,8 @@ void test_Matrix_MOSI()
         }
     }
 
+    // Copy tiles to GPU for writing with the RowMajor layout.
+    // assert on RowMajor layout.
     A.tileGetAllForWritingOnDevices(slate::LayoutConvert::None);
 
     for (int j = 0; j < A.nt(); ++j) {
@@ -1812,6 +1834,8 @@ void test_Matrix_MOSI()
         }
     }
 
+    // Copy tiles to CPU for writing with the ColMajor layout.
+    // assert on ColMajor layout.
     A.tileGetAllForWriting( HostNum, slate::LayoutConvert::ColMajor );
 
     for (int j = 0; j < A.nt(); ++j) {
@@ -1822,6 +1846,40 @@ void test_Matrix_MOSI()
                 test_Tile_compare_layout(A(i, j), B(i, j), true);
             }
         }
+    }
+
+    if (num_devices <= 1) {
+        test_skip("remainder of test requires num_devices > 1");
+    }
+
+    // Test copying
+    if (A.tileIsLocal(0, 0)) {
+        double copy;
+
+        // Set on host
+        A.tileGetForWriting(0, 0, HostNum, slate::LayoutConvert::None);
+        A(0, 0).at(0, 0) = -1;
+
+        // Copy to device 0
+        A.tileGetForWriting(0, 0, 0, slate::LayoutConvert::None);
+
+        blas::device_copy_vector(1, A(0, 0, 0).data(), 1, &copy, 1, *A.comm_queue(0));
+        test_assert(copy == -1);
+        copy = 0;
+        blas::device_copy_vector(1, &copy, 1, A(0, 0, 0).data(), 1, *A.comm_queue(0));
+
+        // Copy to device 1
+        A.tileGetForWriting(0, 0, 1, slate::LayoutConvert::None);
+
+        blas::device_copy_vector(1, A(0, 0, 1).data(), 1, &copy, 1, *A.comm_queue(1));
+        test_assert(copy == 0);
+        copy = 1;
+        blas::device_copy_vector(1, &copy, 1, A(0, 0, 1).data(), 1, *A.comm_queue(1));
+
+        // Copy to host
+        A.tileGetForWriting(0, 0, slate::LayoutConvert::None);
+
+        test_assert(A(0, 0)(0, 0) == 1);
     }
 }
 
@@ -1851,10 +1909,10 @@ void test_Matrix_tileLayoutConvert()
             if (A.tileIsLocal(i, j)) {
                 test_assert(A.tileLayout(i, j) == A.layout());
                 if (A.tileMb(i) == A.tileNb(j)) {
-                    test_assert( A.tileLayoutIsConvertible(i, j) );
+                    test_assert( A(i, j).isTransposable() );
                 }
                 else {
-                    test_assert(! A.tileLayoutIsConvertible(i, j) );
+                    test_assert(! A(i, j).isTransposable() );
                 }
                 A.tileLayoutConvert(i, j, newLayout);
                 test_assert(A.tileLayout(i, j) == newLayout);
@@ -2071,7 +2129,6 @@ void run_tests()
     run_test(test_Matrix_swap,                 "swap",                                     mpi_comm);
     run_test(test_Matrix_tileInsert_new,       "Matrix::tileInsert(i, j, dev) ",           mpi_comm);
     run_test(test_Matrix_tileInsert_data,      "Matrix::tileInsert(i, j, dev, data, lda)", mpi_comm);
-    run_test(test_Matrix_tileLife,             "Matrix::tileLife",                         mpi_comm);
     run_test(test_Matrix_tileErase,            "Matrix::tileErase",                        mpi_comm);
     run_test(test_Matrix_tileReduceFromSet,    "Matrix::tileReduceFromSet(i, j, set,...)", mpi_comm);
     run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",               mpi_comm);
@@ -2090,6 +2147,7 @@ void run_tests()
     if (mpi_rank == 0)
         printf("\nCommunication\n");
     run_test(test_tileSend_tileRecv, "tileSend, tileRecv", mpi_comm);
+    run_test(test_releaseRemoteWorkspace, "releaseRemoteWorkspace", mpi_comm);
 }
 
 }  // namespace test

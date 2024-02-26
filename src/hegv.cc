@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -85,15 +85,25 @@ void hegv(
 
     bool wantz = (Z.mt() > 0);
 
+    Timer t_hegv;
+
     // 1. Form a Cholesky factorization of B.
+    Timer t_potrf;
     potrf( B, opts );
+    timers[ "hegv::potrf" ] = t_potrf.stop();
 
     // 2. Transform problem to standard eigenvalue problem.
+    Timer t_hegst;
     hegst( itype, A, B, opts );
+    timers[ "hegv::hegst" ] = t_hegst.stop();
 
     // 3. Solve the standard eigenvalue problem and solve.
+    Timer t_heev;
     heev( A, Lambda, Z, opts );
+    timers[ "hegv::heev" ] = t_heev.stop();
 
+    timers[ "hegv::trsm" ] = 0;
+    timers[ "hegv::trmm" ] = 0;
     if (wantz) {
         // 4. Backtransform eigenvectors to the original problem.
         auto L = TriangularMatrix<scalar_t>( Diag::NonUnit, B );
@@ -101,14 +111,19 @@ void hegv(
             // For A x = lambda B x and A B x = lambda x,
             // backtransform eigenvectors: x = inv(L)^H y.
             auto LH = conj_transpose( L );
+            Timer t_trsm;
             trsm( Side::Left, one, LH, Z, opts );
+            timers[ "hegv::trsm" ] += t_trsm.stop();
         }
         else {
             // For B A x = lambda x,
             // backtransform eigenvectors: x = L y.
+            Timer t_trmm;
             trmm( Side::Left, one, L, Z, opts );
+            timers[ "hegv::trmm" ] += t_trmm.stop();
         }
     }
+    timers[ "hegv" ] = t_hegv.stop();
 }
 
 //------------------------------------------------------------------------------

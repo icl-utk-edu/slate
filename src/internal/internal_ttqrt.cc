@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -20,10 +20,10 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void ttqrt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T)
+           Matrix<scalar_t>&& T )
 {
     ttqrt(internal::TargetType<target>(),
-          A, T);
+          A, T );
 }
 
 //------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ void ttqrt(Matrix<scalar_t>&& A,
 template <typename scalar_t>
 void ttqrt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T)
+           Matrix<scalar_t>& T )
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -122,7 +122,6 @@ void ttqrt(internal::TargetType<Target::HostTask>,
 
                 // Send updated tile back. This rank is done!
                 A.tileSend(i_src, 0, src);
-                A.tileTick(i_src, 0);
                 break;
             }
             step *= 2;
@@ -136,25 +135,25 @@ void ttqrt(internal::TargetType<Target::HostTask>,
 template
 void ttqrt<Target::HostTask, float>(
     Matrix<float>&& A,
-    Matrix<float>&& T);
+    Matrix<float>&& T );
 
 // ----------------------------------------
 template
 void ttqrt<Target::HostTask, double>(
     Matrix<double>&& A,
-    Matrix<double>&& T);
+    Matrix<double>&& T );
 
 // ----------------------------------------
 template
 void ttqrt< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& T);
+    Matrix< std::complex<float> >&& T );
 
 // ----------------------------------------
 template
 void ttqrt< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& T);
+    Matrix< std::complex<double> >&& T );
 
 } // namespace internal
 } // namespace slate

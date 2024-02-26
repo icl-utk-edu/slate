@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -21,7 +21,7 @@ namespace impl {
 /// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
-void getrf(
+int64_t getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
@@ -30,20 +30,18 @@ void getrf(
 
     // Constants
     const scalar_t one = 1.0;
-    const int life_1 = 1;
     const int priority_0 = 0;
     const int priority_1 = 1;
     const int queue_0 = 0;
     const int queue_1 = 1;
 
     // Options
-    real_t pivot_threshold
-        = get_option<double>( opts, Option::PivotThreshold, 1.0 );
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    real_t pivot_threshold = get_option<Option::PivotThreshold>( opts, 1.0 );
+    int64_t lookahead = get_option<Option::Lookahead>( opts, 1 );
+    int64_t ib = get_option<Option::InnerBlocking>( opts, 16 );
     int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
-                                             max_panel_threads );
+    max_panel_threads = get_option<Option::MaxPanelThreads>(
+                                                      opts, max_panel_threads );
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -57,12 +55,11 @@ void getrf(
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;
 
+    int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     pivots.resize(min_mt_nt);
-
-    bool is_shared = target == Target::Devices && lookahead > 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -85,6 +82,7 @@ void getrf(
     #pragma omp parallel
     #pragma omp master
     {
+        int64_t kk = 0;  // column index (not block-column)
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
@@ -94,9 +92,12 @@ void getrf(
             #pragma omp task depend(inout:column[k]) priority(1)
             {
                 // factor A(k:mt-1, k)
+                int64_t iinfo;
                 internal::getrf_panel<Target::HostTask>(
                     A.sub(k, A_mt-1, k, k), diag_len, ib, pivots.at(k),
-                    pivot_threshold, max_panel_threads, priority_1, k );
+                    pivot_threshold, max_panel_threads, priority_1, k, &iinfo );
+                if (info == 0 && iinfo > 0)
+                    info = kk + iinfo;
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -105,7 +106,7 @@ void getrf(
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                 }
                 A.template listBcast<target>(
-                    bcast_list_A, Layout::ColMajor, tag_k, life_1, is_shared );
+                    bcast_list_A, target_layout, tag_k );
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -137,7 +138,7 @@ void getrf(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_1, Layout::ColMajor, queue_jk1 );
+                        priority_1, target_layout, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -194,7 +195,7 @@ void getrf(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_0, Layout::ColMajor, queue_1 );
+                        priority_0, target_layout, queue_1 );
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -202,9 +203,8 @@ void getrf(
                         // send A(k, j) across column A(k+1:mt-1, j)
                         bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                     }
-                    // todo: trsm still operates in ColMajor
                     A.template listBcast<target>(
-                        bcast_list_A, Layout::ColMajor, tag_kl1);
+                        bcast_list_A, target_layout, tag_kl1);
 
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
@@ -214,30 +214,34 @@ void getrf(
                         target_layout, priority_0, queue_1 );
                 }
             }
-            if (is_shared) {
-                #pragma omp task depend(inout:column[k])
-                {
-                    for (int64_t i = k+1; i < A_mt; ++i) {
-                        if (A.tileIsLocal(i, k)) {
-                            A.tileUpdateOrigin(i, k);
+            #pragma omp task depend(inout:column[k])
+            {
+                auto left_panel = A.sub( k, A_mt-1, k, k );
+                auto top_panel = A.sub( k, k, k+1, A_nt-1 );
 
-                            std::set<int> dev_set;
-                            A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+                // Erase remote tiles on all devices including host
+                left_panel.releaseRemoteWorkspace();
+                top_panel.releaseRemoteWorkspace();
 
-                            for (auto device : dev_set) {
-                                A.tileUnsetHold(i, k, device);
-                                A.tileRelease(i, k, device);
-                            }
-                        }
-                    }
-                }
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                left_panel.tileUpdateAllOrigin();
+                top_panel.tileUpdateAllOrigin();
+
+                // Erase local workspace on devices.
+                left_panel.releaseLocalWorkspace();
+                top_panel.releaseLocalWorkspace();
             }
+            kk += A.tileNb( k );
         }
         #pragma omp taskwait
 
         A.tileLayoutReset();
     }
     A.clearWorkspace();
+
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -294,87 +298,83 @@ void getrf(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-///    - Option::PivotThreshold:
-///      Strictness of the pivot selection.  Between 0 and 1 with 1 giving
-///      partial pivoting and 0 giving no pivoting.  Default 1.
+///     - Option::PivotThreshold:
+///       Strictness of the pivot selection.  Between 0 and 1 with 1 giving
+///       partial pivoting and 0 giving no pivoting.  Default 1.
 ///
-///    - Option::MethodLU:
-///      Algorithm for LU factorization.
+///     - Option::MethodLU:
+///       Algorithm for LU factorization.
 ///       - MethodLU::PartialPiv: partial pivoting [default].
 ///       - MethodLU::CALU: communication avoiding (tournament pivoting).
 ///       - MethodLU::NoPiv: no pivoting.
 ///         Note pivots vector is currently ignored for NoPiv.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
-///         factorization has been completed, but the factor $U$ is exactly
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
 ///
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf(
+int64_t getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
-    Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
+    Method method = get_option<Option::MethodLU>( opts, MethodLU::PartialPiv );
 
+    // todo: info for tntpiv, nopiv
     if (method == MethodLU::CALU) {
-        getrf_tntpiv( A, pivots, opts );
+        return getrf_tntpiv( A, pivots, opts );
     }
     else if (method == MethodLU::NoPiv) {
         // todo: fill in pivots vector?
-        getrf_nopiv( A, opts );
+        return getrf_nopiv( A, opts );
     }
     else if (method == MethodLU::PartialPiv) {
-        Target target = get_option( opts, Option::Target, Target::HostTask );
+        Target target = get_option<Option::Target>( opts, Target::HostTask );
 
         switch (target) {
             case Target::Host:
             case Target::HostTask:
-                impl::getrf<Target::HostTask>( A, pivots, opts );
-                break;
+                return impl::getrf<Target::HostTask>( A, pivots, opts );
 
             case Target::HostNest:
-                impl::getrf<Target::HostNest>( A, pivots, opts );
-                break;
+                return impl::getrf<Target::HostNest>( A, pivots, opts );
 
             case Target::HostBatch:
-                impl::getrf<Target::HostBatch>( A, pivots, opts );
-                break;
+                return impl::getrf<Target::HostBatch>( A, pivots, opts );
 
             case Target::Devices:
-                impl::getrf<Target::Devices>( A, pivots, opts );
-                break;
+                return impl::getrf<Target::Devices>( A, pivots, opts );
         }
     }
     else {
         throw Exception( "unknown value for MethodLU" );
     }
-    // todo: return value for errors?
+    return -3;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void getrf<float>(
+int64_t getrf<float>(
     Matrix<float>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf<double>(
+int64_t getrf<double>(
     Matrix<double>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf< std::complex<float> >(
+int64_t getrf< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf< std::complex<double> >(
+int64_t getrf< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Options const& opts);
 

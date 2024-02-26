@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -17,6 +17,7 @@
 
 #include "slate/method.hh"
 
+#include "slate/func.hh"
 #include "slate/types.hh"
 #include "slate/print.hh"
 
@@ -27,11 +28,16 @@
 namespace slate {
 
 // Version is updated by make_release.py; DO NOT EDIT.
-// Version 2023.06.00
-#define SLATE_VERSION 20230600
+// Version 2023.11.05
+#define SLATE_VERSION 20231105
 
 int version();
 const char* id();
+
+/// Map of timers, in seconds, for top-level routines. For example:
+/// `timers[ "gels" ]` is time for gels,
+/// `timers[ "gels::geqrf" ]` is time for geqrf inside gels.
+extern std::map< std::string, double > timers;
 
 //------------------------------------------------------------------------------
 // Level 2 Auxiliary
@@ -143,8 +149,31 @@ void set(
     set(value, value, A, opts);
 }
 
+template <typename scalar_t>
+void set(
+    std::function< scalar_t (int64_t i, int64_t j) > const& value,
+    Matrix<scalar_t>& A,
+    Options const& opts);
+
+template <typename scalar_t>
+void set(
+    std::function< scalar_t (int64_t i, int64_t j) > const& value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts);
+
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
+
+//-----------------------------------------
+// gerbt()
+template<typename scalar_t>
+void gerbt(Matrix<scalar_t>& U,
+           Matrix<scalar_t>& A,
+           Matrix<scalar_t>& V);
+
+template<typename scalar_t>
+void gerbt(Matrix<scalar_t>& U,
+           Matrix<scalar_t>& A);
 
 //-----------------------------------------
 // gbmm()
@@ -467,7 +496,7 @@ void colNorms(
 //-----------------------------------------
 // gbsv()
 template <typename scalar_t>
-void gbsv(
+int64_t gbsv(
     BandMatrix<scalar_t>& A, Pivots& pivots,
         Matrix<scalar_t>& B,
     Options const& opts = Options());
@@ -475,7 +504,7 @@ void gbsv(
 //-----------------------------------------
 // gesv()
 template <typename scalar_t>
-void gesv(
+int64_t gesv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
     Options const& opts = Options());
@@ -484,7 +513,7 @@ void gesv(
 // gesv_nopiv()
 // todo: deprecate, use gesv( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
-void gesv_nopiv(
+int64_t gesv_nopiv(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts = Options());
@@ -492,7 +521,7 @@ void gesv_nopiv(
 //-----------------------------------------
 // gesv_mixed()
 template <typename scalar_t>
-void gesv_mixed(
+int64_t gesv_mixed(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& X,
@@ -500,7 +529,7 @@ void gesv_mixed(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void gesv_mixed(
+int64_t gesv_mixed(
     Matrix<scalar_hi>& A, Pivots& pivots,
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
@@ -509,32 +538,32 @@ void gesv_mixed(
 
 template <typename scalar_t>
 [[deprecated( "Use gesv_mixed instead. Will be removed 2024-02." )]]
-void gesvMixed(
+int64_t gesvMixed(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& X,
     int& iter,
     Options const& opts = Options())
 {
-    gesv_mixed( A, pivots, B, X, iter, opts );
+    return gesv_mixed( A, pivots, B, X, iter, opts );
 }
 
 template <typename scalar_hi, typename scalar_lo>
 [[deprecated( "Use gesv_mixed instead. Will be removed 2024-02." )]]
-void gesvMixed(
+int64_t gesvMixed(
     Matrix<scalar_hi>& A, Pivots& pivots,
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
     int& iter,
     Options const& opts = Options())
 {
-    gesv_mixed( A, pivots, B, X, iter, opts );
+    return gesv_mixed( A, pivots, B, X, iter, opts );
 }
 
 //-----------------------------------------
 // gesv_mixed_gmres()
 template <typename scalar_t>
-void gesv_mixed_gmres(
+int64_t gesv_mixed_gmres(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& X,
@@ -542,38 +571,48 @@ void gesv_mixed_gmres(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void gesv_mixed_gmres(
+int64_t gesv_mixed_gmres(
     Matrix<scalar_hi>& A, Pivots& pivots,
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// gesv_rbt
+template<typename scalar_t>
+void gesv_rbt(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& X,
     int& iter,
     Options const& opts = Options());
 
 //-----------------------------------------
 // gbtrf()
 template <typename scalar_t>
-void gbtrf(
+int64_t gbtrf(
     BandMatrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 
 //-----------------------------------------
 // getrf()
 template <typename scalar_t>
-void getrf(
+int64_t getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 
 //-----------------------------------------
 // getrf_nopiv()
 template <typename scalar_t>
-void getrf_nopiv(
+int64_t getrf_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts = Options());
 
 //-----------------------------------------
 // getrf_tntpiv()
 template <typename scalar_t>
-void getrf_tntpiv(
+int64_t getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 
@@ -623,7 +662,7 @@ void getri(
 //-----------------------------------------
 // pbsv()
 template <typename scalar_t>
-void pbsv(
+int64_t pbsv(
     HermitianBandMatrix<scalar_t>& A,
                  Matrix<scalar_t>& B,
     Options const& opts = Options());
@@ -631,7 +670,7 @@ void pbsv(
 //-----------------------------------------
 // posv()
 template <typename scalar_t>
-void posv(
+int64_t posv(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options());
@@ -639,20 +678,20 @@ void posv(
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void posv(
+int64_t posv(
     SymmetricMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    posv(AH, B, opts);
+    return posv( AH, B, opts );
 }
 
 //-----------------------------------------
 // posv_mixed()
 template <typename scalar_t>
-void posv_mixed(
+int64_t posv_mixed(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
              Matrix<scalar_t>& X,
@@ -660,7 +699,7 @@ void posv_mixed(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void posv_mixed(
+int64_t posv_mixed(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
              Matrix<scalar_hi>& X,
@@ -671,32 +710,32 @@ void posv_mixed(
 
 template <typename scalar_t>
 [[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
-void posvMixed(
+int64_t posvMixed(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
              Matrix<scalar_t>& X,
     int& iter,
     Options const& opts = Options())
 {
-    posv_mixed( A, B, X, iter, opts );
+    return posv_mixed( A, B, X, iter, opts );
 }
 
 template <typename scalar_hi, typename scalar_lo>
 [[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
-void posvMixed(
+int64_t posvMixed(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
              Matrix<scalar_hi>& X,
     int& iter,
     Options const& opts = Options())
 {
-    posv_mixed( A, B, X, iter, opts );
+    return posv_mixed( A, B, X, iter, opts );
 }
 
 //-----------------------------------------
 // posv_mixed_gmres()
 template <typename scalar_t>
-void posv_mixed_gmres(
+int64_t posv_mixed_gmres(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
              Matrix<scalar_t>& X,
@@ -704,7 +743,7 @@ void posv_mixed_gmres(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void posv_mixed_gmres(
+int64_t posv_mixed_gmres(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
              Matrix<scalar_hi>& X,
@@ -716,27 +755,27 @@ void posv_mixed_gmres(
 //-----------------------------------------
 // pbtrf()
 template <typename scalar_t>
-void pbtrf(
+int64_t pbtrf(
     HermitianBandMatrix<scalar_t>& A,
     Options const& opts = Options());
 
 //-----------------------------------------
 // potrf()
 template <typename scalar_t>
-void potrf(
+int64_t potrf(
     HermitianMatrix<scalar_t>& A,
     Options const& opts = Options());
 
 // forward real-symmetric matrices to potrf;
 // disabled for complex
 template <typename scalar_t>
-void potrf(
+int64_t potrf(
     SymmetricMatrix<scalar_t>& A,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     HermitianMatrix<scalar_t> AH(A);
-    potrf(AH, opts);
+    return potrf( AH, opts );
 }
 
 //-----------------------------------------
@@ -785,7 +824,7 @@ void potri(
 //-----------------------------------------
 // hesv()
 template <typename scalar_t>
-void hesv(
+int64_t hesv(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
@@ -797,7 +836,7 @@ void hesv(
 // forward real-symmetric matrices to hesv;
 // disabled for complex
 template <typename scalar_t>
-void sysv(
+int64_t sysv(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
@@ -805,14 +844,14 @@ void sysv(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> AH(A);
-    hesv(AH, pivots, T, pivots2, H, B, opts);
+    HermitianMatrix<scalar_t> AH( A );
+    return hesv( AH, pivots, T, pivots2, H, B, opts );
 }
 
 //-----------------------------------------
 // hetrf()
 template <typename scalar_t>
-void hetrf(
+int64_t hetrf(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
@@ -823,15 +862,15 @@ void hetrf(
 // forward real-symmetric matrices to hetrf;
 // disabled for complex
 template <typename scalar_t>
-void sytrf(
+int64_t sytrf(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> AH(A);
-    hetrf(AH, pivots, T, pivots2, H, opts);
+    HermitianMatrix<scalar_t> AH( A );
+    return hetrf( AH, pivots, T, pivots2, H, opts );
 }
 
 //-----------------------------------------
@@ -1318,21 +1357,53 @@ void steqr2(
 //-----------------------------------------
 // gecondest()
 template <typename scalar_t>
+blas::real_type<scalar_t> gecondest(
+    Norm in_norm,
+    Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+[[deprecated( "Use rcond = gecondest(...) and pass Anorm by value instead. Will be removed 2024-11." )]]
 void gecondest(
         Norm in_norm,
         Matrix<scalar_t>& A,
         blas::real_type<scalar_t> *Anorm,
         blas::real_type<scalar_t> *rcond,
-        Options const& opts = Options());
+        Options const& opts = Options())
+{
+    *rcond = gecondest( in_norm, A, *Anorm, opts );
+}
+
+//-----------------------------------------
+// pocondest()
+template <typename scalar_t>
+blas::real_type<scalar_t> pocondest(
+    Norm in_norm,
+    HermitianMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // trcondest()
 template <typename scalar_t>
+blas::real_type<scalar_t> trcondest(
+    Norm in_norm,
+    TriangularMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+[[deprecated( "Use rcond = trcondest(...) and pass Anorm. Will be removed 2024-11." )]]
 void trcondest(
         Norm in_norm,
         TriangularMatrix<scalar_t>& A,
         blas::real_type<scalar_t> *rcond,
-        Options const& opts = Options());
+        Options const& opts = Options())
+{
+    blas::real_type<scalar_t> Anorm = norm( in_norm, A, opts );
+    *rcond = trcondest( in_norm, A, Anorm, opts );
+}
 
 } // namespace slate
 

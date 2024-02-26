@@ -2,6 +2,10 @@
 
 import sys
 import re
+import textwrap
+
+#-------------------------------------------------------------------------------
+# Read include/slate/Tile.hh to get Tile structure
 
 data_members_is_found = False
 typename_is_found     = False
@@ -35,11 +39,29 @@ file.close()
 template += '} slate_' + name + '@SUFFIX;\n'
 templates.append([name, typename, template])
 
-file_hh = open(sys.argv[2], 'w')
-file_cc = open(sys.argv[3], 'w')
+# Read include/slate/types.hh to get mapping of option enum to value types
+
+options = []
+
+file = open(sys.argv[2], 'r')
+for line in file:
+    s = re.search(r'^template<>\s*struct\s+OptValueType<Option::(\w+)>\s*{\s*using\s+T\s*=\s*(\w+);\s*};$',
+                  line)
+    if s:
+        val_type = s.group(2)
+        if val_type not in ('int64_t', 'int', 'bool', 'double'):
+            val_type = 'slate_' + val_type
+        options.append((s.group(1), val_type))
+file.close()
+
+
+# Write matrix.cc and matrix.hh
+
+file_hh = open(sys.argv[3], 'w')
+file_cc = open(sys.argv[4], 'w')
 
 copyright = '''\
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -47,31 +69,83 @@ copyright = '''\
 //------------------------------------------------------------------------------
 // Auto-generated file by ''' + sys.argv[0] + '\n'
 
-file_hh.write(copyright)
-file_hh.write('''\n\
+#-------------------------------------------------------------------------------
+file_hh.write(
+    copyright + '''
 #ifndef SLATE_C_API_MATRIX_H
 #define SLATE_C_API_MATRIX_H
-\n''')
 
-file_hh.write('#include "mpi.h"\n') # todo slate must be compiled with mpi
-file_hh.write('#include "slate/c_api/types.h"\n\n')
+#include "mpi.h"
+#include "slate/c_api/types.h"
 
-file_hh.write('#include <complex.h>\n')
-file_hh.write('#include <stdbool.h>\n')
-file_hh.write('#include <stdint.h>\n')
-file_hh.write('\n')
+#include <complex.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-file_cc.write(copyright + '\n')
-file_cc.write('#include "slate/c_api/matrix.h"\n')
-file_cc.write('#include "slate/c_api/util.hh"\n')
-file_cc.write('#include "slate/slate.hh"\n\n')
-
-file_hh.write('''\
 #ifdef __cplusplus
 extern "C" {
 #endif
-\n''')
 
+typedef void* slate_Options;
+
+slate_Options slate_Options_create();
+void slate_Options_destroy( slate_Options opts );
+void slate_Options_copy( slate_Options opts1, slate_Options opts2 );
+''' )
+
+#-------------------------------------------------------------------------------
+file_cc.write(
+    copyright + '''
+#include "slate/c_api/matrix.h"
+#include "c_api/util.hh"
+#include "slate/slate.hh"
+
+slate_Options slate_Options_create()
+{
+    return (void*) new slate::Options();
+}
+
+void slate_Options_destroy( slate_Options opts )
+{
+    delete static_cast<slate::Options*>( opts );
+}
+
+void slate_Options_copy( slate_Options opts1, slate_Options opts2 )
+{
+    auto& opts1_ = *static_cast<slate::Options*>( opts1 );
+    auto& opts2_ = *static_cast<slate::Options*>( opts2 );
+    opts1_ = opts2_;
+}
+''' )
+
+#-------------------------------------------------------------------------------
+void = "void"
+for opt_name, val_type in options:
+    width = max( 4, len( val_type ) )  # max( "void", val_type )
+
+    file_hh.write( textwrap.dedent( f'''
+        {void:{width}} slate_Options_set_{opt_name}( slate_Options opts, {val_type} value );
+        {val_type:{width}} slate_Options_get_{opt_name}( slate_Options opts, {val_type} defval );
+        ''' ) )
+
+    file_cc.write( textwrap.dedent( f'''
+        void slate_Options_set_{opt_name}( slate_Options opts, {val_type} value )
+        {{
+            auto& opts_ = *static_cast<slate::Options*>( opts );
+            opts_[ slate::Option::{opt_name} ] = value;
+        }}
+
+        {val_type} slate_Options_get_{opt_name}( slate_Options opts, {val_type} defval )
+        {{
+            auto& opts_ = *static_cast< slate::Options* >( opts );
+            auto defval_ = static_cast< slate::OptValueType< slate::Option::{opt_name} >::T >( defval );
+            return static_cast<{val_type}>( slate::get_option< slate::Option::{opt_name} >( opts_, defval_ ));
+        }}
+        ''' ) )
+# end for
+
+#-------------------------------------------------------------------------------
+# Write Tile and Matrix types and accessors
 data_types = [
     ['float',           '_r32', 'float'],
     ['double',          '_r64', 'double'],
@@ -87,7 +161,7 @@ tile_routines = [
 ]
 
 keywords = [
-    'Op', 'Uplo', 'TileKind', 'Layout'
+    'Op', 'Uplo', 'TileKind', 'Layout', 'MOSI_State'
 ]
 
 index_data_type_cpp = 2
@@ -106,13 +180,22 @@ for template in templates:
         for keyword in keywords:
             instance = re.sub(r'%s' % keyword, 'slate_' + keyword, instance)
         instance = re.sub(r'@SUFFIX', type[index_suffix], instance)
+        type_cpp = 'slate::' + name + '<' + type[index_data_type_cpp] + '>'
+        type_c = 'slate_' + name + type[index_suffix]
+
         file_hh.write('//' + ('-'*78) + '\n')
         file_hh.write('// instantiate ' + template[index_name] + ' for '
               + template[index_typename] + ' = <' + type[index_data_type] + '>\n')
         file_hh.write(instance + '\n')
+
+        file_cc.write('/// assert layout of ' + type_c + ' matches that of ' + type_cpp + '\n')
+        file_cc.write('static_assert(sizeof(' + type_c + ') == sizeof(' + type_cpp + '), "C API types are out of sync with the C++ API types.");\n')
+        file_cc.write('static_assert(std::is_standard_layout_v<' + type_cpp + '>, "C API types are out of sync with the C++ API types.");')
+        #file_cc.write('static_assert(offsetof(' + type_c +', data_) == offsetof(' + type_cpp + ', data_)); \n')
+        file_cc.write('\n')
+
         for routine in tile_routines:
-            t = 'slate::' + name + '<' + type[index_data_type_cpp] + '>'
-            s  = '/// ' + t
+            s  = '/// ' + type_cpp
             s += '::' + routine[index_routine_name] + '()\n'
             if (routine[index_routine_ret] == typename):
                 ret = routine[index_routine_ret].replace(
@@ -121,14 +204,12 @@ for template in templates:
             else:
                 ret = routine[index_routine_ret]
             s += ret + ' slate_' + name + '_' + routine[index_routine_name]
-            s += type[index_suffix] + '(slate_' + name + type[index_suffix]
-            s += ' T)'
+            s += type[index_suffix] + '(' + type_c + ' T)'
             file_hh.write(s + ';\n\n')
             file_cc.write(s + '\n{\n')
-            file_cc.write('    assert(sizeof(slate_Tile_c64) == sizeof(' + t +'));\n')
-            file_cc.write('    ' + t + ' T_;\n')
-            file_cc.write('    std::memcpy(&T_, &T, sizeof(' + t + '));\n')
-            # file_cc.write('    auto T_ = *reinterpret_cast<' + t +'*>(&T);\n')
+            file_cc.write('    ' + type_cpp + ' T_;\n')
+            file_cc.write('    std::memcpy((void*)&T_, (void*)&T, sizeof(' + type_cpp + '));\n')
+            # file_cc.write('    auto T_ = *reinterpret_cast<' + type_cpp +'*>(&T);\n')
             file_cc.write('    return(')
             if (routine[index_routine_ret] == typename):
                 file_cc.write('('+ type[index_data_type] +'*)')
@@ -160,6 +241,7 @@ matrix_routines = [
     ['int64_t',      '_nt',                                'slate_Matrix',                                                  'nt()'],
     ['int64_t',      '_m',                                 'slate_Matrix',                                                  'm()'],
     ['int64_t',      '_n',                                 'slate_Matrix',                                                  'n()'],
+    ['int64_t',      '_num_devices',                       'slate_Matrix',                                                  'num_devices()'],
     ['bool',         '_tileIsLocal',                       'slate_Matrix, int64_t i, int64_t j',                            'tileIsLocal(i, j)'],
     ['slate_Tile',   '_at',                                'slate_Matrix, int64_t i, int64_t j',                            'at(i, j)'],
     ['void',         '_transpose_in_place',                'slate_Matrix',                                                  'transpose( *A_ )'],

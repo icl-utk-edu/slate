@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -11,7 +11,6 @@
 #include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 
 #include <cmath>
@@ -46,6 +45,7 @@ void test_hegv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -55,6 +55,28 @@ void test_hegv_work(Params& params, bool run)
     params.time();
     params.ref_time();
     params.error2();
+    if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time5();
+        params.time6();
+        params.time7();
+        params.time8();
+        params.time9();
+        params.time10();
+        params.time11();
+        params.time2.name( "potrf (s)" );
+        params.time3.name( "hegst (s)" );
+        params.time4.name( "heev (s)" );
+        params.time5.name( "trsm (s)" );
+        params.time6.name( "trmm (s)" );
+        params.time7.name( "he2hb (s)" );
+        params.time8.name( "hb2st (s)" );
+        params.time9.name( "stev (s)" );
+        params.time10.name( "unmtr_hb2st (s)" );
+        params.time11.name( "unmtr_he2hb (s)" );
+    }
 
     if (! run) {
         // B matrix must be Symmetric Positive Definite (SPD) for scalapack_phegvx
@@ -208,6 +230,19 @@ void test_hegv_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "hegv::potrf" ];
+            params.time3() = slate::timers[ "hegv::hegst" ];
+            params.time4() = slate::timers[ "hegv::heev" ];
+            params.time5() = slate::timers[ "hegv::trsm" ];
+            params.time6() = slate::timers[ "hegv::trmm" ];
+            params.time7() = slate::timers[ "heev::he2hb" ];
+            params.time8() = slate::timers[ "heev::hb2st" ];
+            params.time9() = slate::timers[ "heev::stev" ];
+            params.time10() = slate::timers[ "heev::unmtr_hb2st" ];
+            params.time11() = slate::timers[ "heev::unmtr_he2hb" ];
+        }
+
     }
 
     print_matrix("A", A, params);
@@ -319,8 +354,8 @@ void test_hegv_work(Params& params, bool run)
             // Run reference routine from ScaLAPACK
 
             // initialize BLACS
-            int mpi_rank_ = 0, nprocs = 1, ictxt;
-            int p_, q_, myrow_, mycol_, info;
+            blas_int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert( mpi_rank == mpi_rank_ );
             slate_assert(p*q <= nprocs);
@@ -332,15 +367,16 @@ void test_hegv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int A_desc[9];
+            int64_t info;
+            blas_int A_desc[9];
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            int B_desc[9];
+            blas_int B_desc[9];
             scalapack_descinit(B_desc, n, n, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            int Z_desc[9];
+            blas_int Z_desc[9];
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
@@ -359,9 +395,9 @@ void test_hegv_work(Params& params, bool run)
             // http://www.netlib.org/scalapack/explore-html/d7/dff/pzhegvx_8f_source.html
             std::vector<scalar_t> work(3);
             std::vector<real_t> rwork(3);
-            std::vector<int> iwork(1);
-            std::vector<int> ifail(n);
-            std::vector<int> iclustr(2*p*q);
+            std::vector<blas_int> iwork(1);
+            std::vector<blas_int> ifail(n);
+            std::vector<blas_int> iclustr(2*p*q);
             std::vector<real_t> gap(p*q);
             scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
                              &Aref_data[0], 1, 1, A_desc,
@@ -429,10 +465,6 @@ void test_hegv_work(Params& params, bool run)
 void test_hegv(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_hegv_work<float> (params, run);
             break;
@@ -447,6 +479,10 @@ void test_hegv(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_hegv_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

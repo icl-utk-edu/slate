@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -52,6 +52,7 @@ void geadd(
     scalar_t const& beta, scalar_t* B, int64_t ldb,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (m == 0 || n == 0)
         return;
@@ -67,6 +68,9 @@ void geadd(
             rowB[j*ldb] = alpha * rowA[j*lda] + beta * rowB[j*ldb];
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -148,6 +152,7 @@ void geadd(
     scalar_t const& beta, scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (m == 0 || n == 0)
         return;
@@ -172,6 +177,9 @@ void geadd(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

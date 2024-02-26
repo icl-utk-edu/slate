@@ -1,5 +1,5 @@
 #include "hip/hip_runtime.h"
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -24,7 +24,8 @@ template <typename scalar_t>
 __device__ void tzset_func(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t offdiag_value,
+    scalar_t diag_value,
     scalar_t* A, int64_t lda )
 {
     // thread per row, if more rows than threads, loop by blockDim.x
@@ -51,7 +52,8 @@ template <typename scalar_t>
 __global__ void tzset_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t offdiag_value,
+    scalar_t diag_value,
     scalar_t* A, int64_t lda )
 {
     tzset_func( uplo, m, n, offdiag_value, diag_value, A, lda );
@@ -64,7 +66,8 @@ template <typename scalar_t>
 __global__ void tzset_batch_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t offdiag_value,
+    scalar_t diag_value,
     scalar_t** Aarray, int64_t lda )
 {
     tzset_func( uplo, m, n, offdiag_value, diag_value,
@@ -104,7 +107,8 @@ template <typename scalar_t>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t const& offdiag_value, scalar_t const& diag_value,
+    scalar_t const& offdiag_value,
+    scalar_t const& diag_value,
     scalar_t* A, int64_t lda,
     blas::Queue& queue )
 {
@@ -127,7 +131,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float const& offdiag_value, float const& diag_value,
+    float const& offdiag_value,
+    float const& diag_value,
     float* A, int64_t lda,
     blas::Queue& queue );
 
@@ -135,25 +140,44 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double const& offdiag_value, double const& diag_value,
+    double const& offdiag_value,
+    double const& diag_value,
     double* A, int64_t lda,
     blas::Queue& queue );
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipFloatComplex const& offdiag_value, hipFloatComplex const& diag_value,
-    hipFloatComplex* A, int64_t lda,
-    blas::Queue& queue );
+    std::complex<float> const& offdiag_value,
+    std::complex<float> const& diag_value,
+    std::complex<float>* A, int64_t lda,
+    blas::Queue& queue )
+{
+    tzset( uplo, m, n,
+           rocblas_float_complex( real( offdiag_value ), imag( offdiag_value ) ),
+           rocblas_float_complex( real( diag_value    ), imag( diag_value    ) ),
+           (rocblas_float_complex*) A, lda,
+           queue );
+}
 
-template
+template <>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipDoubleComplex const& offdiag_value, hipDoubleComplex const& diag_value,
-    hipDoubleComplex* A, int64_t lda,
-    blas::Queue& queue );
+    std::complex<double> const& offdiag_value,
+    std::complex<double> const& diag_value,
+    std::complex<double>* A, int64_t lda,
+    blas::Queue& queue )
+{
+    tzset( uplo, m, n,
+           rocblas_double_complex( real( offdiag_value ), imag( offdiag_value ) ),
+           rocblas_double_complex( real( diag_value    ), imag( diag_value    ) ),
+           (rocblas_double_complex*) A, lda,
+           queue );
+}
 
 //==============================================================================
 namespace batch {
@@ -193,7 +217,8 @@ template <typename scalar_t>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t const& offdiag_value, scalar_t const& diag_value,
+    scalar_t const& offdiag_value,
+    scalar_t const& diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue )
 {
@@ -220,7 +245,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float const& offdiag_value, float const& diag_value,
+    float const& offdiag_value,
+    float const& diag_value,
     float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 
@@ -228,25 +254,44 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double const& offdiag_value, double const& diag_value,
+    double const& offdiag_value,
+    double const& diag_value,
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipFloatComplex const& offdiag_value, hipFloatComplex const& diag_value,
-    hipFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue );
+    std::complex<float> const& offdiag_value,
+    std::complex<float> const& diag_value,
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue )
+{
+    tzset( uplo, m, n,
+           rocblas_float_complex( real( offdiag_value ), imag( offdiag_value ) ),
+           rocblas_float_complex( real( diag_value    ), imag( diag_value    ) ),
+           (rocblas_float_complex**) Aarray, lda,
+           batch_count, queue );
+}
 
-template
+template <>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipDoubleComplex const& offdiag_value, hipDoubleComplex const& diag_value,
-    hipDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue );
+    std::complex<double> const& offdiag_value,
+    std::complex<double> const& diag_value,
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue )
+{
+    tzset( uplo, m, n,
+           rocblas_double_complex( real( offdiag_value ), imag( offdiag_value ) ),
+           rocblas_double_complex( real( diag_value    ), imag( diag_value    ) ),
+           (rocblas_double_complex**) Aarray, lda,
+           batch_count, queue );
+}
 
 } // namespace batch
 } // namespace device

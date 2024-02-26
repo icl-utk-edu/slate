@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -61,7 +61,7 @@ void Debug::diffLapackMatrices(
 }
 
 //------------------------------------------------------------------------------
-/// Prints information about tiles that have non-zero life.
+/// Prints information about tiles with local instances.
 template <typename scalar_t>
 void Debug::checkTilesLives( BaseMatrix<scalar_t> const& A )
 {
@@ -73,18 +73,15 @@ void Debug::checkTilesLives( BaseMatrix<scalar_t> const& A )
         int64_t j = std::get<1>(iter->first);
 
         if (! A.tileIsLocal(i, j)) {
-            if (iter->second->lives() != 0 ||
-                iter->second->numInstances() != 0) {
+            if (! iter->second->empty()) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(iter->first)
-                          << " "      << std::setw(3) << std::get<1>(iter->first)
-                          << " LIFE " << std::setw(3)
-                          << iter->second->lives();
+                          << " "      << std::setw(3) << std::get<1>(iter->first);
                 for (int d = HostNum; d < A.num_devices(); ++d) {
                     if (iter->second->existsOn(d)) {
                         std::cout << " DEV "  << d
-                                  << " data " << iter->second->at(d).tile()->data() << "\n";
+                                  << " data " << iter->second->at(d)->data() << "\n";
                     }
                 }
             }
@@ -113,8 +110,8 @@ bool Debug::checkTilesLayout( BaseMatrix<scalar_t> const& A )
                 index = A.globalIndex(i, j);
                 tmp_tile = A.storage_->tiles_.find(index);
                 if (tmp_tile != tile_end
-                    && tmp_tile->second->at( HostNum ).valid()
-                    && tmp_tile->second->at( HostNum ).tile()->layout() != A.layout()) {
+                    && tmp_tile->second->at( HostNum ) != nullptr
+                    && tmp_tile->second->at( HostNum )->layout() != A.layout()) {
                     return false;
                 }
             }
@@ -140,8 +137,7 @@ char to_char( MOSI mosi )
 ///
 ///     Debug::printTiles( A, Field_Kind | Field_MOSI )
 ///
-/// For each tile (i, j), prints instances, first Host, then device 0, 1, etc.,
-/// then prints life, which applies to all instances, if desired.
+/// For each tile (i, j), prints instances, first Host, then device 0, 1, etc.
 /// Each instance is a collection of letters as described below.
 ///
 /// For all fields:
@@ -178,38 +174,34 @@ void Debug::printTiles_(
     bool do_mosi   = (fields & Fields::Field_MOSI  ) != 0;
     bool do_layout = (fields & Fields::Field_Layout) != 0;
     bool do_buffer = (fields & Fields::Field_Buffer) != 0;
-    bool do_life   = (fields & Fields::Field_Life  ) != 0;
-    bool multi     = do_kind + do_mosi + do_layout + do_buffer + do_life > 1;
+    bool multi     = do_kind + do_mosi + do_layout + do_buffer > 1;
 
     // Padding between columns. When there are multiple fields,
     // one space is put between instances of the same tile (i, j),
     // so add more space between tiles.
     const char* pad = multi ? "    " : "  ";
 
-    char buf[ 80 ];
     std::string msg = std::string( "\n" ) + pad
                     + "% rank " + std::to_string( A.mpiRank() ) + "\n";
 
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             msg += pad;
-            int life = 0;
-            for (int device = HostNum; device < A.num_devices_; ++device) {
+            for (int device = HostNum; device < A.num_devices(); ++device) {
                 // Space between tiles if multiple fields.
                 if (multi && device > HostNum)
                     msg += ' ';
 
+                LockGuard guard(A.storage_->getTilesMapLock());
                 auto iter = A.storage_->find( A.globalIndex( i, j, device ) );
                 if (iter != A.storage_->end()) {
-                    auto tile = iter->second->at( device ).tile();
+                    auto tile = iter->second->at( device );
                     if (do_kind) {
-                        msg += tile->origin()
-                                ? (tile->allocated() ? 'o' : 'u')
-                                : 'w';
+                        msg += char(tile->kind());
                     }
                     if (do_mosi) {
-                        char ch = to_char( iter->second->at( device ).getState() );
-                        if (iter->second->at( device ).stateOn( MOSI::OnHold ))
+                        char ch = to_char( iter->second->at( device )->state() );
+                        if (iter->second->at( device )->stateOn( MOSI::OnHold ))
                             ch = toupper( ch );
                         msg += ch;
                     }
@@ -219,7 +211,6 @@ void Debug::printTiles_(
                     if (do_buffer) {
                         msg += tile->extended() ? 'e' : 'b';
                     }
-                    life = A.tileLife( i, j );
                 }
                 else {
                     if (do_kind)   { msg += '.'; }
@@ -227,10 +218,6 @@ void Debug::printTiles_(
                     if (do_layout) { msg += '.'; }
                     if (do_buffer) { msg += '.'; }
                 }
-            }
-            if (do_life) {
-                snprintf( buf, sizeof(buf), " %-3d", life );
-                msg += buf;
             }
         }
         msg += "\n";
@@ -264,9 +251,6 @@ void Debug::printTiles_(
         if (do_buffer) {
             printf( "%s buffer( extended )", delim );
             delim = ",";
-        }
-        if (do_life) {
-            printf( "%s life", delim );
         }
 
         // Print rank 0 data.
@@ -305,9 +289,9 @@ void Debug::printNumFreeMemBlocks(Memory const& m)
 {
     if (! debug_) return;
     printf("\n");
-    for (auto iter = m.free_blocks_.begin(); iter != m.free_blocks_.end(); ++iter) {
-        printf("\tdevice: %d\tfree blocks: %lu\n", iter->first,
-               (unsigned long) iter->second.size());
+    for (int dev = 0; dev < m.num_devices_; ++dev) {
+        printf("\tdevice: %d\tfree blocks: %lu\n",
+               dev, m.free_blocks_[dev].size());
     }
 }
 

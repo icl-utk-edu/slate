@@ -22,11 +22,6 @@ void test_enums()
     assert( slate_Target_HostBatch == int( slate::Target::HostBatch ) );
     assert( slate_Target_Devices   == int( slate::Target::Devices   ) );
 
-    //----------
-    assert( slate_TileReleaseStrategy_None     == int( slate::TileReleaseStrategy::None     ) );
-    assert( slate_TileReleaseStrategy_Internal == int( slate::TileReleaseStrategy::Internal ) );
-    assert( slate_TileReleaseStrategy_Slate    == int( slate::TileReleaseStrategy::Slate    ) );
-    assert( slate_TileReleaseStrategy_All      == int( slate::TileReleaseStrategy::All      ) );
 
     //----------
     assert( slate_MethodEig_QR == int( slate::MethodEig::QR ) );
@@ -40,7 +35,6 @@ void test_enums()
     assert( slate_Option_MaxPanelThreads     == int( slate::Option::MaxPanelThreads     ) );
     assert( slate_Option_Tolerance           == int( slate::Option::Tolerance           ) );
     assert( slate_Option_Target              == int( slate::Option::Target              ) );
-    assert( slate_Option_TileReleaseStrategy == int( slate::Option::TileReleaseStrategy ) );
     assert( slate_Option_HoldLocalWorkspace  == int( slate::Option::HoldLocalWorkspace  ) );
 
     assert( slate_Option_PrintVerbose        == int( slate::Option::PrintVerbose        ) );

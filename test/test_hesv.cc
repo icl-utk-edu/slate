@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -9,10 +9,10 @@
 #include "lapack/flops.hh"
 
 #include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "grid_utils.hh"
 #include "print_matrix.hh"
+#include "matgen.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -40,6 +40,7 @@ void test_hesv_work(Params& params, bool run)
     int64_t panel_threads = params.panel_threads();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -49,6 +50,12 @@ void test_hesv_work(Params& params, bool run)
     // mark non-standard output values
     params.time();
     params.gflops();
+    if (timer_level >=2) {
+        params.time2();
+        params.time3();
+        params.time2.name( "hetrf (s)" );
+        params.time3.name( "hetrs (s)" );
+    }
 
     if (! run)
         return;
@@ -80,6 +87,8 @@ void test_hesv_work(Params& params, bool run)
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
+
+    int64_t info = 0;
 
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
@@ -141,8 +150,9 @@ void test_hesv_work(Params& params, bool run)
         slate::copy( B, Bref );
     }
 
+    // todo: structure as in test_gesv to time both hetrf and hetrs.
     if (params.routine == "hetrs") {
-        slate::indefinite_factor(A, pivots, T, pivots2, H, opts);
+        info = slate::indefinite_factor( A, pivots, T, pivots2, H, opts );
         // Using traditional BLAS/LAPACK name
         // slate::hetrf(A, pivots, T, pivots2, H, opts);
     }
@@ -160,7 +170,7 @@ void test_hesv_work(Params& params, bool run)
     double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     if (params.routine == "hetrf") {
-        slate::indefinite_factor(A, pivots, T, pivots2, H, opts);
+        info = slate::indefinite_factor( A, pivots, T, pivots2, H, opts );
         // Using traditional BLAS/LAPACK name
         // slate::hetrf(A, pivots, T, pivots2, H, opts);
     }
@@ -179,6 +189,12 @@ void test_hesv_work(Params& params, bool run)
 
     if (trace) slate::trace::Trace::finish();
 
+    if (info != 0) {
+        char buf[ 80 ];
+        snprintf( buf, sizeof(buf), "info = %lld", llong( info ) );
+        params.msg() = buf;
+    }
+
     print_matrix( "Aout", A, params );
     print_matrix( "Bout", B, params );
 
@@ -193,15 +209,21 @@ void test_hesv_work(Params& params, bool run)
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
     params.time() = time;
     params.gflops() = gflop / time;
+    if (timer_level >= 2) {
+        params.time2() = slate::timers[ "hesv::hetrf" ];
+        params.time3() = slate::timers[ "hesv::hetrs" ];
+    }
+
 
     if (check) {
+        // todo: replace with SLATE code to check error. ScaLAPACK doesn't have hesv.
         #ifdef SLATE_HAVE_SCALAPACK
             //---------------------
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], Aref_desc[9];
-            int B_desc[9], Bref_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int A_desc[9], Aref_desc[9];
+            blas_int B_desc[9], Bref_desc[9];
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             //---------------------
             // initialize BLACS and ScaLAPACK
@@ -219,14 +241,14 @@ void test_hesv_work(Params& params, bool run)
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
+            slate_assert( info == 0 );
 
-            scalapack_descinit(B_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( B_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info );
+            slate_assert( info == 0 );
 
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info );
+            slate_assert( info == 0 );
 
             copy( A, &A_data[0], A_desc );
             copy( B, &B_data[0], B_desc );
@@ -265,7 +287,7 @@ void test_hesv_work(Params& params, bool run)
             params.error() = residual;
 
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-            params.okay() = (params.error() <= tol);
+            params.okay() = (params.error() <= tol && info == 0);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
@@ -283,10 +305,6 @@ void test_hesv_work(Params& params, bool run)
 void test_hesv(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_hesv_work<float> (params, run);
             break;
@@ -301,6 +319,10 @@ void test_hesv(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_hesv_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

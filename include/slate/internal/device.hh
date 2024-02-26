@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -46,6 +46,16 @@
     #endif
 
     namespace blas {
+
+    template<>
+    struct real_type_traits<rocblas_float_complex> {
+        using real_t = float;
+    };
+
+    template<>
+    struct real_type_traits<rocblas_double_complex> {
+        using real_t = double;
+    };
 
     template<>
     struct real_type_traits<hipFloatComplex> {
@@ -121,15 +131,6 @@ void gescale(
     blas::Queue& queue);
 
 //------------------------------------------------------------------------------
-template <typename scalar_t>
-void tzscale(
-    Uplo uplo,
-    int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-    scalar_t** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
-
-//------------------------------------------------------------------------------
 template <typename scalar_t, typename scalar_t2>
 void gescale_row_col_batch(
     Equed equed, int64_t m, int64_t n,
@@ -162,6 +163,15 @@ template <typename scalar_t, typename scalar_t2>
 void gescale(
     int64_t m, int64_t n,
     scalar_t2 numer, scalar_t2 denom,
+    scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void tzscale(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -22,11 +22,11 @@ namespace impl {
 /// Warning: ColMajor layout is assumed
 ///
 template <Target target, typename scalar_t>
-void gbtrf(
+int64_t gbtrf(
     BandMatrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
-    // using real_t = blas::real_type<scalar_t>;
+    using real_t = blas::real_type<scalar_t>;
     using BcastList = typename BandMatrix<scalar_t>::BcastList;
 
     // Constants
@@ -34,16 +34,20 @@ void gbtrf(
     const scalar_t one = 1.0;
     const int priority_0 = 0;
     const int priority_1 = 1;
+    const int tag_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // Options
+    real_t pivot_threshold
+        = get_option<double>( opts, Option::PivotThreshold, 1.0 );
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
     int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
 
+    int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
@@ -103,8 +107,8 @@ void gbtrf(
             {
                 // factor A(k:mt-1, k)
                 internal::getrf_panel<Target::HostTask>(
-                    A.sub(k, i_end-1, k, k), diag_len, ib,
-                    pivots.at(k), max_panel_threads, priority_1 );
+                    A.sub(k, i_end-1, k, k), diag_len, ib, pivots.at(k),
+                    pivot_threshold, max_panel_threads, priority_1, tag_0, &info );
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -142,7 +146,8 @@ void gbtrf(
                     // solve A(k, k) A(k, j) = A(k, j)
                     internal::trsm<Target::HostTask>(
                         Side::Left,
-                        one, std::move( Tkk ), A.sub(k, k, j, j), priority_1 );
+                        one, std::move( Tkk ), A.sub(k, k, j, j),
+                        priority_1, layout );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);
@@ -177,7 +182,8 @@ void gbtrf(
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         one, std::move( Tkk ),
-                             A.sub(k, k, k+1+lookahead, j_end-1));
+                             A.sub(k, k, k+1+lookahead, j_end-1),
+                        priority_0, layout );
 
                     // send A(k, kl+1:j_end-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -192,8 +198,27 @@ void gbtrf(
                         -one, A.sub(k+1, i_end-1, k, k),
                               A.sub(k, k, k+1+lookahead, j_end-1),
                         one,  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1),
-                        layout);
+                        layout, priority_0 );
                 }
+            }
+
+            #pragma omp task depend(inout:column[k])
+            {
+                auto left_panel = A.sub( k, i_end-1, k, k );
+                auto top_panel = A.sub( k, k, k+1, j_end-1 );
+
+                // Erase remote tiles on all devices, including host
+                left_panel.releaseRemoteWorkspace();
+                top_panel.releaseRemoteWorkspace();
+
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                left_panel.tileUpdateAllOrigin();
+                top_panel.tileUpdateAllOrigin();
+
+                // Erase local workspace on devices
+                left_panel.releaseLocalWorkspace();
+                top_panel.releaseLocalWorkspace();
             }
         }
 
@@ -206,6 +231,8 @@ void gbtrf(
 
     A.releaseWorkspace();
 
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -243,13 +270,17 @@ void gbtrf(
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
+///
 ///     - Option::Lookahead:
 ///       Number of panels to overlap with matrix updates.
 ///       lookahead >= 0. Default 1.
+///
 ///     - Option::InnerBlocking:
 ///       Inner blocking to use for panel. Default 16.
+///
 ///     - Option::MaxPanelThreads:
 ///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].
@@ -257,17 +288,20 @@ void gbtrf(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
-///         factorization has been completed, but the factor $U$ is exactly
+///    - Option::PivotThreshold:
+///      Strictness of the pivot selection.  Between 0 and 1 with 1 giving
+///      partial pivoting and 0 giving no pivoting.  Default 1.
+///
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
 ///
 /// @ingroup gbsv_computational
 ///
 template <typename scalar_t>
-void gbtrf(
+int64_t gbtrf(
     BandMatrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
@@ -276,43 +310,39 @@ void gbtrf(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::gbtrf<Target::HostTask>( A, pivots, opts );
-            break;
+            return impl::gbtrf<Target::HostTask>( A, pivots, opts );
 
         case Target::HostNest:
-            impl::gbtrf<Target::HostNest>( A, pivots, opts );
-            break;
+            return impl::gbtrf<Target::HostNest>( A, pivots, opts );
 
         case Target::HostBatch:
-            impl::gbtrf<Target::HostBatch>( A, pivots, opts );
-            break;
+            return impl::gbtrf<Target::HostBatch>( A, pivots, opts );
 
         case Target::Devices:
-            impl::gbtrf<Target::Devices>( A, pivots, opts );
-            break;
+            return impl::gbtrf<Target::Devices>( A, pivots, opts );
     }
-    // todo: return value for errors?
+    return -3;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gbtrf<float>(
+int64_t gbtrf<float>(
     BandMatrix<float>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void gbtrf<double>(
+int64_t gbtrf<double>(
     BandMatrix<double>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void gbtrf< std::complex<float> >(
+int64_t gbtrf< std::complex<float> >(
     BandMatrix< std::complex<float> >& A, Pivots& pivots,
     Options const& opts);
 
 template
-void gbtrf< std::complex<double> >(
+int64_t gbtrf< std::complex<double> >(
     BandMatrix< std::complex<double> >& A, Pivots& pivots,
     Options const& opts);
 

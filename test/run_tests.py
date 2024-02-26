@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -121,13 +121,18 @@ group_opt.add_argument( '--itype', action='store', help='default=%(default)s', d
 group_opt.add_argument( '--origin', action='store', help='default=%(default)s', default='s' )
 group_opt.add_argument( '--target', action='store', help='default=%(default)s', default='t' )
 group_opt.add_argument( '--lookahead', action='store', help='default=%(default)s', default='1' )
-group_opt.add_argument( '--dev-dist',  action='store', help='default=%(default)s', default='c,r' )
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
+group_opt.add_argument( '--nonuniform-nb', action='store', help='default=%(default)s', default='n' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
+group_opt.add_argument( '--grid-order', action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--dev-order',  action='store', help='default=%(default)s', default='r,c' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
-group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5')
+group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5' )
+group_opt.add_argument( '--matrix',  action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--matrixB', action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--matrixC', action='store', help='default=%(default)s', default='' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -293,17 +298,31 @@ itype  = ' --itype '  + opts.itype  if (opts.itype)  else ''
 origin = ' --origin ' + opts.origin if (opts.origin) else ''
 target = ' --target ' + opts.target if (opts.target) else ''
 la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
-ddist  = ' --dev-dist  ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
+nonuniform_nb = ' --nonuniform-nb ' + opts.nonuniform_nb if (opts.nonuniform_nb) else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
+grid_order = ' --grid-order ' + opts.grid_order if (opts.grid_order) else ''
+dev_order  = ' --dev-order '  + opts.dev_order  if (opts.dev_order)  else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 thresh = ' --thresh ' + opts.thresh if (opts.thresh) else ''
+matrix  = ' --matrix  ' + opts.matrix  if (opts.matrix)  else ''
+matrixB = ' --matrixB ' + opts.matrixB if (opts.matrixB) else ''
+matrixC = ' --matrixC ' + opts.matrixC if (opts.matrixC) else ''
+matrixBC = matrixB + matrixC
 
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
 gen_no_nb = origin + target + grid + check + ref + tol + repeat
 gen_no_target =               grid + check + ref + tol + repeat + nb
+
+ge_matrix = grid_order + dev_order
+sy_matrix = grid_order + dev_order + uplo
+he_matrix = grid_order + dev_order + uplo
+tr_matrix = grid_order + dev_order + uplo + diag
+
+if (opts.matrix):
+    gen += matrix
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -334,68 +353,69 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
-    [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
+    [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku + matrixBC ],
 
-    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
-    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab ],
-    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab ],
+    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ge_matrix ],
+    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ge_matrix ],
+    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab + matrixBC + nonuniform_nb + ge_matrix ],
 
-    [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'hemm',  gen + dtype         + la + side + he_matrix     + mn + ab + matrixBC ],
     # todo: hemmA GPU support
-    [ 'hemmA', gen_no_target + dtype + la + side + uplo     + mn + ab ],
-    [ 'hemmC', gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'hemmA', gen_no_target + dtype + la + side + he_matrix   + mn + ab + matrixBC ],
+    [ 'hemmC', gen + dtype         + la + side + he_matrix     + mn + ab + matrixBC],
 
-    [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd ],
+    [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd + matrixBC ],
 
-    [ 'herk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'herk',  gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
+    [ 'herk',  gen + dtype_real    + la + he_matrix + trans    + mn + ab + matrixC ],
+    [ 'herk',  gen + dtype_complex + la + he_matrix + trans_nc + mn + ab + matrixC ],
 
-    [ 'her2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'her2k', gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
+    [ 'her2k', gen + dtype_real    + la + he_matrix + trans    + mn + ab + matrixBC ],
+    [ 'her2k', gen + dtype_complex + la + he_matrix + trans_nc + mn + ab + matrixBC ],
 
-    [ 'symm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'symm',  gen + dtype         + la + side + sy_matrix     + mn + ab + matrixBC ],
 
-    [ 'syr2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'syr2k', gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
+    [ 'syr2k', gen + dtype_real    + la + sy_matrix + trans    + mn + ab + matrixC ],
+    [ 'syr2k', gen + dtype_complex + la + sy_matrix + trans_nt + mn + ab + matrixC ],
 
-    [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
+    [ 'syrk',  gen + dtype_real    + la + sy_matrix + trans    + mn + ab + matrixBC ],
+    [ 'syrk',  gen + dtype_complex + la + sy_matrix + trans_nt + mn + ab + matrixBC ],
 
     # todo: tbsm fails for nb=8 or 16 with --quick.
-    [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
+    [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd + matrixB ],
 
-    [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trmm',  gen + dtype + la + side + tr_matrix + nonuniform_nb + transA + mn + a + matrixB ],
 
-    [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
-    [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a ],
-    [ 'trsmB', gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsm',  gen + dtype + la + side + tr_matrix + nonuniform_nb + transA + mn + a + matrixB ],
+    [ 'trsmA', gen + dtype + la + side + tr_matrix + nonuniform_nb + transA + mn + a + matrixB ],
+    [ 'trsmB', gen + dtype + la + side + tr_matrix + nonuniform_nb + transA + mn + a + matrixB ],
     ]
 
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',         gen + dtype + la + n + thresh ],
-    [ 'gesv_tntpiv',  gen + dtype + la + n ],
-    [ 'gesv_nopiv',   gen + dtype + la + n
-                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+    [ 'gesv',         gen + dtype + la + n + ge_matrix + nonuniform_nb + thresh ],
+    [ 'gesv_tntpiv',  gen + dtype + la + n + ge_matrix ],
+    [ 'gesv_nopiv',   gen + dtype + la + n + ge_matrix + nonuniform_nb
+                      + ' --matrix rand_dominant' ],
 
     # todo: mn
-    [ 'getrf',        gen + dtype + la + n + thresh ],
-    [ 'getrf_tntpiv', gen + dtype + la + n ],
-    [ 'getrf_nopiv',  gen + dtype + la + n
-                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+    [ 'getrf',        gen + dtype + la + n + ge_matrix + nonuniform_nb + thresh ],
+    [ 'getrf_tntpiv', gen + dtype + la + n + ge_matrix ],
+    [ 'getrf_nopiv',  gen + dtype + la + n + ge_matrix + nonuniform_nb
+                      + ' --matrix rand_dominant' ],
 
-    [ 'getrs',        gen + dtype + la + n + trans + thresh ],
-    [ 'getrs_tntpiv', gen + dtype + la + n + trans ],
-    [ 'getrs_nopiv',  gen + dtype + la + n + trans
-                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+    [ 'getrs',        gen + dtype + la + n + trans + ge_matrix + nonuniform_nb + thresh ],
+    [ 'getrs_tntpiv', gen + dtype + la + n + trans + ge_matrix ],
+    [ 'getrs_nopiv',  gen + dtype + la + n + trans + ge_matrix + nonuniform_nb
+                      + ' --matrix rand_dominant' ],
 
     [ 'getri',    gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
-    [ 'gesv_mixed',   gen + dtype_double + la + n ],
-    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' ],
+    [ 'gesv_mixed',   gen + dtype_double + la + n + ge_matrix + nonuniform_nb ],
+    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' + ge_matrix + nonuniform_nb ],
+    [ 'gesv_rbt', gen + dtype + la + n + ge_matrix ],
     ]
 
 # LU banded
@@ -411,14 +431,14 @@ if (opts.lu_band):
 # Cholesky
 if (opts.chol):
     cmds += [
-    [ 'posv',  gen + dtype + la + n + uplo ],
-    [ 'potrf', gen + dtype + la + n + uplo + ddist ],
-    [ 'potrs', gen + dtype + la + n + uplo ],
-    [ 'potri', gen + dtype + la + n + uplo ],
+    [ 'posv',  gen + dtype + la + n + he_matrix ],
+    [ 'potrf', gen + dtype + la + n + he_matrix ],
+    [ 'potrs', gen + dtype + la + n + he_matrix ],
+    [ 'potri', gen + dtype + la + n ],
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
-    [ 'posv_mixed', gen + dtype_double + la + n + uplo ],
-    [ 'posv_mixed_gmres',  gen + dtype_double + la + n + uplo + ' --nrhs 1' ],
+    [ 'posv_mixed', gen + dtype_double + la + n + he_matrix ],
+    [ 'posv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' + he_matrix ],
     [ 'trtri', gen + dtype + la + n + uplo + diag ],
     ]
 
@@ -459,7 +479,10 @@ if (opts.hesv):
 if (opts.least_squares):
     cmds += [
     # todo: mn (i.e., add wide)
-    [ 'gels',   gen + dtype + la + n + tall + trans_nc + ' --method-gels qr,cholqr' ],
+    [ 'gels',   gen + dtype + la + n + tall + trans_nc + ' --method-gels qr' ],
+    # Cholesky QR needs well-conditioned problem.
+    [ 'gels',   gen + la + n + tall + trans_nc + ' --method-gels cholqr --matrix svd --cond 1e3 --type s,c' ],
+    [ 'gels',   gen + la + n + tall + trans_nc + ' --method-gels cholqr --matrix svd --cond 1e3 --type d,z' ],
 
     # Generalized
     #[ 'gglse', gen + dtype + la + mnk ],
@@ -569,9 +592,9 @@ if (opts.geev):
 # svd
 if (opts.svd):
     if ('n' in jobu):
-        cmds += [[ 'svd', gen + dtype + la + n + mnk + ' --jobu n --jobvt n' ]]
+        cmds += [[ 'svd', gen + dtype + la + n + mnk + ' --jobu n --jobvt n' + ge_matrix ]]
     if ('v' in jobu):
-        cmds += [[ 'svd', gen + dtype + la + n + mnk + ' --jobu v --jobvt v' ]]
+        cmds += [[ 'svd', gen + dtype + la + n + mnk + ' --jobu v --jobvt v' + ge_matrix ]]
 
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt
@@ -584,10 +607,10 @@ if (opts.svd):
 # norms
 if (opts.norms):
     cmds += [
-    [ 'genorm', gen + dtype + mn + norm ],
-    [ 'henorm', gen + dtype + n  + norm + uplo ],
-    [ 'synorm', gen + dtype + n  + norm + uplo ],
-    [ 'trnorm', gen + dtype + mn + norm + uplo + diag ],
+    [ 'genorm', gen + dtype + mn + norm + nonuniform_nb + ge_matrix ],
+    [ 'henorm', gen + dtype + n  + norm + nonuniform_nb + he_matrix ],
+    [ 'synorm', gen + dtype + n  + norm + nonuniform_nb + sy_matrix ],
+    [ 'trnorm', gen + dtype + mn + norm + nonuniform_nb + tr_matrix ],
 
     # Banded
     [ 'gbnorm', gen + dtype + mn  + kl + ku + norm ],
@@ -600,43 +623,43 @@ if (opts.norms):
 if (opts.cond):
     cmds += [
     [ 'gecondest', gen + dtype + n ],
+    [ 'pocondest', gen + dtype + n + uplo ],
 
     # Triangle
     [ 'trcondest', gen + dtype + n ],
 
     #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
-    #[ 'pocon', gen + dtype + la + n + uplo ],
     #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
     ]
 
 # aux
 if (opts.aux):
     cmds += [
-    [ 'add',    gen + dtype + mn + ab        ],
-    [ 'tzadd',  gen + dtype + mn + ab + uplo ],
-    [ 'tradd',  gen + dtype + n  + ab + uplo ],
-    [ 'syadd',  gen + dtype + n  + ab + uplo ],
-    [ 'headd',  gen + dtype + n  + ab + uplo ],
+    [ 'add',    gen + dtype + mn + ab + nonuniform_nb + ge_matrix        ],
+    [ 'tzadd',  gen + dtype + mn + ab + nonuniform_nb + ge_matrix + uplo ],
+    [ 'tradd',  gen + dtype + n  + ab + nonuniform_nb + ge_matrix + uplo ],
+    [ 'syadd',  gen + dtype + n  + ab + nonuniform_nb + sy_matrix        ],
+    [ 'headd',  gen + dtype + n  + ab + nonuniform_nb + he_matrix        ],
 
-    [ 'copy',   gen + dtype + mn             ],
-    [ 'tzcopy', gen + dtype + mn      + uplo ],
-    [ 'trcopy', gen + dtype + n       + uplo ],
-    [ 'sycopy', gen + dtype + n       + uplo ],
-    [ 'hecopy', gen + dtype + n       + uplo ],
+    [ 'copy',   gen + dtype + mn      + nonuniform_nb + ge_matrix        ],
+    [ 'tzcopy', gen + dtype + mn      + nonuniform_nb + ge_matrix + uplo ],
+    [ 'trcopy', gen + dtype + n       + nonuniform_nb + ge_matrix + uplo ],
+    [ 'sycopy', gen + dtype + n       + nonuniform_nb + sy_matrix        ],
+    [ 'hecopy', gen + dtype + n       + nonuniform_nb + he_matrix        ],
 
-    [ 'scale',   gen + dtype + mn + ab        ],
-    [ 'tzscale', gen + dtype + mn + ab + uplo ],
-    [ 'trscale', gen + dtype + n  + ab + uplo ],
-    [ 'syscale', gen + dtype + n  + ab + uplo ],
-    [ 'hescale', gen + dtype + n  + ab + uplo ],
+    [ 'scale',   gen + dtype + mn + ab + nonuniform_nb + ge_matrix        ],
+    [ 'tzscale', gen + dtype + mn + ab + nonuniform_nb + ge_matrix + uplo ],
+    [ 'trscale', gen + dtype + n  + ab + nonuniform_nb + ge_matrix + uplo ],
+    [ 'syscale', gen + dtype + n  + ab + nonuniform_nb + sy_matrix        ],
+    [ 'hescale', gen + dtype + n  + ab + nonuniform_nb + he_matrix        ],
 
-    [ 'scale_row_col', gen + dtype + mn + equed ],
+    [ 'scale_row_col', gen + dtype + mn + equed + nonuniform_nb + ge_matrix ],
 
-    [ 'set',    gen + dtype + mn + ab        ],
-    [ 'tzset',  gen + dtype + mn + ab + uplo ],
-    [ 'trset',  gen + dtype +  n + ab + uplo ],
-    [ 'syset',  gen + dtype +  n + ab + uplo ],
-    [ 'heset',  gen + dtype +  n + ab + uplo ],
+    [ 'set',    gen + dtype + mn + ab + nonuniform_nb + ge_matrix        ],
+    [ 'tzset',  gen + dtype + mn + ab + nonuniform_nb + ge_matrix + uplo ],
+    [ 'trset',  gen + dtype +  n + ab + nonuniform_nb + ge_matrix + uplo ],
+    [ 'syset',  gen + dtype +  n + ab + nonuniform_nb + sy_matrix        ],
+    [ 'heset',  gen + dtype +  n + ab + nonuniform_nb + he_matrix        ],
     ]
 
 # ------------------------------------------------------------------------------

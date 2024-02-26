@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -61,52 +61,61 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the leading minor of order $i$ of $A$ is not
+/// @return 0: successful exit
+/// @return i > 0: the leading minor of order $i$ of $A$ is not
 ///         positive definite, so the factorization could not
 ///         be completed, and the solution has not been computed.
 ///
 /// @ingroup posv
 ///
 template <typename scalar_t>
-void posv(HermitianMatrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          Options const& opts)
+int64_t posv(
+    HermitianMatrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Options const& opts)
 {
+    Timer t_posv;
+
     slate_assert(B.mt() == A.mt());
 
     // factorization
-    potrf(A, opts);
+    Timer t_potrf;
+    int64_t info = potrf( A, opts );
+    timers[ "posv::potrf" ] = t_potrf.stop();
 
     // solve
-    potrs(A, B, opts);
+    Timer t_potrs;
+    if (info == 0) {
+        potrs( A, B, opts );
+    }
+    timers[ "posv::potrs" ] = t_potrs.stop();
 
-    // todo: return value for errors?
+    timers[ "posv" ] = t_posv.stop();
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void posv<float>(
+int64_t posv<float>(
     HermitianMatrix<float>& A,
     Matrix<float>& B,
     Options const& opts);
 
 template
-void posv<double>(
+int64_t posv<double>(
     HermitianMatrix<double>& A,
     Matrix<double>& B,
     Options const& opts);
 
 template
-void posv< std::complex<float> >(
+int64_t posv< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
     Options const& opts);
 
 template
-void posv< std::complex<double> >(
+int64_t posv< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
     Options const& opts);

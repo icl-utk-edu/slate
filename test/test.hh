@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -6,30 +6,25 @@
 #ifndef SLATE_TEST_HH
 #define SLATE_TEST_HH
 
-#include <exception>
-#include <complex>
-#include <ctype.h>
-
 #include "testsweeper.hh"
 #include "blas.hh"
 #include "lapack.hh"
 #include "slate/slate.hh"
-
 #include "matrix_params.hh"
-#include "matrix_generator.hh"
+#include "slate/generate_matrix.hh"
+#include "matgen.hh"
+
+#include <exception>
+#include <complex>
+#include <ctype.h>
 
 // -----------------------------------------------------------------------------
 namespace slate {
 
-enum class Origin {
-    Host,
-    ScaLAPACK,
-    Devices,
-};
-
-enum class Dist {
-    Row,
-    Col,
+enum class Origin : char {
+    Host = 'H',
+    ScaLAPACK = 'S',
+    Devices = 'D',
 };
 
 } // namespace slate
@@ -62,6 +57,7 @@ public:
     testsweeper::ParamInt    print_edgeitems;
     testsweeper::ParamInt    print_width;
     testsweeper::ParamInt    print_precision;
+    testsweeper::ParamInt    timer_level;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
 
@@ -87,8 +83,7 @@ public:
     testsweeper::ParamEnum< slate::Method >         method_trsm;
 
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
-    testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
-    testsweeper::ParamEnum< slate::Dist >           dev_dist;
+    testsweeper::ParamEnum< slate::GridOrder >      dev_order;
 
     // ----- test matrix parameters
     MatrixParams matrix;
@@ -140,6 +135,9 @@ public:
     testsweeper::ParamInt    debug;
     testsweeper::ParamDouble pivot_threshold;
     testsweeper::ParamString deflate;
+    testsweeper::ParamInt    itermax;
+    testsweeper::ParamChar   fallback;
+    testsweeper::ParamInt    depth;
 
     // ----- output parameters
     testsweeper::ParamScientific value;
@@ -159,6 +157,16 @@ public:
     testsweeper::ParamDouble     gflops;
     testsweeper::ParamDouble     time2;
     testsweeper::ParamDouble     gflops2;
+    testsweeper::ParamDouble     time3;
+    testsweeper::ParamDouble     time4;
+    testsweeper::ParamDouble     time5;
+    testsweeper::ParamDouble     time6;
+    testsweeper::ParamDouble     time7;
+    testsweeper::ParamDouble     time8;
+    testsweeper::ParamDouble     time9;
+    testsweeper::ParamDouble     time10;
+    testsweeper::ParamDouble     time11;
+    testsweeper::ParamDouble     time12;
     testsweeper::ParamInt        iters;
 
     testsweeper::ParamDouble     ref_time;
@@ -204,8 +212,9 @@ void test_trtri      (Params& params, bool run);
 void test_gbsv   (Params& params, bool run);
 
 // Cholesky
-void test_posv   (Params& params, bool run);
-void test_potri  (Params& params, bool run);
+void test_posv      (Params& params, bool run);
+void test_pocondest (Params& params, bool run);
+void test_potri     (Params& params, bool run);
 
 // Cholesky, band
 void test_pbsv   (Params& params, bool run);
@@ -269,32 +278,6 @@ void test_copy   (Params& params, bool run);
 void test_scale  (Params& params, bool run);
 void test_scale_row_col(Params& params, bool run);
 void test_set    (Params& params, bool run);
-
-// -----------------------------------------------------------------------------
-inline slate::Dist str2dist(const char* dist)
-{
-    std::string distribution_ = dist;
-    std::transform(
-        distribution_.begin(),
-        distribution_.end(),
-        distribution_.begin(), ::tolower);
-    if (distribution_ == "row" || distribution_ == "r")
-        return slate::Dist::Row;
-    else if (distribution_ == "col" || distribution_ == "c"
-                                    || distribution_ == "column")
-        return slate::Dist::Col;
-    else
-        throw slate::Exception("unknown distribution");
-}
-
-inline const char* dist2str(slate::Dist dist)
-{
-    switch (dist) {
-        case slate::Dist::Row: return "row";
-        case slate::Dist::Col: return "col";
-    }
-    return "?";
-}
 
 // -----------------------------------------------------------------------------
 inline slate::Origin str2origin(const char* origin)
@@ -411,34 +394,6 @@ inline const char* grid_order2str( slate::GridOrder grid_order )
         case slate::GridOrder::Col:     return "col";
         case slate::GridOrder::Row:     return "row";
         case slate::GridOrder::Unknown: return "un";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
-inline slate::TileReleaseStrategy str2tile_release_strategy(const char* tile_release_strategy)
-{
-    std::string tile_release_strategy_ = tile_release_strategy;
-    std::transform(tile_release_strategy_.begin(), tile_release_strategy_.end(), tile_release_strategy_.begin(), ::tolower);
-    if (tile_release_strategy_ == "n" || tile_release_strategy_ == "none")
-        return slate::TileReleaseStrategy::None;
-    else if (tile_release_strategy_ == "i" || tile_release_strategy_ == "internal")
-        return slate::TileReleaseStrategy::Internal;
-    else if (tile_release_strategy_ == "s" || tile_release_strategy_ == "src")
-        return slate::TileReleaseStrategy::Slate;
-    else if (tile_release_strategy_ == "a" || tile_release_strategy_ == "all")
-        return slate::TileReleaseStrategy::All;
-    else
-        throw slate::Exception("unknown tile_release_strategy");
-}
-
-inline const char* tile_release_strategy2str(slate::TileReleaseStrategy tile_release_strategy)
-{
-    switch (tile_release_strategy) {
-        case slate::TileReleaseStrategy::None:     return "none";
-        case slate::TileReleaseStrategy::Internal: return "int";
-        case slate::TileReleaseStrategy::Slate:    return "src";
-        case slate::TileReleaseStrategy::All:      return "all";
     }
     return "?";
 }

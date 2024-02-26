@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -30,16 +30,21 @@ void add(
         B.reserveDeviceWorkspace();
     }
 
+    bool hold_local_workspace = get_option<bool>(
+            opts, Option::HoldLocalWorkspace, 0 );
+
     #pragma omp parallel
     #pragma omp master
     {
         internal::add<target>(alpha, std::move(A),
-                                beta, std::move(B));
+                                beta, std::move(B) );
         #pragma omp taskwait
         B.tileUpdateAllOrigin();
     }
 
-    B.releaseWorkspace();
+    if (hold_local_workspace == false) {
+        B.releaseWorkspace();
+    }
 }
 
 } // namespace impl
@@ -155,21 +160,27 @@ void add(
     scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
     Options const& opts )
 {
+    // Constants
     if (target == Target::Devices) {
         B.allocateBatchArrays();
         B.reserveDeviceWorkspace();
     }
 
+    bool hold_local_workspace = get_option<bool>(
+            opts, Option::HoldLocalWorkspace, 0 );
+
     #pragma omp parallel
     #pragma omp master
     {
         internal::add<target>(alpha, std::move(A),
-                              beta, std::move(B));
+                              beta, std::move(B) );
         #pragma omp taskwait
         B.tileUpdateAllOrigin();
     }
 
-    B.releaseWorkspace();
+    if (hold_local_workspace == false) {
+        B.releaseWorkspace();
+    }
 }
 
 } // namespace impl

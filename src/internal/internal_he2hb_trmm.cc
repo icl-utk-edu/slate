@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -7,13 +7,40 @@
 #include "slate/HermitianMatrix.hh"
 #include "slate/types.hh"
 #include "internal/internal.hh"
+#include "internal/internal_batch.hh"
 
 namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
+/// Determines whether this process contributes to B(i, 0).
+/// Specifically, it checks whether there is a j in panel_rank_rows such that
+/// AH(i, j) is local (taking into account the symmetric storage.)
+///
+template <typename scalar_t>
+bool need_Bi0(HermitianMatrix<scalar_t> AH,
+              int mpi_rank,
+              int64_t i,
+              std::vector<int64_t>& panel_rank_rows)
+{
+    for (int64_t j : panel_rank_rows) {
+        if (i >= j) { // lower
+            if (AH.tileRank( i, j ) == mpi_rank) {
+                return true;
+            }
+        }
+        else {
+            if (AH.tileRank( j, i ) == mpi_rank) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+//------------------------------------------------------------------------------
 /// Triangular matrix multiply. Compute B = B A
-/// AH is a Hermitian matrix. It needed here just to check if the rank is an
+/// AH is a Hermitian matrix. It's needed here just to check if the rank is an
 /// upper or lower rank that contribute to compute Bi, i = 0:mt-1.
 /// B is a block cloumn.
 /// A contains upper triangular or trapezoid T.
@@ -23,6 +50,9 @@ namespace internal {
 /// T = A[ 0:A.mb(), 0:A.mb() ] is upper triangular,
 /// Bi = Bi[ 0:B.mb(), 0:A.mb() ]. Call trmm Bi = Bi T.
 /// Dispatches to target implementations.
+///
+/// panel_rank_rows contains the local row-indices of B
+///
 /// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>
@@ -30,7 +60,7 @@ void he2hb_trmm(
     HermitianMatrix<scalar_t>&& AH, Matrix<scalar_t>&& A,
     Matrix<scalar_t>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index )
 {
     he2hb_trmm( internal::TargetType<target>(),
                 AH, A, B,
@@ -49,7 +79,7 @@ void he2hb_trmm(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index )
 {
     const scalar_t one  = 1;
     int mpi_rank = AH.mpiRank();
@@ -58,47 +88,39 @@ void he2hb_trmm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
 
+    if (panel_rank_rows.size() == 0) {
+        return;
+    }
     auto A0 = A.sub( 0, 0, 0, 0 );
+    int64_t mb = A0.tileMb( 0 );
+    int64_t nb = A0.tileNb( 0 );
+    bool trapezoid = (mb < nb);
+    if (trapezoid) {
+        A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
+    }
 
     #pragma omp taskgroup
     for (int64_t i = 0; i < B.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A0, AH, B, panel_rank_rows ) \
-            firstprivate( one, i, mpi_rank, layoutc ) \
+            firstprivate( one, i, mpi_rank, layoutc, mb, trapezoid ) \
             priority( priority )
         {
-            int rank_lower = -1;
-            int rank_upper = -1;
-            for (int64_t j : panel_rank_rows) {
-                if (i >= j) { // lower
-                    rank_lower = AH.tileRank( i, j );
-                }
-                else { // upper
-                    rank_upper = AH.tileRank( j, i );
-                }
-            }
             // If I contributed to Bi, multiply by A.
-            if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
+            if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )) {
                 // Bi = Bi * A
                 auto Bi = B.sub( i, i, 0, 0 );
-
-                int64_t mb = A0.tileMb( 0 );
-                int64_t nb = A0.tileNb( 0 );
-                bool trapezoid = (mb < nb);
 
                 B.tileGetForWriting( i, 0, layoutc );
                 if (trapezoid) {
                     auto B00 = Bi( 0, 0 );
                     int64_t mb1 = B00.mb();
-                    A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
                     Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
                 }
 
                 auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
                 tile::trmm( Side::Right, Diag::NonUnit,
                             one, std::move( T( 0, 0 ) ), Bi( 0, 0 ) );
-
-                B.tileTick( i, 0 );
             }
         }
     }
@@ -126,6 +148,10 @@ void he2hb_trmm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
 
+    if (panel_rank_rows.size() == 0) {
+        return;
+    }
+
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
@@ -134,32 +160,12 @@ void he2hb_trmm(
             priority( priority )
         {
             std::set<ij_tuple> B_tiles_set, A0_tiles_set;
-            int rank_lower = -1;
-            int rank_upper = -1;
 
             for (int64_t i = 0; i < B.mt(); ++i) {
-                for (int64_t j : panel_rank_rows) {
-                    if (i >= j) { // lower
-                        rank_lower = AH.tileRank( i, j );
-                    }
-                    else { // upper
-                        rank_upper = AH.tileRank( j, i );
-                    }
+                if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
+                    && device == B.tileDevice( i, 0 )) {
+                    B_tiles_set.insert( { i, 0 } );
                 }
-
-                if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                    if (device == B.tileDevice( i, 0 )) {
-                        B_tiles_set.insert( { i, 0 } );
-                    }
-                }
-            }
-
-            int64_t i_interior = B.mt();
-            int64_t i_last = 0;
-            int64_t mt = B.mt();
-            if (B.tileMb( mt-1 ) != B.tileMb( 0 )) {
-                i_interior = B.mt() - 1;
-                i_last = 1;
             }
 
             int64_t batch_size = B_tiles_set.size();
@@ -179,91 +185,65 @@ void he2hb_trmm(
                 std::vector<scalar_t*> a_array1;
                 std::vector<scalar_t*> b_array1;
 
-                int64_t lda0 = 0;
-                int64_t ldb0 = 0;
-                int64_t lda1 = 0;
-                int64_t ldb1 = 0;
-
-                int64_t mb0 = B.tileMb( 0 );
-                int64_t nb0 = B.tileNb( 0 );
-                int64_t mb1 = B.tileMb( B.mt()-1 );
-                int64_t nb1 = B.tileNb( B.mt()-1 );
-
-                rank_lower = -1;
-                rank_upper = -1;
-
-                for (int64_t i = 0; i < i_interior; ++i) {
-                    for (int64_t j : panel_rank_rows) {
-                        if (i >= j) { // lower
-                            rank_lower = AH.tileRank( i, j );
-                        }
-                        else { // upper
-                            rank_upper = AH.tileRank( j, i );
-                        }
-                    }
-                    A0 = A.sub( 0, 0, 0, 0 );
-                    int64_t mb = A0.tileMb( 0 );
-                    int64_t nb = A0.tileNb( 0 );
-                    auto Bi = B.sub( i, i, 0, 0 );
-                    bool trapezoid = (mb < nb);
-
-                    if (trapezoid) {
-                        auto B00 = Bi( 0, 0 );
-                        mb1 = B00.mb();
-                        A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
-                        Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
-                    }
-                    auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
-
-                    if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                        if (device == B.tileDevice( i, 0 )) {
-                            a_array0.push_back( T( 0, 0, device ).data() );
-                            b_array0.push_back( Bi( 0, 0, device ).data() );
-                            //b_array0.push_back( B( i, 0, device ).data() );
-                            lda0 = A0( 0, 0, device ).stride();
-                            ldb0 = Bi( 0, 0, device ).stride();
-                            mb0 = Bi.tileMb( 0 );
-                            nb0 = Bi.tileNb( 0 );
-                        }
-                    }
+                int64_t mb = A0.tileMb( 0 );
+                int64_t nb = A0.tileNb( 0 );
+                bool trapezoid = (mb < nb);
+                if (trapezoid) {
+                    A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
                 }
+                auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
 
-                if (i_last == 1) {
-                    int64_t i = B.mt()-1;
-                    rank_lower = -1;
-                    rank_upper = -1;
-                    for (int64_t j : panel_rank_rows) {
-                        if (i >= j) { // lower
-                            rank_lower = AH.tileRank( i, j );
-                        }
-                        else { // upper
-                            rank_upper = AH.tileRank( j, i );
-                        }
-                    }
-                    A0 = A.sub( 0, 0, 0, 0 );
-                    int64_t mb = A0.tileMb( 0 );
-                    int64_t nb = A0.tileNb( 0 );
-                    auto Bi = B.sub( i, i, 0, 0 );
-                    bool trapezoid = (mb < nb);
+                scalar_t** t_array_host = B.array_host(device, queue_index);
+                scalar_t** b_array_host = t_array_host + batch_size;
 
-                    if (trapezoid) {
-                        auto B00 = Bi( 0, 0 );
-                        mb1 = B00.mb();
-                        A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
-                        Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
-                    }
-                    auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
-                    if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                        if (device == B.tileDevice( i, 0 )) {
-                            a_array1.push_back( T( 0, 0, device ).data() );
-                            b_array1.push_back( Bi( 0, 0, device ).data() );
-                            lda1 = T( 0, 0, device ).stride();
-                            ldb1 = Bi( 0, 0, device ).stride();
-                            mb1 = Bi.tileMb( 0 );
-                            nb1 = Bi.tileNb( 0 );
+                // Variant of device_regions_build to handle he2hb_trmm
+                using Params = device_regions_params<false, 2>;
+
+                // Find ranges of matching mb's and ranges of matching nb's.
+                auto irange = device_regions_range( RowCol::Row, B );
+
+                // loop over regions
+                int64_t batch_count = 0;
+                std::vector<Params> group_params;
+                for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                    // Loop over the tiles in this region,
+                    // save any that should be computed on this process & device
+                    Params group;
+                    group.mb = B.tileMb( irange[ ii ] );
+                    group.nb = T.tileMb( 0 );
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                        if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
+                            && device == B.tileDevice( i, 0 )) {
+
+                            // Add tiles to current group
+                            auto Bi = B.sub( i, i, 0, 0 );
+                            if (trapezoid) {
+                                auto B00 = Bi( 0, 0 );
+                                int64_t mb1 = B00.mb();
+                                Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
+                            }
+
+                            auto Tij = T( 0, 0, device );
+                            t_array_host[ batch_count ] = Tij.data();
+                            auto Bij = Bi( 0, 0, device );
+                            b_array_host[ batch_count ] = Bij.data();
+                            if (group.count == 0) {
+                                group.ld[0] = Tij.stride();
+                                group.ld[1] = Bij.stride();
+                            }
+                            else {
+                                //assert( group.ld[0] == Tij.stride() );
+                                //assert( group.ld[1] == Bij.stride() );
+                            }
+                            ++group.count;
+                            ++batch_count;
                         }
+                    } // for i
+                    // If any tiles in the region should be computed here, save the group
+                    if (group.count > 0) {
+                        group_params.push_back( group );
                     }
-                }
+                } // for ii
 
                 {
                     trace::Block trace_block( "blas::batch::he2hb_trmm" );
@@ -283,56 +263,30 @@ void he2hb_trmm(
                     std::vector<scalar_t> alpha_( 1, alpha );
                     std::vector<int64_t>   info;
 
-                    if (b_array0.size() > 0) {
-                        std::vector<int64_t>    m( 1,  mb0 );
-                        std::vector<int64_t>    n( 1,  nb0 );
-                        std::vector<int64_t>  ldb( 1, ldb0 );
-                        std::vector<int64_t>  lda( 1, lda0 );
-                        blas::batch::trmm(
-                            layout, side_, uplo_, opA_, diag_,
-                            m, n,
-                            alpha_, a_array0, lda,
-                            b_array0, ldb,
-                            a_array0.size(), info, *queue );
-                    }
+                    for (size_t g = 0; g < group_params.size(); ++g) {
 
-                    if (b_array1.size() > 0) {
-                        std::vector<int64_t>    m( 1,  mb1 );
-                        std::vector<int64_t>    n( 1,  nb1 );
-                        std::vector<int64_t>  lda( 1, lda1 );
-                        std::vector<int64_t>  ldb( 1, ldb1 );
+                        int64_t group_count = group_params[ g ].count;
+                        std::vector<int64_t>    m( 1, group_params[g].mb );
+                        std::vector<int64_t>    n( 1, group_params[g].nb );
+                        std::vector<int64_t> ldda( 1, group_params[g].ld[0] );
+                        std::vector<int64_t> lddb( 1, group_params[g].ld[1] );
+
+                        std::vector<scalar_t*> t_array(t_array_host, t_array_host+group_count);
+                        std::vector<scalar_t*> b_array(b_array_host, b_array_host+group_count);
+
                         blas::batch::trmm(
                             layout, side_, uplo_, opA_, diag_,
                             m, n,
-                            //m, lda,
-                            alpha_, a_array1, lda,
-                            b_array1, ldb,
-                            a_array1.size(), info, *queue );
+                            alpha_, t_array, ldda,
+                                    b_array, lddb,
+                            group_count, info, *queue );
+
+                        t_array_host += group_count;
+                        b_array_host += group_count;
                     }
 
                     queue->sync();
                 }
-
-                // todo: release tiles in top-level routine.
-                // rank_lower = -1;
-                // rank_upper = -1;
-                // for (int64_t i = 0; i < B.mt(); ++i) {
-                //     for (int64_t j : panel_rank_rows) {
-                //         if (i >= j) { // lower
-                //             rank_lower = AH.tileRank( i, j );
-                //         }
-                //         else { // upper
-                //             rank_upper = AH.tileRank( j, i );
-                //         }
-                //     }
-                //
-                //     if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                //         if (device == B.tileDevice( i, 0 )) {
-                //             B.tileRelease( i, 0, device );
-                //             B.tileTick( i, 0 );
-                //         }
-                //     }
-                // }
             }
         }
     }
@@ -347,7 +301,7 @@ void he2hb_trmm<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -356,7 +310,7 @@ void he2hb_trmm<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -365,7 +319,7 @@ void he2hb_trmm< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -374,7 +328,7 @@ void he2hb_trmm< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -383,7 +337,7 @@ void he2hb_trmm<Target::Devices, float>(
     Matrix<float>&& A,
     Matrix<float>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -392,7 +346,7 @@ void he2hb_trmm<Target::Devices, double>(
     Matrix<double>&& A,
     Matrix<double>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -401,7 +355,7 @@ void he2hb_trmm< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 // ----------------------------------------
 template
@@ -410,7 +364,7 @@ void he2hb_trmm< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index );
 
 } // namespace internal
 } // namespace slate

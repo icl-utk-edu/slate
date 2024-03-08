@@ -7,6 +7,7 @@
 
 #include <climits>
 #include <cmath>
+#include <cstdint>
 
 using llong = long long;
 using testsweeper::ParamType;

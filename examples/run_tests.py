@@ -70,6 +70,7 @@ tests = [
     './ex12_generalized_hermitian_eig',
     './ex13_non_uniform_block_size',
     './ex14_scalapack_gemm',
+    './ex15_set_matrix',
 ]
 
 if opts.c_api:

@@ -46,6 +46,7 @@ set(
     ex12_generalized_hermitian_eig.cc
     ex13_non_uniform_block_size.cc
     # ex14_scalapack_gemm.cc  # requires -lscalapack
+    ex15_set_matrix.cc
 )
 
 enable_testing()

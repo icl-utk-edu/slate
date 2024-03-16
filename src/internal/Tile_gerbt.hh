@@ -7,7 +7,7 @@
 
 namespace slate {
 
-namespace internal {
+namespace tile {
 
 //------------------------------------------------------------------------------
 /// Applies a single butterfly matrix to each side of A.
@@ -266,7 +266,7 @@ void gerbt_right_trans(Tile<scalar_t> B1,
     }
 }
 
-} // namespace internal
+} // namespace tile
 
 } // namespace slate
 

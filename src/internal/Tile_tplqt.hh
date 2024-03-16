@@ -8,8 +8,6 @@
 
 #include "internal/internal.hh"
 #include "slate/Tile.hh"
-#include "slate/Tile_blas.hh"
-#include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
 #include "slate/internal/util.hh"
 
@@ -20,6 +18,8 @@
 #include <lapack.hh>
 
 namespace slate {
+
+namespace tile {
 
 //------------------------------------------------------------------------------
 /// Compute the triangular-pentagonal LQ factorization of 2 tiles, A1 and A2.
@@ -172,6 +172,8 @@ void tplqt(
     slate_not_implemented( "In gelqf: tplqt requires LAPACK >= 3.7" );
 #endif
 }
+
+} // namespace tile
 
 } // namespace slate
 

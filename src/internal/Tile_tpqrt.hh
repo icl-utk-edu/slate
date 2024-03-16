@@ -8,8 +8,6 @@
 
 #include "internal/internal.hh"
 #include "slate/Tile.hh"
-#include "slate/Tile_blas.hh"
-#include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
 #include "slate/internal/util.hh"
 
@@ -20,6 +18,8 @@
 #include <lapack.hh>
 
 namespace slate {
+
+namespace tile {
 
 //------------------------------------------------------------------------------
 /// Compute the triangular-pentagonal QR factorization of 2 tiles, A1 and A2.
@@ -169,6 +169,8 @@ void tpqrt(
     slate_not_implemented( "In geqrf: tpqrt requires LAPACK >= 3.4" );
 #endif
 }
+
+} // namespace tile
 
 } // namespace slate
 

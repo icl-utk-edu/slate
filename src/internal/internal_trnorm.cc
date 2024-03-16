@@ -78,7 +78,7 @@ void norm(
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
                     real_t tile_max;
-                    trnorm(in_norm, A.diag(), A(j, j), &tile_max);
+                    tile::trnorm( in_norm, A.diag(), A( j, j ), &tile_max );
                     #pragma omp critical
                     {
                         tiles_maxima.push_back(tile_max);
@@ -95,7 +95,8 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
-                            genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          &tile_max );
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -113,7 +114,8 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
-                            genorm(in_norm, NormScope::Matrix, A(i, j), &tile_max);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          &tile_max );
                             #pragma omp critical
                             {
                                 tiles_maxima.push_back(tile_max);
@@ -146,7 +148,8 @@ void norm(
                     firstprivate(j, jj, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
-                    trnorm(in_norm, A.diag(), A(j, j), &tiles_sums[A.n()*j+jj]);
+                    tile::trnorm( in_norm, A.diag(), A( j, j ),
+                                  &tiles_sums[ A.n()*j + jj ] );
                 }
             }
             // off-diagonal tiles
@@ -158,7 +161,8 @@ void norm(
                             firstprivate(i, j, jj, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.n()*i+jj]);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          &tiles_sums[ A.n()*i + jj ] );
                         }
                     }
                 }
@@ -171,7 +175,8 @@ void norm(
                             firstprivate(i, j, jj, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.n()*i+jj]);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          &tiles_sums[ A.n()*i + jj ] );
                         }
                     }
                 }
@@ -209,7 +214,8 @@ void norm(
                     firstprivate(i, ii, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(i, i, LayoutConvert(layout));
-                    trnorm(in_norm, A.diag(), A(i, i), &tiles_sums[A.m()*i + ii]);
+                    tile::trnorm( in_norm, A.diag(), A( i, i ),
+                                  &tiles_sums[ A.m()*i + ii ] );
                 }
             }
             // off-diagonal tiles
@@ -221,7 +227,8 @@ void norm(
                             firstprivate(i, j, ii, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.m()*j + ii]);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          &tiles_sums[ A.m()*j + ii ] );
                         }
                     }
                 }
@@ -234,7 +241,8 @@ void norm(
                             firstprivate(i, j, ii, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
-                            genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.m()*j + ii]);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          &tiles_sums[ A.m()*j + ii ] );
                         }
                     }
                 }
@@ -272,7 +280,7 @@ void norm(
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
                     real_t tile_values[2];
-                    trnorm(in_norm, A.diag(), A(j, j), tile_values);
+                    tile::trnorm( in_norm, A.diag(), A( j, j ), tile_values );
                     #pragma omp critical
                     {
                         combine_sumsq(values[0], values[1],
@@ -290,7 +298,8 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
-                            genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          tile_values );
                             #pragma omp critical
                             {
                                 combine_sumsq(values[0], values[1],
@@ -309,7 +318,8 @@ void norm(
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
-                            genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
+                            tile::genorm( in_norm, NormScope::Matrix, A( i, j ),
+                                          tile_values );
                             #pragma omp critical
                             {
                                 combine_sumsq(values[0], values[1],

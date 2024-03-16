@@ -8,8 +8,6 @@
 
 #include "internal/internal_util.hh"
 #include "slate/Tile.hh"
-#include "slate/Tile_blas.hh"
-#include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
 #include "slate/internal/util.hh"
 
@@ -21,7 +19,7 @@
 #include <lapack.hh>
 
 namespace slate {
-namespace internal {
+namespace tile {
 
 //--------------------------------------------------------------------------------
 /// Compute at the qr2 level, Householder reflections of a panel, with tau scalars.
@@ -134,7 +132,8 @@ void householder_reflection_generator(
             -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
 
         scalar_t scal_alpha = one / (alpha-beta);
-        scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
+        scalar_t tau = blas::make_scalar<scalar_t>(
+                           (beta - alphr) / beta, -alphi / beta );
         betas.at(k) = beta; // only need beta for correct QR-factorization
         taus.at(k) = tau;
 
@@ -307,7 +306,8 @@ void householder_reflection_generator(
         }
     }
 }
-} // namespace internal
+
+} // namespace tile
 } // namespace slate
 
 #endif // SLATE_TILE_HOUSEHOLDER_REFLECTION_GENERATOR

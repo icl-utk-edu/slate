@@ -44,7 +44,7 @@ int64_t potrf(
     int64_t info = 0;
     if (A.tileIsLocal( 0, 0 )) {
         A.tileGetForWriting( 0, 0, LayoutConvert::ColMajor );
-        info = potrf( A( 0, 0 ) );
+        info = tile::potrf( A( 0, 0 ) );
     }
     return info;
 }

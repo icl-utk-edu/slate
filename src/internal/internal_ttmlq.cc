@@ -266,9 +266,10 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
 
                             // Apply Q.
-                            tpmlqt(side, op, std::min(A.tileMb(0), A.tileNb(rank_ind)),
-                                   A(0, rank_ind), T(0, rank_ind),
-                                   C(i1, j1), C(i, j));
+                            tile::tpmlqt( side, op,
+                                          std::min( A.tileMb( 0 ), A.tileNb( rank_ind ) ),
+                                          A( 0, rank_ind ), T( 0, rank_ind ),
+                                          C( i1, j1 ), C( i, j ) );
 
                             int src = C.tileRank( i1, j1 );
                             // Send updated tile back.

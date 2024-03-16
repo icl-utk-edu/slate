@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/Tile.hh"
-#include "slate/Tile_blas.hh"
 #include "internal/Tile_lapack.hh"
 #include "internal/Tile_synorm.hh"
 #include "slate/internal/device.hh"
@@ -80,7 +79,7 @@ void test_genorm(Norm norm)
     else if (norm == lapack::Norm::Fro)
         values.resize( 2 );
 
-    slate::genorm( norm, slate::NormScope::Matrix, A, &values[0] );
+    slate::tile::genorm( norm, slate::NormScope::Matrix, A, &values[0] );
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {
@@ -297,7 +296,7 @@ void test_synorm(Norm norm, Uplo uplo)
     else if (norm == lapack::Norm::Fro)
         values.resize( 2 );
 
-    slate::synorm( norm, A, &values[0] );
+    slate::tile::synorm( norm, A, &values[0] );
 
     // check column & row sum results
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -512,7 +511,7 @@ void test_synorm_offdiag(Norm norm)
 
     std::vector<double> col_sums( n ), row_sums( m );
 
-    slate::synormOffdiag( norm, A, &col_sums[0], &row_sums[0] );
+    slate::tile::synorm_offdiag( norm, A, &col_sums[0], &row_sums[0] );
 
     // check column & row sum results
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -645,7 +644,7 @@ void test_trnorm(Norm norm, Uplo uplo, Diag diag)
     else if (norm == lapack::Norm::Fro)
         values.resize( 2 );
 
-    slate::trnorm( norm, diag, A, &values[0] );
+    slate::tile::trnorm( norm, diag, A, &values[0] );
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {

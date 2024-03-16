@@ -41,8 +41,9 @@ void random_matrix( int64_t m, int64_t n, scalar_type* A, int64_t lda )
 {
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
-            A[ i + j*lda ] = make<scalar_type>( rand() / double(RAND_MAX),
-                                                rand() / double(RAND_MAX) );
+            A[ i + j*lda ] = blas::make_scalar<scalar_type>(
+                                 rand() / double(RAND_MAX),
+                                 rand() / double(RAND_MAX) );
         }
     }
 }
@@ -56,8 +57,9 @@ void random_matrix_diag_dominant( int64_t m, int64_t n, scalar_type* A, int64_t 
     int64_t max_mn = std::max( m, n );
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
-            A[ i + j*lda ] = make<scalar_type>( rand() / double(RAND_MAX),
-                                                rand() / double(RAND_MAX) );
+            A[ i + j*lda ] = blas::make_scalar<scalar_type>(
+                                 rand() / double(RAND_MAX),
+                                 rand() / double(RAND_MAX) );
         }
         if (j < m) {
             // make diagonal real & dominant

@@ -6,7 +6,6 @@
 #include "slate/slate.hh"
 #include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
-#include "internal/Tile_tpmqrt.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
 

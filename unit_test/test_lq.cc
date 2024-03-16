@@ -43,6 +43,8 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
     using lapack::Uplo;
     using lapack::Diag;
     using lapack::MatrixType;
+    using lapack::Side;
+    using blas::Op;
 
     // Currently SLATE assumes n <= k.
     int n = blas::min( n2, k );
@@ -88,7 +90,7 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
         print( "T",   T );
     }
 
-    slate::tplqt( l, A1, A2, T );
+    slate::tile::tplqt( l, A1, A2, T );
 
     if (verbose > 1) {
         print( "post A1", A1 );
@@ -106,7 +108,7 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
                    &A1.at(0, 1), A1.stride() );
 
     // Form Ahat = L Q, where Q = I - V T V^H, V = [ I  V2 ], L = [ A1  L2 ]
-    slate::tpmlqt( slate::Side::Right, slate::Op::NoTrans, l, A2, T, A1, L2 );
+    slate::tile::tpmlqt( Side::Right, Op::NoTrans, l, A2, T, A1, L2 );
     if (verbose > 1) {
         print( "L1 Q", A1 );
         print( "L2 Q", L2 );
@@ -157,13 +159,13 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
         print( "C2", C2 );
     }
 
-    slate::tpmlqt( slate::Side::Left, slate::Op::NoTrans, l, A2, T, C1, C2 );
+    slate::tile::tpmlqt( Side::Left, Op::NoTrans, l, A2, T, C1, C2 );
     if (verbose > 1) {
         print( "Q C1", C1 );
         print( "Q C2", C2 );
     }
 
-    slate::tpmlqt( slate::Side::Left, slate::Op::ConjTrans, l, A2, T, C1, C2 );
+    slate::tile::tpmlqt( Side::Left, Op::ConjTrans, l, A2, T, C1, C2 );
     if (verbose > 1) {
         print( "Q^H C1", C1 );
         print( "Q^H C2", C2 );
@@ -171,7 +173,7 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
 
     // Trans applies only to real.
     if (! blas::is_complex< scalar_t >::value) {
-        slate::tpmlqt( slate::Side::Left, slate::Op::Trans, l, A2, T, C1, C2 );
+        slate::tile::tpmlqt( Side::Left, Op::Trans, l, A2, T, C1, C2 );
         if (verbose > 1) {
             print( "Q^T C1", C1 );
             print( "Q^T C2", C2 );
@@ -207,13 +209,13 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
         print( "D2", D2 );
     }
 
-    slate::tpmlqt( slate::Side::Right, slate::Op::NoTrans, l, A2, T, D1, D2 );
+    slate::tile::tpmlqt( Side::Right, Op::NoTrans, l, A2, T, D1, D2 );
     if (verbose > 1) {
         print( "D1 Q", D1 );
         print( "D2 Q", D2 );
     }
 
-    slate::tpmlqt( slate::Side::Right, slate::Op::ConjTrans, l, A2, T, D1, D2 );
+    slate::tile::tpmlqt( Side::Right, Op::ConjTrans, l, A2, T, D1, D2 );
     if (verbose > 1) {
         print( "D1 Q^H", D1 );
         print( "D2 Q^H", D2 );
@@ -221,7 +223,7 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
 
     // Trans applies only to real.
     if (! blas::is_complex< scalar_t >::value) {
-        slate::tpmlqt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 );
+        slate::tile::tpmlqt( Side::Right, Op::Trans, l, A2, T, D1, D2 );
         if (verbose > 1) {
             print( "D1 Q^T", D1 );
             print( "D2 Q^T", D2 );
@@ -232,7 +234,7 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
         // "On entry to ZTPMLQT parameter number  2 had an illegal value"
         // By default, xerbla will exit, so disable this for routine testing.
         //test_assert_throw_std(
-        //    slate::tpmlqt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 ));
+        //    slate::tile::tpmlqt( Side::Right, Op::Trans, l, A2, T, D1, D2 ));
     }
 }
 

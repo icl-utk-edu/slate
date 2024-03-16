@@ -297,7 +297,7 @@ void synormOffdiag(
         }
     }
     else {
-        slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
+        slate_not_implemented("Only Norm::One and Norm::Inf are supported.");
     }
 #else
     throw slate::Exception( "device routines not available" );

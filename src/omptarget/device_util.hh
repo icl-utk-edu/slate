@@ -6,6 +6,8 @@
 #ifndef SLATE_OMPTARGET_UTIL_HH
 #define SLATE_OMPTARGET_UTIL_HH
 
+#ifdef SLATE_HAVE_OMPTARGET
+
 #include <math.h>
 
 namespace slate {
@@ -156,5 +158,7 @@ inline double abs_val(std::complex<double> x)
 
 } // namespace device
 } // namespace slate
+
+#endif // SLATE_HAVE_OMPTARGET
 
 #endif // SLATE_OMPTARGET_UTIL_HH

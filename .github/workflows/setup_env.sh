@@ -47,6 +47,7 @@ quiet which pkg-config
 # CMake finds CUDA in /usr/local/cuda, so need to explicitly set gpu_backend.
 export gpu_backend=none
 export color=no
+
 # Don't use `export CXXFLAGS` here because then that
 # is exported to BLAS++ and it inherits the -D defines.
 

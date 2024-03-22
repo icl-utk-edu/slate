@@ -2773,9 +2773,7 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
     for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
         int64_t i = std::get<0>(*iter);
         int64_t j = std::get<1>(*iter);
-        {
-            tileGet(i, j, device, layoutConvert, modify, hold, true);
-        }
+        tileGet( i, j, device, layoutConvert, modify, hold, true );
     }
 
     if (! async && device != HostNum)
@@ -2963,12 +2961,14 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForReading(int device, LayoutConvert layout)
 {
     std::set<ij_tuple> tiles_set;
-    for (int64_t j = 0; j < nt(); ++j)
-        for (int64_t i = 0; i < mt(); ++i)
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
             // todo: if (tileIsLocal(i, j) && (device == HostNum || device == tileDevice(i, j))) {
             if (tileIsLocal(i, j)) {
                 tiles_set.insert({i, j});
             }
+        }
+    }
 
     tileGetForReading(tiles_set, device, layout);
 }
@@ -2992,12 +2992,14 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAllForWriting(int device, LayoutConvert layout)
 {
     std::set<ij_tuple> tiles_set;
-    for (int64_t j = 0; j < nt(); ++j)
-        for (int64_t i = 0; i < mt(); ++i)
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
             // todo: if (tileIsLocal(i, j) && (device == HostNum || device == tileDevice(i, j))) {
             if (tileIsLocal(i, j)) {
                 tiles_set.insert({i, j});
             }
+        }
+    }
 
     tileGetForWriting(tiles_set, device, layout);
 }
@@ -3021,12 +3023,14 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHoldAll(int device, LayoutConvert layout)
 {
     std::set<ij_tuple> tiles_set;
-    for (int64_t j = 0; j < nt(); ++j)
-        for (int64_t i = 0; i < mt(); ++i)
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
             // todo: if (tileIsLocal(i, j) && (device == HostNum || device == tileDevice(i, j))) {
             if (tileIsLocal(i, j)) {
                 tiles_set.insert({i, j});
             }
+        }
+    }
 
     tileGetAndHold( tiles_set, device, layout );
 }

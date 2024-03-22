@@ -19,7 +19,7 @@ class Tile;
 namespace tile {
 
 //------------------------------------------------------------------------------
-/// Copy and precision conversion.
+/// Copy and precision conversion, copying tile A to B.
 /// @ingroup copy_tile
 ///
 template <typename src_scalar_t, typename dst_scalar_t>
@@ -226,9 +226,10 @@ void transpose(int64_t n,
 ///     Leading dimension of matrix AT. ldat >= n.
 ///
 template <typename scalar_t>
-void transpose(int64_t m, int64_t n,
-               scalar_t* A, int64_t lda,
-               scalar_t* AT, int64_t ldat)
+void transpose(
+    int64_t m, int64_t n,
+    scalar_t const* A, int64_t lda,
+    scalar_t* AT, int64_t ldat)
 {
     assert(lda >= m);
     assert(ldat >= n);
@@ -293,9 +294,10 @@ void conjTranspose(int64_t n,
 ///     Leading dimension of matrix AT. ldat >= n.
 ///
 template <typename scalar_t>
-void conjTranspose(int64_t m, int64_t n,
-                   scalar_t* A, int64_t lda,
-                   scalar_t* AT, int64_t ldat)
+void conjTranspose(
+    int64_t m, int64_t n,
+    scalar_t const* A, int64_t lda,
+    scalar_t* AT, int64_t ldat)
 {
     using blas::conj;
     assert(lda >= m);
@@ -323,7 +325,7 @@ void deepTranspose(Tile<scalar_t>&& A)
 /// Host implementation.
 ///
 template <typename scalar_t>
-void deepTranspose(Tile<scalar_t>&& A, Tile<scalar_t>&& AT)
+void deepTranspose( Tile<scalar_t> const&& A, Tile<scalar_t>&& AT )
 {
     assert(A.mb() == AT.nb());
     assert(A.nb() == AT.mb());
@@ -346,7 +348,7 @@ void deepConjTranspose(Tile<scalar_t>&& A)
 /// Host implementation.
 ///
 template <typename scalar_t>
-void deepConjTranspose(Tile<scalar_t>&& A, Tile<scalar_t>&& AT)
+void deepConjTranspose( Tile<scalar_t> const&& A, Tile<scalar_t>&& AT )
 {
     assert(A.mb() == AT.nb());
     assert(A.nb() == AT.mb());

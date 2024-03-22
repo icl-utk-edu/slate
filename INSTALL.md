@@ -9,10 +9,12 @@ Synopsis
 Checkout or download. SLATE uses git modules, which require an update step:
 
     git clone --recursive https://github.com/icl-utk-edu/slate.git
+    cd slate
 
 or
 
     git clone https://github.com/icl-utk-edu/slate.git
+    cd slate
     git submodule update --init
 
 If you have an existing git repository and pull updates, you may need to

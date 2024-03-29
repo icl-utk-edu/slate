@@ -28,9 +28,10 @@ public:
     /// Sets the what() message to msg with func, file, line appended.
     Exception(std::string const& msg,
               const char* func, const char* file, int line)
-        : std::exception(),
-          msg_(msg + " in " + func + " at " + file + ":" + std::to_string(line))
-    {}
+        : std::exception()
+    {
+        what( msg, func, file, line );
+    }
 
     /// @return message describing the exception.
     virtual char const* what() const noexcept override
@@ -40,12 +41,14 @@ public:
 
 protected:
     /// Sets the what() message to msg with func, file, line appended.
+    /// See MpiException in mpi.hh.
     void what(std::string const& msg,
               const char* func, const char* file, int line)
     {
         msg_ = msg + " in " + func + " at " + file + ":" + std::to_string(line);
     }
 
+private:
     std::string msg_;
 };
 
@@ -56,6 +59,7 @@ protected:
     } while(0)
 
 //------------------------------------------------------------------------------
+/// Exception class for slate_not_implemented().
 class NotImplemented : public Exception {
 public:
     NotImplemented(const char* msg,

@@ -16,10 +16,6 @@ namespace slate {
 
 namespace impl {
 
-template <typename scalar_t>
-using Reflectors = std::map< std::pair<int64_t, int64_t>,
-                             std::vector<scalar_t> >;
-
 using Progress = std::vector< std::atomic<int64_t> >;
 
 //------------------------------------------------------------------------------
@@ -54,19 +50,12 @@ using Progress = std::vector< std::atomic<int64_t> >;
 ///     The step number.
 ///     Steps in each sweep have consecutive numbers.
 ///
-/// @param[out] reflectors
-///     Householder reflectors produced by the step.
-///
-/// @param[in] lock
-///     Lock for protecting access to reflectors.
-///
 template <typename scalar_t>
-void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
-                Matrix<scalar_t>& U,
-                Matrix<scalar_t>& V,
-                int64_t band,
-                int64_t sweep, int64_t step,
-                Reflectors<scalar_t>& reflectors, omp_lock_t& lock)
+void tb2bd_step(
+    TriangularBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& V,
+    int64_t band, int64_t sweep, int64_t step )
 {
     int64_t Am = A.m();
     int64_t An = A.n();
@@ -163,24 +152,18 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
 /// @param[in] thread_size
 ///     number of threads
 ///
-/// @param[out] reflectors
-///     Householder reflectors produced in the process.
-///
-/// @param[in] lock
-///     lock for protecting access to reflectors
-///
 /// @param[in] progress
 ///     progress table for synchronizing threads
 ///
 template <typename scalar_t>
-void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
-               Matrix<scalar_t>& U,
-               Matrix<scalar_t>& V,
-               int64_t band, int64_t diag_len,
-               int64_t pass_size,
-               int thread_rank, int thread_size,
-               Reflectors<scalar_t>& reflectors, omp_lock_t& lock,
-               Progress& progress)
+void tb2bd_run(
+    TriangularBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& V,
+    int64_t band, int64_t diag_len,
+    int64_t pass_size,
+    int thread_rank, int thread_size,
+    Progress& progress )
 {
     // Thread that starts each pass.
     int64_t start_thread = 0;
@@ -210,9 +193,7 @@ void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
                         // Wait until step-1 is done in this sweep.
                         while (progress.at(sweep).load() < step-1) {}
                     }
-                    ///printf( "tid %d pass %lld, task %lld, %lld\n", thread_rank, pass, sweep, step );
-                    tb2bd_step(A, U, V, band, sweep, step,
-                               reflectors, lock);
+                    tb2bd_step( A, U, V, band, sweep, step );
 
                     // Mark step as done.
                     progress.at(sweep).store(step);
@@ -240,10 +221,6 @@ void tb2bd(
 
     int64_t diag_len = std::min(A.m(), A.n());
     int64_t band = A.bandwidth();
-
-    omp_lock_t lock;
-    omp_init_lock(&lock);
-    Reflectors<scalar_t> reflectors;
 
     set(zero, U);
     set(zero, V);
@@ -310,26 +287,24 @@ void tb2bd(
             // Launching new threads for the band reduction guarantees progression.
             // This should never deadlock, but may be detrimental to performance.
             #pragma omp parallel for \
-                num_threads(thread_size) \
-                shared(reflectors, lock, progress)
+                num_threads( thread_size ) \
+                shared( progress )
         #else
             // Issuing panel operation as tasks may cause a deadlock.
             #pragma omp taskloop \
-                num_tasks(thread_size) \
-                shared(reflectors, lock, progress)
+                num_tasks( thread_size ) \
+                shared( progress )
         #endif
         for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
-            tb2bd_run(A,
-                      U, V,
-                      band, diag_len,
-                      pass_size,
-                      thread_rank, thread_size,
-                      reflectors, lock, progress);
+            tb2bd_run(
+                A, U, V,
+                band, diag_len,
+                pass_size,
+                thread_rank, thread_size,
+                progress );
         }
         #pragma omp taskwait
     }
-
-    omp_destroy_lock(&lock);
 
     // Now that chasing is over, matrix is reduced to bidiagonal.
     A.bandwidth(1);

@@ -78,7 +78,7 @@ categories = [
     group_cat.add_argument( '--svd',           action='store_true', help='run SVD tests' ),
     group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary routine tests' ),
     group_cat.add_argument( '--norms',         action='store_true', help='run norm tests' ),
-    group_cat.add_argument( '--cond',          action='store_true', help='run condition number estimate tests' ),
+    group_cat.add_argument( '--condest',       action='store_true', help='run condition number estimate tests' ),
 ]
 # map category objects to category names: ['lu', 'chol', ...]
 categories = list( map( lambda x: x.dest, categories ) )
@@ -133,6 +133,7 @@ group_opt.add_argument( '--threshold', action='store', help='default=%(default)s
 group_opt.add_argument( '--matrix',  action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--matrixB', action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--matrixC', action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--cond',    action='store', help='default=%(default)s', default='1e2' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -183,8 +184,10 @@ nk_tall  = dim
 nk_wide  = dim
 nk       = dim
 
-# for xsmall and small, use smaller nb, but not with medium or large
+# For xsmall and small, use smaller nb, but not with medium or large.
+# For xsmall, use smaller cond (1e2) than default (1e3) for Cholesky QR to pass.
 is_default_nb = (opts.nb == parser.get_default('nb'))
+is_default_cond = (opts.cond == parser.get_default('cond'))
 
 if (not opts.dim):
     if (opts.quick):
@@ -208,6 +211,8 @@ if (not opts.dim):
         nk_wide += ' --dim 1x10x20'
         if (is_default_nb):
             opts.nb = '5,8'
+        if (is_default_cond):
+            opts.cond = '1e2'
 
     if (opts.small):
         n       += ' --dim 25:100:25'
@@ -310,6 +315,7 @@ matrix  = ' --matrix  ' + opts.matrix  if (opts.matrix)  else ''
 matrixB = ' --matrixB ' + opts.matrixB if (opts.matrixB) else ''
 matrixC = ' --matrixC ' + opts.matrixC if (opts.matrixC) else ''
 matrixBC = matrixB + matrixC
+cond    = ' --cond ' + opts.cond if (opts.cond) else ''
 
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
@@ -338,6 +344,7 @@ def filter_csv( values, csv ):
 # limit options to specific values
 dtype_real    = ' --type ' + filter_csv( ('s', 'd'), opts.type )
 dtype_complex = ' --type ' + filter_csv( ('c', 'z'), opts.type )
+dtype_single  = ' --type ' + filter_csv( ('s', 'c'), opts.type )
 dtype_double  = ' --type ' + filter_csv( ('d', 'z'), opts.type )
 
 trans_nt = ' --trans ' + filter_csv( ('n', 't'), opts.trans )
@@ -481,8 +488,7 @@ if (opts.least_squares):
     # todo: mn (i.e., add wide)
     [ 'gels',   gen + dtype + la + n + tall + trans_nc + ' --method-gels qr' ],
     # Cholesky QR needs well-conditioned problem.
-    [ 'gels',   gen + la + n + tall + trans_nc + ' --method-gels cholqr --matrix svd --cond 1e3 --type s,c' ],
-    [ 'gels',   gen + la + n + tall + trans_nc + ' --method-gels cholqr --matrix svd --cond 1e3 --type d,z' ],
+    [ 'gels',   gen + dtype + la + n + tall + trans_nc + cond + ' --method-gels cholqr --matrix svd' ],
 
     # Generalized
     #[ 'gglse', gen + dtype + la + mnk ],
@@ -619,8 +625,8 @@ if (opts.norms):
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
     ]
 
-# cond
-if (opts.cond):
+# condest
+if (opts.condest):
     cmds += [
     [ 'gecondest', gen + dtype + n ],
     [ 'pocondest', gen + dtype + n + uplo ],
@@ -743,6 +749,7 @@ def run_test( cmd ):
 # ------------------------------------------------------------------------------
 # run each test
 
+print_tee( ' '.join( sys.argv ) )
 start = time.time()
 print_tee( time.ctime() )
 

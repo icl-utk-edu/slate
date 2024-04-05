@@ -115,9 +115,9 @@ void test_syrk_work(Params& params, bool run)
     // If check run, perform first half of SLATE residual check.
     TestMatrix<slate::Matrix<scalar_t>> X_alloc, Y_alloc, Z_alloc;
     if (check && ! ref) {
-        X_alloc = allocate_test_Matrix<scalar_t>( false, true, An, nrhs, params );
-        Y_alloc = allocate_test_Matrix<scalar_t>( false, true, Am, nrhs, params );
-        Z_alloc = allocate_test_Matrix<scalar_t>( false, true, Am, nrhs, params );
+        X_alloc = allocate_test_Matrix<scalar_t>( false, true, n, nrhs, params );
+        Y_alloc = allocate_test_Matrix<scalar_t>( false, true, n, nrhs, params );
+        Z_alloc = allocate_test_Matrix<scalar_t>( false, true, k, nrhs, params );
 
         auto& X = X_alloc.A;
         auto& Y = Y_alloc.A;

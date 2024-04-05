@@ -367,19 +367,19 @@ if (opts.blas3):
 
     [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd + matrixBC ],
 
-    [ 'herk',  gen + dtype_real    + la + he_matrix + trans    + mn + ab + matrixC ],
-    [ 'herk',  gen + dtype_complex + la + he_matrix + trans_nc + mn + ab + matrixC ],
+    [ 'herk',  gen + dtype_real    + la + he_matrix + trans    + nk + ab + matrixC ],
+    [ 'herk',  gen + dtype_complex + la + he_matrix + trans_nc + nk + ab + matrixC ],
 
-    [ 'her2k', gen + dtype_real    + la + he_matrix + trans    + mn + ab + matrixBC ],
-    [ 'her2k', gen + dtype_complex + la + he_matrix + trans_nc + mn + ab + matrixBC ],
+    [ 'her2k', gen + dtype_real    + la + he_matrix + trans    + nk + ab + matrixBC ],
+    [ 'her2k', gen + dtype_complex + la + he_matrix + trans_nc + nk + ab + matrixBC ],
 
     [ 'symm',  gen + dtype         + la + side + sy_matrix     + mn + ab + matrixBC ],
 
-    [ 'syr2k', gen + dtype_real    + la + sy_matrix + trans    + mn + ab + matrixC ],
-    [ 'syr2k', gen + dtype_complex + la + sy_matrix + trans_nt + mn + ab + matrixC ],
+    [ 'syr2k', gen + dtype_real    + la + sy_matrix + trans    + nk + ab + matrixC ],
+    [ 'syr2k', gen + dtype_complex + la + sy_matrix + trans_nt + nk + ab + matrixC ],
 
-    [ 'syrk',  gen + dtype_real    + la + sy_matrix + trans    + mn + ab + matrixBC ],
-    [ 'syrk',  gen + dtype_complex + la + sy_matrix + trans_nt + mn + ab + matrixBC ],
+    [ 'syrk',  gen + dtype_real    + la + sy_matrix + trans    + nk + ab + matrixBC ],
+    [ 'syrk',  gen + dtype_complex + la + sy_matrix + trans_nt + nk + ab + matrixBC ],
 
     # todo: tbsm fails for nb=8 or 16 with --quick.
     [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd + matrixB ],

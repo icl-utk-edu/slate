@@ -592,9 +592,9 @@ if (opts.geev):
 # svd
 if (opts.svd):
     if ('n' in jobu):
-        cmds += [[ 'svd', gen + dtype + la + n + mnk + ' --jobu n --jobvt n' + ge_matrix ]]
+        cmds += [[ 'svd', gen + dtype + la + mn + ' --jobu n --jobvt n' + ge_matrix ]]
     if ('v' in jobu):
-        cmds += [[ 'svd', gen + dtype + la + n + mnk + ' --jobu v --jobvt v' + ge_matrix ]]
+        cmds += [[ 'svd', gen + dtype + la + mn + ' --jobu v --jobvt v' + ge_matrix ]]
 
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt

@@ -342,6 +342,7 @@ public:
     testsweeper::ParamDouble     time10;
     testsweeper::ParamDouble     time11;
     testsweeper::ParamDouble     time12;
+    testsweeper::ParamDouble     time13;
 
     testsweeper::ParamDouble     ref_time;
     testsweeper::ParamDouble     ref_gflops;

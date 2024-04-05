@@ -495,6 +495,7 @@ Params::Params():
     time10    ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
     time11    ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
     time12    ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time13    ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
 
     ref_time  ( "ref time (s)",  9, 3, PT_Out, no_data, 0, 0, "reference time to solution" ),
     ref_gflops( "ref gflop/s",  12, 3, PT_Out, no_data, 0, 0, "reference Gflop/s rate" ),

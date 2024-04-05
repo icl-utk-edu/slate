@@ -72,6 +72,7 @@ void test_svd_work( Params& params, bool run )
         params.time10();
         params.time11();
         params.time12();
+        params.time13();
         params.time2.name( "geqrf (s)" );
         params.time3.name( "gelqf (s)" );
         params.time4.name( "ge2tb (s)" );
@@ -83,6 +84,7 @@ void test_svd_work( Params& params, bool run )
         params.time10.name( "unmbr_tb2bd_V (s)" );
         params.time11.name( "unmbr_ge2tb_V (s)" );
         params.time12.name( "unmlq (s)" );
+        params.time13.name( "redist (s)" );
     }
 
     if (! run)
@@ -196,6 +198,7 @@ void test_svd_work( Params& params, bool run )
             params.time10() = slate::timers[ "svd::unmbr_tb2bd_V" ];
             params.time11() = slate::timers[ "svd::unmbr_ge2tb_V" ];
             params.time12() = slate::timers[ "svd::unmlq" ];
+            params.time13() = slate::timers[ "svd::redistribute" ];
         }
 
         if (mpi_rank == 0) {

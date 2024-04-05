@@ -195,8 +195,6 @@ if (not opts.dim):
         tall     = ' --dim 100x50'  # 2:1
         wide     = ' --dim 50x100'  # 1:2
         mnk      = ' --dim 25x50x75'
-        nk_tall  = ' --dim 1x100x50'  # 2:1
-        nk_wide  = ' --dim 1x50x100'  # 1:2
         if (is_default_nb):
             opts.nb = '8'
 
@@ -207,8 +205,6 @@ if (not opts.dim):
         mnk     += ' --dim 10x15x20 --dim 15x10x20' \
                 +  ' --dim 10x20x15 --dim 15x20x10' \
                 +  ' --dim 20x10x15 --dim 20x15x10'
-        nk_tall += ' --dim 1x20x10'
-        nk_wide += ' --dim 1x10x20'
         if (is_default_nb):
             opts.nb = '5,8'
         if (is_default_cond):
@@ -221,8 +217,6 @@ if (not opts.dim):
         mnk     += ' --dim 25x50x75 --dim 50x25x75' \
                 +  ' --dim 25x75x50 --dim 50x75x25' \
                 +  ' --dim 75x25x50 --dim 75x50x25'
-        nk_tall += ' --dim 1x50:200:50x25:100:25'
-        nk_wide += ' --dim 1x25:100:25x50:200:50'
         if (is_default_nb):
             opts.nb = '25,32'
 
@@ -233,8 +227,6 @@ if (not opts.dim):
         mnk     += ' --dim 100x300x600 --dim 300x100x600' \
                 +  ' --dim 100x600x300 --dim 300x600x100' \
                 +  ' --dim 600x100x300 --dim 600x300x100'
-        nk_tall += ' --dim 1x200:1000:200x100:500:100'
-        nk_wide += ' --dim 1x100:500:100x200:1000:200'
         if (is_default_nb):
             opts.nb = parser.get_default('nb')
 
@@ -245,10 +237,12 @@ if (not opts.dim):
         mnk     += ' --dim 1000x3000x6000 --dim 3000x1000x6000' \
                 +  ' --dim 1000x6000x3000 --dim 3000x6000x1000' \
                 +  ' --dim 6000x1000x3000 --dim 6000x3000x1000'
-        nk_tall += ' --dim 1x2000:10000:2000x1000:5000:1000'
-        nk_wide += ' --dim 1x1000:5000:1000x2000:10000:2000'
         if (is_default_nb):
             opts.nb = parser.get_default('nb')
+
+    # For nk, prepend 1x for the unused m dimension.
+    nk_tall = re.sub( r'--dim (\d)', r'--dim 1x\1', tall )
+    nk_wide = re.sub( r'--dim (\d)', r'--dim 1x\1', wide )
 
     mn  = ''
     nk  = ''

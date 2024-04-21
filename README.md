@@ -15,37 +15,37 @@
 About
 --------------------------------------------------------------------------------
 
-Software for Linear Algebra Targeting Exascale (SLATE) is being developed
+SLATE (Software for Linear Algebra Targeting Exascale) was developed
 as part of the Exascale Computing Project (ECP),
-which is a joint project of the U.S. Department of Energy's Office of Science
+a joint project of the U.S. Department of Energy's Office of Science
 and National Nuclear Security Administration (NNSA).
-SLATE will deliver fundamental dense linear algebra capabilities
+SLATE delivers fundamental dense linear algebra capabilities
 for current and upcoming distributed-memory systems,
-including GPU-accelerated systems as well as more traditional multi core-only systems.
+including GPU-accelerated systems as well as more traditional multi-core-only systems.
 
-SLATE will provide coverage of existing LAPACK and ScaLAPACK functionality,
+SLATE provides coverage of existing LAPACK and ScaLAPACK functionality,
 including parallel implementations of Basic Linear Algebra Subroutines (BLAS),
 linear systems solvers, least squares solvers, and singular value and eigenvalue solvers.
-In this respect, SLATE will serve as a replacement for LAPACK and ScaLAPACK,
+In this respect, SLATE will serve as a replacement for ScaLAPACK,
 which, after two decades of operation, cannot be adequately retrofitted
 for modern, GPU-accelerated architectures.
 
 SLATE is built on top of standards, such as MPI and OpenMP,
 and de facto-standard industry solutions such as NVIDIA CUDA and AMD HIP.
 SLATE also relies on high performance implementations of numerical kernels from vendor libraries,
-such as Intel MKL, IBM ESSL, NVIDIA cuBLAS, and AMD rocBLAS.
+such as Cray LibSci, Intel MKL, IBM ESSL, NVIDIA cuBLAS, and AMD rocBLAS.
 SLATE interacts with these libraries through a layer of C++ APIs.
 This figure shows SLATE's position in the ECP software stack.
 
 ![SLATE software stack](http://icl.bitbucket.io/slate/artwork/Bitbucket/software_stack.png)
 
-The charts shows how heavily ECP applications depend
+The charts below show how heavily ECP applications depend
 on dense linear algebra software.
 A direct dependency means that the application's source code
 contains calls to the library's routines.
 An indirect dependency means that the application needs to be linked with the library
 due to another component depending on it.
-Out of 60 ECP applications, 38 depend on BLAS - either directly on indirectly -
+Out of 60 ECP applications, 38 depend on BLAS — either directly on indirectly —
 40 depend on LAPACK, and 14 depend on ScaLAPACK.
 In other words, the use of dense linear algebra software is ubiquitous
 among ECP applications.
@@ -58,10 +58,10 @@ Documentation
 --------------------------------------------------------------------------------
 
 * [INSTALL.md](INSTALL.md) for installation notes.
+* [SLATE Function Reference](https://icl.bitbucket.io/slate/)
 * [Users' Guide](https://www.icl.utk.edu/publications/swan-010)
 * [Developers' Guide](https://www.icl.utk.edu/publications/swan-011)
 * [Tutorial with sample codes for using SLATE](https://bitbucket.org/icl/slate-tutorial/)
-* [SLATE Function Reference](https://icl.bitbucket.io/slate/)
 * [SLATE Website and Papers](http://icl.utk.edu/slate/)
 
 * * *

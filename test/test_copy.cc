@@ -183,8 +183,6 @@ void test_copy_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else  // not SLATE_HAVE_SCALAPACK
-            int mpi_rank, myrow, mycol;
-            MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
             if (A.mpiRank() == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

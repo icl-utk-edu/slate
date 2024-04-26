@@ -57,7 +57,11 @@ elif [ "${bstage}" = "build" ]; then
   spack dev-build -i $SPEC
 elif [ "${bstage}" = "test" ]; then
   spack uninstall -y slate
-  spack dev-build --test=root $SPEC || cat spack-stage/github/spack-stage-slate-master-*/install-time-test-log.txt
+  spack dev-build --test=root $SPEC
+  if [ $? -gt 0 ]; then
+    cat spack-stage/github/spack-stage-slate-master-*/install-time-test-log.txt
+    exit 22
+  fi
 elif [ "${bstage}" = "smoke" ]; then
   spack test run slate
 fi

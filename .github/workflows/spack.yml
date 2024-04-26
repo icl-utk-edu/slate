@@ -28,6 +28,6 @@ jobs:
         if: always()
         with:
           name: slate spack ${{matrix.device}} pre-install-test
-          path: spack-stage/install-time-test-log.txt
+          path: spack-stage/github/spack-stage-slate-master-*/install-time-test-log.txt
       - name: Post-install Test
         run: .github/workflows/spack.sh smoke ${{matrix.device}}

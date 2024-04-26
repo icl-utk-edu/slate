@@ -53,6 +53,7 @@ const char* target_name(slate::Target target)
         case slate::Target::Devices:   return "Devices";
         default: assert(false);
     }
+    return "Error";
 }
 
 // -----------------------------------------------------------------------------

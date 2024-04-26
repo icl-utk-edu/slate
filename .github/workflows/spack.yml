@@ -24,10 +24,5 @@ jobs:
         run: .github/workflows/spack.sh build ${{matrix.device}}
       - name: Pre-install Test
         run: .github/workflows/spack.sh test ${{matrix.device}}
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: slate spack ${{matrix.device}} pre-install-test
-          path: spack-stage/github/spack-stage-slate-master-*/install-time-test-log.txt
       - name: Post-install Test
         run: .github/workflows/spack.sh smoke ${{matrix.device}}

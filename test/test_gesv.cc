@@ -48,11 +48,11 @@ void test_gesv_work(Params& params, bool run)
 
     // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
-    if (params.routine == "getrs")
+    if (params.routine == "getrs" || params.routine == "getrf_addmod")
         trans = params.trans();
 
     int64_t m;
-    if (params.routine == "getrf")
+    if (params.routine == "getrf" || params.routine == "getrf_addmod")
         m = params.dim.m();
     else
         m = params.dim.n();  // square, n-by-n
@@ -84,8 +84,21 @@ void test_gesv_work(Params& params, bool run)
     if (! supported)
         timer_level = 1;
 
+    slate::BlockFactor blockFactorType = slate::BlockFactor::SVD;
+    if (ends_with( params.routine, "_addmod" )
+        || ends_with( params.routine, "_addmod_ir" )) {
+        blockFactorType = params.blockfactor();
+    }
+
     // NoPiv and CALU ignore threshold.
     double pivot_threshold = params.pivot_threshold();
+    double add_tol = 0.0;
+    bool useWoodbury = false;
+    if (params.routine == "getrf_addmod" || params.routine == "gesv_addmod"
+        || params.routine == "gesv_addmod_ir") {
+        add_tol = params.add_tol();
+        useWoodbury = params.woodbury() == 'y';
+    }
 
     // mark non-standard output values
     params.time();
@@ -93,8 +106,8 @@ void test_gesv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
-    bool do_getrs = params.routine == "getrs"
-                    || (check && params.routine == "getrf");
+    bool do_getrs = params.routine == "getrs" || params.routine == "getrs_addmod"
+                    || (check && (params.routine == "getrf" || params.routine == "getrf_addmod"));
 
     if (do_getrs) {
         params.time2();
@@ -133,7 +146,8 @@ void test_gesv_work(Params& params, bool run)
 
     bool is_iterative = params.routine == "gesv_mixed"
                         || params.routine == "gesv_mixed_gmres"
-                        || params.routine == "gesv_rbt";
+                        || params.routine == "gesv_rbt"
+                        || params.routine == "gesv_addmod_ir";
 
     int64_t itermax = 0;
     bool fallback = true;
@@ -165,6 +179,7 @@ void test_gesv_work(Params& params, bool run)
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
+        {slate::Option::BlockFactor, blockFactorType},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
         {slate::Option::PivotThreshold, pivot_threshold},
@@ -174,6 +189,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::Depth, depth},
         {slate::Option::MaxIterations, itermax},
         {slate::Option::UseFallbackSolver, fallback},
+        {slate::Option::AdditiveTolerance, add_tol},
+        {slate::Option::UseWoodbury, useWoodbury},
     };
 
     int64_t info = 0;
@@ -194,6 +211,7 @@ void test_gesv_work(Params& params, bool run)
     auto& X         = X_alloc.A;
 
     slate::Pivots pivots;
+    slate::AddModFactors<scalar_t> amfactors;
 
     slate::Options matgen_opts = {{slate::Option::Target, target}};
     slate::generate_matrix(params.matrix,  A, matgen_opts);
@@ -212,7 +230,9 @@ void test_gesv_work(Params& params, bool run)
     if (params.routine == "gesv"
         || params.routine == "gesv_mixed"
         || params.routine == "gesv_mixed_gmres"
-        || params.routine == "gesv_rbt")
+        || params.routine == "gesv_rbt"
+        || params.routine == "gesv_addmod"
+        || params.routine == "gesv_addmod_ir")
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
     else
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
@@ -258,6 +278,19 @@ void test_gesv_work(Params& params, bool run)
             slate::gesv_rbt(A, B, X, iters, opts);
             params.iters() = iters;
         }
+        else if (params.routine == "gesv_addmod") {
+            // slate::lu_solve_addmod(A, B, opts);
+            // Using traditional BLAS/LAPACK name
+            slate::gesv_addmod(A, amfactors, B, opts);
+        }
+        else if (params.routine == "gesv_addmod_ir") {
+            int iters = 0;
+            slate::gesv_addmod_ir(A, amfactors, B, X, iters, opts);
+            params.iters() = iters;
+        }
+        else if (params.routine == "getrf_addmod" || params.routine == "getrs_addmod") {
+            slate::getrf_addmod(A, amfactors, opts);
+        }
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;
@@ -299,9 +332,21 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conj_transpose( A );
 
-            slate::lu_solve_using_factor( opA, pivots, B, opts );
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs(opA, pivots, B, opts);
+            if (params.routine == "getrs"
+                || params.routine == "getrf")
+            {
+                slate::lu_solve_using_factor( opA, pivots, B, opts );
+                // Using traditional BLAS/LAPACK name
+                // slate::getrs(opA, pivots, B, opts);
+            }
+            else if ((check && params.routine == "getrf_addmod")
+                     || params.routine == "getrs_addmod")
+            {
+                slate::getrs_addmod(amfactors, B, opts);
+            }
+            else {
+                slate_error("Unknown routine!");
+            }
 
             // compute and save timing/performance
             time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;

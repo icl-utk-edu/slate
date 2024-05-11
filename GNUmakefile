@@ -103,8 +103,8 @@ abs_prefix      := ${abspath ${prefix}}
 export CXX blas blas_int blas_threaded openmp static gpu_backend
 
 CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
-NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
-HIPCCFLAGS += -std=c++14 -DTCE_HIP -fno-gpu-rdc
+NVCCFLAGS  += -O3 -std=c++17 --compiler-options '-Wall -Wno-unused-function'
+HIPCCFLAGS += -std=c++17 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
 
@@ -480,6 +480,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_getrf.cc \
         src/internal/internal_getrf_nopiv.cc \
         src/internal/internal_getrf_tntpiv.cc \
+        src/internal/internal_getrf_addmod.cc \
         src/internal/internal_hbnorm.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hegst.cc \
@@ -501,6 +502,8 @@ ifneq ($(only_unit),1)
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
         src/internal/internal_trsmA.cc \
+        src/internal/internal_trsm_addmod.cc \
+        src/internal/internal_trsmA_addmod.cc \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
         src/internal/internal_ttlqt.cc \
@@ -530,6 +533,7 @@ cuda_src := \
         src/cuda/device_synorm.cu \
         src/cuda/device_transpose.cu \
         src/cuda/device_trnorm.cu \
+        src/cuda/device_trsm_addmod.cu \
         src/cuda/device_tzadd.cu \
         src/cuda/device_tzcopy.cu \
         src/cuda/device_tzscale.cu \
@@ -599,13 +603,17 @@ ifneq ($(only_unit),1)
         src/gesv_mixed_gmres.cc \
         src/gesv_nopiv.cc \
         src/gesv_rbt.cc \
+        src/gesv_addmod.cc \
+        src/gesv_addmod_ir.cc \
         src/getrf.cc \
         src/getrf_nopiv.cc \
         src/getrf_tntpiv.cc \
+        src/getrf_addmod.cc \
         src/getri.cc \
         src/getriOOP.cc \
         src/getrs.cc \
         src/getrs_nopiv.cc \
+        src/getrs_addmod.cc \
         src/hb2st.cc \
         src/hbmm.cc \
         src/he2hb.cc \
@@ -658,6 +666,9 @@ ifneq ($(only_unit),1)
         src/trsm.cc \
         src/trsmA.cc \
         src/trsmB.cc \
+        src/trsm_addmod.cc \
+        src/trsmA_addmod.cc \
+        src/trsmB_addmod.cc \
         src/trtri.cc \
         src/trtrm.cc \
         src/unmlq.cc \
@@ -668,6 +679,8 @@ ifneq ($(only_unit),1)
         src/work/work_trmm.cc \
         src/work/work_trsm.cc \
         src/work/work_trsmA.cc \
+        src/work/work_trsm_addmod.cc \
+        src/work/work_trsmA_addmod.cc \
         # End. Add alphabetically.
 endif
 

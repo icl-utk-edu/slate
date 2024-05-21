@@ -8,6 +8,21 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+template <typename TA, typename TB>
+inline MethodTrsm select_algo( TA& A, TB& B, Options const& opts )
+{
+    Target target = get_option( opts, Option::Target, Target::HostTask );
+    int n_devices = A.num_devices();
+
+    MethodTrsm method = (B.nt() < 2 ? MethodTrsm::A : MethodTrsm::B);
+
+    if (method == MethodTrsm::A && target == Target::Devices && n_devices > 1)
+        method = MethodTrsm::B;
+
+    return method;
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel triangular matrix-matrix solve.
 /// Solves one of the triangular matrix equations
 /// \[
@@ -71,17 +86,18 @@ void trsm(blas::Side side,
                                     Matrix<scalar_t>& B,
           Options const& opts)
 {
-    Method method = get_option(
+    MethodTrsm method = get_option(
         opts, Option::MethodTrsm, MethodTrsm::Auto );
 
     if (method == MethodTrsm::Auto)
-        method = MethodTrsm::select_algo( A, B, opts );
+        method = select_algo( A, B, opts );
 
     switch (method) {
-        case MethodTrsm::TrsmA:
+        case MethodTrsm::A:
             trsmA( side, alpha, A, B, opts );
             break;
-        case MethodTrsm::TrsmB:
+        case MethodTrsm::Auto:
+        case MethodTrsm::B:
             trsmB( side, alpha, A, B, opts );
             break;
     }

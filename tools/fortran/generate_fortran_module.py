@@ -107,8 +107,16 @@ types_dict = {
     "slate_Layout":                    ("character(kind=c_char)"),
     "slate_Target":                    ("character(kind=c_char)"),
     "slate_TileReleaseStrategy":       ("character(kind=c_char)"),
+
+    "slate_MethodCholQR":              ("character(kind=c_char)"),
     "slate_MethodEig":                 ("character(kind=c_char)"),
-    "slate_Method":                    ("integer(kind=c_int)"),
+    "slate_MethodGels":                ("character(kind=c_char)"),
+    "slate_MethodGemm":                ("character(kind=c_char)"),
+    "slate_MethodHemm":                ("character(kind=c_char)"),
+    "slate_MethodLU":                  ("character(kind=c_char)"),
+    "slate_MethodTrsm":                ("character(kind=c_char)"),
+    "slate_MethodSVD":                 ("character(kind=c_char)"),
+
     "slate_TileKind":                  ("integer(kind=c_int)"),
     "MPI_Comm":                        ("integer(kind=c_int)"),
     "MPI_Fint":                        ("integer(kind=c_int)"),

@@ -8,6 +8,22 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+template <typename TA, typename TB>
+MethodGemm select_algo( TA& A, TB& B, Options& opts )
+{
+    // TODO replace the default value by a unique value located elsewhere
+    Target target = get_option( opts, Option::Target, Target::HostTask );
+    int n_devices = A.num_devices();
+
+    MethodGemm method = (B.nt() < 2 ? MethodGemm::A : MethodGemm::C);
+
+    if (method == MethodGemm::A && target == Target::Devices && n_devices > 1)
+        method = MethodGemm::C;
+
+    return method;
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel general matrix-matrix multiplication.
 /// Performs the matrix-matrix operation
 /// \[
@@ -68,20 +84,21 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  Matrix<scalar_t>& C,
           Options const& opts)
 {
-    Method method = get_option(
+    MethodGemm method = get_option(
         opts, Option::MethodGemm, MethodGemm::Auto );
 
     // Select_algo can also change target.
     Options tuned_opts = opts;
 
     if (method == MethodGemm::Auto)
-        method = MethodGemm::select_algo( A, B, tuned_opts );
+        method = select_algo( A, B, tuned_opts );
 
     switch (method) {
-        case MethodGemm::GemmA:
+        case MethodGemm::A:
             gemmA( alpha, A, B, beta, C, tuned_opts );
             break;
-        case MethodGemm::GemmC:
+        case MethodGemm::Auto:
+        case MethodGemm::C:
             gemmC( alpha, A, B, beta, C, tuned_opts );
             break;
     }

@@ -32,10 +32,61 @@ const slate_Target slate_Target_HostBatch   = 'B'; ///< slate::Target::HostBatch
 const slate_Target slate_Target_Devices     = 'D'; ///< slate::Target::Devices
 // end slate_Target
 
-typedef char slate_MethodEig; /* enum */        ///< slate::MethodEig
-const slate_MethodEig slate_MethodEig_QR = 'Q'; ///< slate::MethodEig::QR
-const slate_MethodEig slate_MethodEig_DC = 'D'; ///< slate::MethodEig::DC
+typedef char slate_MethodTrsm; /* enum */           ///< slate::MethodTrsm
+const slate_MethodTrsm slate_MethodTrsm_Auto = '*'; ///< slate::MethodTrsm::Auto
+const slate_MethodTrsm slate_MethodTrsm_A    = 'A'; ///< slate::MethodTrsm::A
+const slate_MethodTrsm slate_MethodTrsm_B    = 'B'; ///< slate::MethodTrsm::B
+// end slate_MethodTrsm
+
+typedef char slate_MethodGemm; /* enum */           ///< slate::MethodGemm
+const slate_MethodGemm slate_MethodGemm_Auto = '*'; ///< slate::MethodGemm::Auto
+const slate_MethodGemm slate_MethodGemm_A    = 'A'; ///< slate::MethodGemm::A
+const slate_MethodGemm slate_MethodGemm_C    = 'C'; ///< slate::MethodGemm::C
+// end slate_MethodGemm
+
+typedef char slate_MethodHemm; /* enum */           ///< slate::MethodHemm
+const slate_MethodHemm slate_MethodHemm_Auto = '*'; ///< slate::MethodHemm::Auto
+const slate_MethodHemm slate_MethodHemm_A    = 'A'; ///< slate::MethodHemm::A
+const slate_MethodHemm slate_MethodHemm_C    = 'C'; ///< slate::MethodHemm::C
+// end slate_MethodHemm
+
+typedef char slate_MethodCholQR; /* enum */              ///< slate::MethodCholQR
+const slate_MethodCholQR slate_MethodCholQR_Auto  = '*'; ///< slate::MethodCholQR::Auto
+const slate_MethodCholQR slate_MethodCholQR_GemmA = 'A'; ///< slate::MethodCholQR::GemmA
+const slate_MethodCholQR slate_MethodCholQR_GemmC = 'C'; ///< slate::MethodCholQR::GemmC
+const slate_MethodCholQR slate_MethodCholQR_HerkA = 'R'; ///< slate::MethodCholQR::HerkA
+const slate_MethodCholQR slate_MethodCholQR_HerkC = 'K'; ///< slate::MethodCholQR::HerkC
+// end slate_MethodCholQR
+
+typedef char slate_MethodGels; /* enum */             ///< slate::MethodGels
+const slate_MethodGels slate_MethodGels_Auto   = '*'; ///< slate::MethodGels::Auto
+const slate_MethodGels slate_MethodGels_QR     = 'Q'; ///< slate::MethodGels::QR
+const slate_MethodGels slate_MethodGels_CholQR = 'C'; ///< slate::MethodGels::CholQR
+// end slate_MethodGels
+
+typedef char slate_MethodLU; /* enum */       ///< slate::MethodLU
+const slate_MethodLU slate_MethodLU_Auto       = '*'; ///< slate::MethodLU::Auto
+const slate_MethodLU slate_MethodLU_PartialPiv = 'P'; ///< slate::MethodLU::PartialPiv
+const slate_MethodLU slate_MethodLU_CALU       = 'C'; ///< slate::MethodLU::CALU
+const slate_MethodLU slate_MethodLU_NoPiv      = 'N'; ///< slate::MethodLU::NoPiv
+const slate_MethodLU slate_MethodLU_RBT        = 'R'; ///< slate::MethodLU::RBT
+const slate_MethodLU slate_MethodLU_BEAM       = 'B'; ///< slate::MethodLU::BEAM
+// end slate_MethodLU
+
+typedef char slate_MethodEig; /* enum */               ///< slate::MethodEig
+const slate_MethodEig slate_MethodEig_Auto      = '*'; ///< slate::MethodEig::Auto
+const slate_MethodEig slate_MethodEig_QR        = 'Q'; ///< slate::MethodEig::QR
+const slate_MethodEig slate_MethodEig_DC        = 'D'; ///< slate::MethodEig::DC
+const slate_MethodEig slate_MethodEig_Bisection = 'B'; ///< slate::MethodEig::Bisection
+const slate_MethodEig slate_MethodEig_MRRR      = 'M'; ///< slate::MethodEig::MRRR
 // end slate_MethodEig
+
+typedef char slate_MethodSVD; /* enum */               ///< slate::MethodSVD
+const slate_MethodSVD slate_MethodSVD_Auto      = '*'; ///< slate::MethodSVD::Auto
+const slate_MethodSVD slate_MethodSVD_QR        = 'Q'; ///< slate::MethodSVD::QR
+const slate_MethodSVD slate_MethodSVD_DC        = 'D'; ///< slate::MethodSVD::DC
+const slate_MethodSVD slate_MethodSVD_Bisection = 'B'; ///< slate::MethodSVD::Bisection
+// end slate_MethodSVD
 
 // todo: auto sync with include/slate/enums.hh
 typedef char slate_Option; /* enum */                      ///< slate::Option
@@ -65,11 +116,6 @@ const slate_Option slate_Option_MethodTrsm           = 66; ///< slate::Option::M
 // end slate_Option
 
 typedef short slate_MOSI_State;
-
-//------------------------------------------------------------------------------
-// slate/include/slate/types.hh
-
-typedef int slate_Method;
 
 //------------------------------------------------------------------------------
 // blaspp/include/blas_util.hh

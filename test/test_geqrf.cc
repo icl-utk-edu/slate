@@ -44,7 +44,7 @@ void test_geqrf_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Method methodCholQR = params.method_cholQR();
+    slate::MethodCholQR method_cholqr = params.method_cholqr();
     params.matrix.mark();
 
     // mark non-standard output values
@@ -66,7 +66,7 @@ void test_geqrf_work(Params& params, bool run)
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
-        {slate::Option::MethodCholQR, methodCholQR}
+        {slate::Option::MethodCholQR, method_cholqr}
     };
 
     // MPI variables

@@ -33,9 +33,9 @@ void test_trsm_work(Params& params, bool run)
 
     // Decode routine, setting method.
     if (params.routine == "trsmA")
-        params.method_trsm() = slate::MethodTrsm::TrsmA;
+        params.method_trsm() = slate::MethodTrsm::A;
     else if (params.routine == "trsmB")
-        params.method_trsm() = slate::MethodTrsm::TrsmB;
+        params.method_trsm() = slate::MethodTrsm::B;
 
     // get & mark input values
     slate::Side side = params.side();
@@ -52,7 +52,7 @@ void test_trsm_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Method method_trsm = params.method_trsm();
+    slate::MethodTrsm method_trsm = params.method_trsm();
     params.matrix.mark();
     params.matrixB.mark();
 

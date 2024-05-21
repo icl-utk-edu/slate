@@ -32,9 +32,9 @@ void test_hemm_work(Params& params, bool run)
 
     // Decode routine, setting method.
     if (params.routine == "hemmA")
-        params.method_hemm() = slate::MethodHemm::HemmA;
+        params.method_hemm() = slate::MethodHemm::A;
     else if (params.routine == "hemmC")
-        params.method_hemm() = slate::MethodHemm::HemmC;
+        params.method_hemm() = slate::MethodHemm::C;
 
     // get & mark input values
     slate::Side side = params.side();
@@ -52,7 +52,7 @@ void test_hemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Method method_hemm = params.method_hemm();
+    slate::MethodHemm method_hemm = params.method_hemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();
@@ -83,7 +83,7 @@ void test_hemm_work(Params& params, bool run)
         {slate::Option::Target, target},
         {slate::Option::MethodHemm, method_hemm},
         // TODO fix gemmA on device
-        //{slate::Option::MethodGemm, slate::MethodGemm::GemmC}
+        //{slate::Option::MethodGemm, slate::MethodGemm::C}
     };
 
     // Error analysis applies in these norms.

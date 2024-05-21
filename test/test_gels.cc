@@ -47,8 +47,8 @@ void test_gels_work(Params& params, bool run)
     int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Method methodGels = params.method_gels();
-    slate::Method methodCholqr = params.method_cholQR();
+    slate::MethodGels method_gels = params.method_gels();
+    slate::MethodCholQR method_cholqr = params.method_cholqr();
     bool consistent = true;
     params.matrix.mark();
     params.matrixB.mark();
@@ -64,8 +64,8 @@ void test_gels_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
-    if (timer_level >= 2 && (methodGels == slate::MethodGels::Auto
-                             || methodGels == slate::MethodGels::Geqrf)) {
+    if (timer_level >= 2 && (method_gels == slate::MethodGels::Auto
+                             || method_gels == slate::MethodGels::QR)) {
         params.time2();
         params.time3();
         params.time4();
@@ -73,7 +73,7 @@ void test_gels_work(Params& params, bool run)
         params.time3.name( "unmqr (s)" );
         params.time4.name( "trsm (s)" );
     }
-    else if (timer_level >= 2 && methodGels == slate::MethodGels::Cholqr) {
+    else if (timer_level >= 2 && method_gels == slate::MethodGels::CholQR) {
         params.time2();
         params.time3();
         params.time4();
@@ -90,8 +90,8 @@ void test_gels_work(Params& params, bool run)
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
-        {slate::Option::MethodCholQR, methodCholqr},
-        {slate::Option::MethodGels, methodGels}
+        {slate::Option::MethodCholQR, method_cholqr},
+        {slate::Option::MethodGels, method_gels}
     };
 
     // A is m-by-n, BX is max(m, n)-by-nrhs.
@@ -250,13 +250,13 @@ void test_gels_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        if (timer_level >= 2 && (methodGels == slate::MethodGels::Auto
-                                 || methodGels == slate::MethodGels::Geqrf)) {
+        if (timer_level >= 2 && (method_gels == slate::MethodGels::Auto
+                                 || method_gels == slate::MethodGels::QR)) {
             params.time2() = slate::timers[ "gels::geqrf" ];
             params.time3() = slate::timers[ "gels::unmqr" ];
             params.time4() = slate::timers[ "gels::trsm"  ];
         }
-        else if (timer_level >= 2 && methodGels == slate::MethodGels::Cholqr) {
+        else if (timer_level >= 2 && method_gels == slate::MethodGels::CholQR) {
             params.time2() = slate::timers[ "gels_cholqr::cholqr" ];
             params.time3() = slate::timers[ "gels_cholqr::gemm" ];
             params.time4() = slate::timers[ "gels_cholqr::trsm" ];

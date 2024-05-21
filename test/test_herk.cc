@@ -72,7 +72,7 @@ void test_herk_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         // TODO fix gemmA on device
-        {slate::Option::MethodGemm, slate::MethodGemm::GemmC}
+        {slate::Option::MethodGemm, slate::MethodGemm::C}
     };
 
     // Error analysis applies in these norms.

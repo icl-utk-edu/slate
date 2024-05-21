@@ -23,18 +23,17 @@ using testsweeper::ansi_bold;
 using testsweeper::ansi_red;
 using testsweeper::ansi_normal;
 
-using slate::MethodCholQR::methodCholQR2str;
-using slate::MethodCholQR::str2methodCholQR;
-using slate::MethodGels::methodGels2str;
-using slate::MethodGels::str2methodGels;
-using slate::MethodGemm::methodGemm2str;
-using slate::MethodGemm::str2methodGemm;
-using slate::MethodHemm::methodHemm2str;
-using slate::MethodHemm::str2methodHemm;
-using slate::MethodLU::methodLU2str;
-using slate::MethodLU::str2methodLU;
-using slate::MethodTrsm::methodTrsm2str;
-using slate::MethodTrsm::str2methodTrsm;
+using slate::MethodCholQR, slate::MethodCholQR_help;
+using slate::MethodEig,    slate::MethodEig_help;
+using slate::MethodGels,   slate::MethodGels_help;
+using slate::MethodGemm,   slate::MethodGemm_help;
+using slate::MethodHemm,   slate::MethodHemm_help;
+using slate::MethodLU,     slate::MethodLU_help;
+using slate::MethodTrsm,   slate::MethodTrsm_help;
+
+const ParamType PT_Value = ParamType::Value;
+const ParamType PT_List  = ParamType::List;
+const ParamType PT_Out   = ParamType::Output;
 
 using testsweeper::no_data_flag;
 
@@ -348,13 +347,13 @@ Params::Params():
     origin    ("origin",  6,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
     target    ("target",  6,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
 
-    method_cholQR ("cholQR", 6, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "auto=auto, herkC, gemmA, gemmC"),
-    method_eig    ("eig",    3, ParamType::List, slate::MethodEig::DC, str2methodEig, methodEig2str, "qr=QR iteration, dc=Divide and Conquer"),
-    method_gels   ("gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "auto=auto, qr, cholqr"),
-    method_gemm   ("gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "auto=auto, A=gemmA, C=gemmC"),
-    method_hemm   ("hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "auto=auto, A=hemmA, C=hemmC"),
-    method_lu     ("lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "PartialPiv, CALU, NoPiv"),
-    method_trsm   ("trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "auto=auto, A=trsmA, B=trsmB"),
+    method_cholqr( "cholQR",  6, PT_List, MethodCholQR::Auto, MethodCholQR_help ),
+    method_eig   ( "eig",     3, PT_List, MethodEig::DC, MethodEig_help ),
+    method_gels  ( "gels",    6, PT_List, MethodGels::QR, MethodGels_help ),
+    method_gemm  ( "gemm",    4, PT_List, MethodGemm::Auto, MethodGemm_help ),
+    method_hemm  ( "hemm",    4, PT_List, MethodHemm::Auto, MethodHemm_help ),
+    method_lu    ( "lu",      5, PT_List, MethodLU::PartialPiv, MethodLU_help ),
+    method_trsm  ( "trsm",    4, PT_List, MethodTrsm::Auto, MethodTrsm_help ),
 
     grid_order("go",      3,    ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
     dev_order ("do",      3,    ParamType::List, slate::GridOrder::Row,   str2grid_order, grid_order2str, "(do) Device grid order: c=Col, r=Row"),
@@ -466,7 +465,7 @@ Params::Params():
     dev_order.name("do", "dev-order");
 
     // Change name for the methods to use less space in the stdout
-    method_cholQR.name("cholQR", "method-cholQR");
+    method_cholqr.name("cholQR", "method-cholQR");
     method_eig.name("eig", "method-eig");
     method_gels.name("gels", "method-gels");
     method_gemm.name("gemm", "method-gemm");

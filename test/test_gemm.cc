@@ -32,9 +32,9 @@ void test_gemm_work(Params& params, bool run)
 
     // Decode routine, setting method.
     if (params.routine == "gemmA")
-        params.method_gemm() = slate::MethodGemm::GemmA;
+        params.method_gemm() = slate::MethodGemm::A;
     else if (params.routine == "gemmC")
-        params.method_gemm() = slate::MethodGemm::GemmC;
+        params.method_gemm() = slate::MethodGemm::C;
 
     // get & mark input values
     slate::Op transA = params.transA();
@@ -54,7 +54,7 @@ void test_gemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
-    slate::Method method_gemm = params.method_gemm();
+    slate::MethodGemm method_gemm = params.method_gemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();

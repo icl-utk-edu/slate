@@ -18,7 +18,7 @@
 #include <complex>
 #include <ctype.h>
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 namespace slate {
 
 enum class Origin : char {
@@ -27,28 +27,190 @@ enum class Origin : char {
     Devices = 'D',
 };
 
+extern const char* Origin_help;
+
+//------------------------------------------------------------------------------
+inline void from_string( std::string const& str, Origin* val )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "d" || str_ == "dev" || str_ == "device"
+        || str_ == "devices")
+        *val = Origin::Devices;
+    else if (str_ == "h" || str_ == "host")
+        *val = Origin::Host;
+    else if (str_ == "s" || str_ == "scalapack" || str_ == "scalpk")
+        *val = Origin::ScaLAPACK;
+    else
+        throw Exception( "unknown Origin: " + str );
+}
+
+//----------------------------------------
+inline const char* to_c_string( Origin value )
+{
+    switch (value) {
+        case Origin::Devices:   return "dev";
+        case Origin::Host:      return "host";
+        case Origin::ScaLAPACK: return "scalpk";
+    }
+    return "?";
+}
+
+//----------------------------------------
+inline std::string to_string( Origin value )
+{
+    return to_c_string( value );
+}
+
+//----------------------------------------
+/// Convert Origin to Target.
+/// Host, ScaLAPACK => Target Host; Devices => Target Devices.
+inline Target origin2target( Origin origin )
+{
+    switch (origin) {
+        case Origin::Host:
+        case Origin::ScaLAPACK:
+            return Target::Host;
+
+        case Origin::Devices:
+            return Target::Devices;
+    }
+    throw Exception( "unknown origin" );
+}
+
+//------------------------------------------------------------------------------
+extern const char* Target_help;
+
+//----------------------------------------
+inline void from_string( std::string const& str, Target* val )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "t" || str_ == "task")
+        *val = Target::HostTask;
+    else if (str_ == "n" || str_ == "nest")
+        *val = Target::HostNest;
+    else if (str_ == "b" || str_ == "batch")
+        *val = Target::HostBatch;
+    else if (str_ == "d" || str_ == "dev" || str_ == "device"
+             || str_ == "devices")
+        *val = Target::Devices;
+    else if (str_ == "h" || str_ == "host")
+        *val = Target::Host;
+    else
+        throw Exception( "unknown Target: " + str );
+}
+
+//----------------------------------------
+inline const char* to_c_string( Target value )
+{
+    switch (value) {
+        case Target::HostTask:  return "task";
+        case Target::HostNest:  return "nest";
+        case Target::HostBatch: return "batch";
+        case Target::Devices:   return "dev";
+        case Target::Host:      return "host";
+    }
+    return "?";
+}
+
+//----------------------------------------
+inline std::string to_string( Target value )
+{
+    return to_c_string( value );
+}
+
+//------------------------------------------------------------------------------
+extern const char* GridOrder_help;
+
+//----------------------------------------
+inline void from_string( std::string const& str, GridOrder* val )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "c" || str_ == "col")
+        *val = GridOrder::Col;
+    else if (str_ == "r" || str_ == "row")
+        *val = GridOrder::Row;
+    else
+        throw Exception( "unknown GridOrder: " + str );
+}
+
+//----------------------------------------
+inline const char* to_c_string( GridOrder value )
+{
+    switch (value) {
+        case GridOrder::Col:     return "col";
+        case GridOrder::Row:     return "row";
+        case GridOrder::Unknown: return "un";
+    }
+    return "?";
+}
+
+//----------------------------------------
+inline std::string to_string( GridOrder value )
+{
+    return to_c_string( value );
+}
+
+//------------------------------------------------------------------------------
+extern const char* NormScope_help;
+
+//----------------------------------------
+inline void from_string( std::string const& str, NormScope* val )
+{
+    std::string str_ = str;
+    std::transform( str_.begin(), str_.end(), str_.begin(), ::tolower );
+
+    if (str_ == "m" || str_ == "matrix")
+        *val = NormScope::Matrix;
+    else if (str_ == "c" || str_ == "cols" || str_ == "columns")
+        *val = NormScope::Columns;
+    else if (str_ == "r" || str_ == "rows")
+        *val = NormScope::Rows;
+    else
+        throw Exception( "unknown NormScope: " + str );
+}
+
+//----------------------------------------
+inline const char* to_c_string( NormScope value )
+{
+    switch (value) {
+        case NormScope::Matrix:  return "matrix";
+        case NormScope::Columns: return "columns";
+        case NormScope::Rows:    return "rows";
+    }
+    return "?";
+}
+
+//----------------------------------------
+inline std::string to_string( NormScope value )
+{
+    return to_c_string( value );
+}
+
 } // namespace slate
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 using llong = long long;
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 class Params: public testsweeper::ParamsBase {
 public:
     const double inf = std::numeric_limits<double>::infinity();
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    const double pi  = 3.141592653589793;
-    const double e   = 2.718281828459045;
 
     Params();
 
     // Field members are explicitly public.
     // Order here determines output order.
-    // ----- test framework parameters
+    //----- test framework parameters
     testsweeper::ParamChar   check;
     testsweeper::ParamChar   error_exit;
     testsweeper::ParamChar   ref;
-    testsweeper::ParamChar   hold_local_workspace;
     testsweeper::ParamChar   trace;
     testsweeper::ParamDouble trace_scale;
     testsweeper::ParamDouble tol;
@@ -60,19 +222,19 @@ public:
     testsweeper::ParamInt    timer_level;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
+    testsweeper::ParamInt    debug_rank;
+    std::string              routine;
 
-    // ----- routine parameters
-    // LAPACK options
-    // The order here matches the order in most LAPACK functions, e.g.,
-    // syevx( jobz, range, uplo, n, ..., vl, vu, il, iu, ... )
-    // larfb( side, trans, direction, storev, m, n, k, ... )
-    // lanhe( norm, uplo, n, ... )
-    // pbsv ( uplo, n, kd, nrhs, ... )
-    // gbsv ( n, kl, ku, nrhs, ... )
-    // trsm ( side, uplo, transa, diag, m, n, alpha, ... )
+    //----- test matrix parameters
+    MatrixParams matrix;
+    MatrixParams matrixB;
+    MatrixParams matrixC;
+
+    //----- routine parameters, enums
     testsweeper::ParamEnum< testsweeper::DataType > datatype;
     testsweeper::ParamEnum< slate::Origin >         origin;
     testsweeper::ParamEnum< slate::Target >         target;
+    testsweeper::ParamChar                          hold_local_workspace;
 
     testsweeper::ParamEnum< slate::MethodCholQR >   method_cholqr;
     testsweeper::ParamEnum< slate::MethodEig >      method_eig;
@@ -85,61 +247,70 @@ public:
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::GridOrder >      dev_order;
 
-    // ----- test matrix parameters
-    MatrixParams matrix;
-    MatrixParams matrixB;
-    MatrixParams matrixC;
-
-    testsweeper::ParamEnum< slate::Layout >         layout;
+    // BLAS & LAPACK options
+    // The order here matches the order in most LAPACK functions, e.g.,
+    // hegv ( itype, jobz, uplo, n, ... )
+    // syevx( jobz, range, uplo, n, ..., vl, vu, il, iu, ... )
+    // larfb( side, trans, direction, storev, m, n, k, ... )
+    // lanhe( norm, uplo, n, ... )
+    // pbsv ( uplo, n, kd, nrhs, ... )
+    // gbsv ( n, kl, ku, nrhs, ... )
+    // trsm ( side, uplo, transa, diag, m, n, alpha, ... )
+    // gesvx( fact, trans, n, nrhs, ..., equed, ... )
+    // ijob, itype are classified as enums due to their limited values.
+    testsweeper::ParamEnum< blas::Layout >          layout;
+    testsweeper::ParamInt                           itype;  // hegv
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
     testsweeper::ParamEnum< lapack::Job >           jobvl;  // geev
     testsweeper::ParamEnum< lapack::Job >           jobvr;  // geev
     testsweeper::ParamEnum< lapack::Job >           jobu;   // svd
     testsweeper::ParamEnum< lapack::Job >           jobvt;  // svd
-    testsweeper::ParamEnum< lapack::Range >         range;
-    testsweeper::ParamEnum< slate::Norm >           norm;
+    testsweeper::ParamEnum< lapack::Range >         range;  // heevx
+    testsweeper::ParamEnum< lapack::Norm >          norm;
     testsweeper::ParamEnum< slate::NormScope >      scope;
-    testsweeper::ParamEnum< slate::Side >           side;
-    testsweeper::ParamEnum< slate::Uplo >           uplo;
-    testsweeper::ParamEnum< slate::Op >             trans;
-    testsweeper::ParamEnum< slate::Op >             transA;
-    testsweeper::ParamEnum< slate::Op >             transB;
-    testsweeper::ParamEnum< slate::Diag >           diag;
-    testsweeper::ParamEnum< slate::Direction >      direction;
-    testsweeper::ParamEnum< slate::Equed >          equed;
-    testsweeper::ParamEnum< lapack::StoreV >        storev;
+    testsweeper::ParamEnum< blas::Side >            side;
+    testsweeper::ParamEnum< blas::Uplo >            uplo;
+    testsweeper::ParamEnum< blas::Op >              trans;
+    testsweeper::ParamEnum< blas::Op >              transA;
+    testsweeper::ParamEnum< blas::Op >              transB;
+    testsweeper::ParamEnum< blas::Diag >            diag;
+    testsweeper::ParamEnum< lapack::Direction >     direction;  // larfb
+    testsweeper::ParamEnum< lapack::StoreV >        storev;     // larfb
+    testsweeper::ParamEnum< lapack::Equed >         equed;      // gesvx
 
-    testsweeper::ParamInt3   dim;  // m, n, k
-    testsweeper::ParamInt    kd;
-    testsweeper::ParamInt    kl;
-    testsweeper::ParamInt    ku;
-    testsweeper::ParamInt    nrhs;
-    testsweeper::ParamDouble vl;
-    testsweeper::ParamDouble vu;
-    testsweeper::ParamInt    il;
-    testsweeper::ParamInt    iu;
+    //----- routine parameters, numeric
+    testsweeper::ParamInt3    dim;  // m, n, k
+    testsweeper::ParamInt     kd;
+    testsweeper::ParamInt     kl;
+    testsweeper::ParamInt     ku;
+    testsweeper::ParamInt     nrhs;
+    testsweeper::ParamInt     nb;
+    testsweeper::ParamInt     ib;
+    testsweeper::ParamDouble  vl;
+    testsweeper::ParamDouble  vu;
+    testsweeper::ParamInt     il;
+    testsweeper::ParamInt     iu;
+    testsweeper::ParamInt     il_out;
+    testsweeper::ParamInt     iu_out;
+    testsweeper::ParamDouble  fraction_start;
+    testsweeper::ParamDouble  fraction;
     testsweeper::ParamComplex alpha;
     testsweeper::ParamComplex beta;
-    testsweeper::ParamInt    incx;
-    testsweeper::ParamInt    incy;
-    testsweeper::ParamInt    itype;
+    testsweeper::ParamInt     incx;
+    testsweeper::ParamInt     incy;
 
     // SLATE options
-    testsweeper::ParamInt    nb;
-    testsweeper::ParamInt    ib;
-    testsweeper::ParamInt3   grid;  // p x q
-    testsweeper::ParamInt    lookahead;
-    testsweeper::ParamInt    panel_threads;
-    testsweeper::ParamInt    align;
-    testsweeper::ParamChar   nonuniform_nb;
-    testsweeper::ParamInt    debug;
-    testsweeper::ParamDouble pivot_threshold;
-    testsweeper::ParamString deflate;
-    testsweeper::ParamInt    itermax;
-    testsweeper::ParamChar   fallback;
-    testsweeper::ParamInt    depth;
+    testsweeper::ParamInt3    grid;  // p x q
+    testsweeper::ParamInt     lookahead;
+    testsweeper::ParamInt     panel_threads;
+    testsweeper::ParamChar    nonuniform_nb;
+    testsweeper::ParamDouble  pivot_threshold;
+    testsweeper::ParamString  deflate;
+    testsweeper::ParamInt     itermax;
+    testsweeper::ParamChar    fallback;
+    testsweeper::ParamInt     depth;
 
-    // ----- output parameters
+    //----- output parameters
     testsweeper::ParamScientific value;
     testsweeper::ParamScientific value2;
     testsweeper::ParamScientific value3;
@@ -151,12 +322,16 @@ public:
     testsweeper::ParamScientific ortho;
     testsweeper::ParamScientific ortho_U;
     testsweeper::ParamScientific ortho_V;
-    testsweeper::ParamScientific error_sigma;
 
     testsweeper::ParamDouble     time;
     testsweeper::ParamDouble     gflops;
+    testsweeper::ParamDouble     gbytes;
+    testsweeper::ParamInt        iters;
+
     testsweeper::ParamDouble     time2;
     testsweeper::ParamDouble     gflops2;
+    testsweeper::ParamDouble     gbytes2;
+
     testsweeper::ParamDouble     time3;
     testsweeper::ParamDouble     time4;
     testsweeper::ParamDouble     time5;
@@ -167,27 +342,24 @@ public:
     testsweeper::ParamDouble     time10;
     testsweeper::ParamDouble     time11;
     testsweeper::ParamDouble     time12;
-    testsweeper::ParamInt        iters;
 
     testsweeper::ParamDouble     ref_time;
     testsweeper::ParamDouble     ref_gflops;
+    testsweeper::ParamDouble     ref_gbytes;
     testsweeper::ParamInt        ref_iters;
 
     testsweeper::ParamOkay       okay;
     testsweeper::ParamString     msg;
-
-    std::string              routine;
 };
 
-
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template< typename T >
 inline T roundup(T x, T y)
 {
     return T((x + y - 1) / y)*y;
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Level 3 BLAS
 void test_gbmm   (Params& params, bool run);
 void test_gemm   (Params& params, bool run);
@@ -279,129 +451,7 @@ void test_scale  (Params& params, bool run);
 void test_scale_row_col(Params& params, bool run);
 void test_set    (Params& params, bool run);
 
-// -----------------------------------------------------------------------------
-inline slate::Origin str2origin(const char* origin)
-{
-    std::string origin_ = origin;
-    std::transform(origin_.begin(), origin_.end(), origin_.begin(), ::tolower);
-    if (origin_ == "d" || origin_ == "dev" || origin_ == "device"
-        || origin_ == "devices")
-        return slate::Origin::Devices;
-    else if (origin_ == "h" || origin_ == "host")
-        return slate::Origin::Host;
-    else if (origin_ == "s" || origin_ == "scalapack" || origin_ == "scalpk")
-        return slate::Origin::ScaLAPACK;
-    else
-        throw slate::Exception("unknown origin");
-}
-
-inline const char* origin2str(slate::Origin origin)
-{
-    switch (origin) {
-        case slate::Origin::Devices:   return "dev";
-        case slate::Origin::Host:      return "host";
-        case slate::Origin::ScaLAPACK: return "scalpk";
-    }
-    return "?";
-}
-
-inline slate::Target origin2target(slate::Origin origin)
-{
-    switch (origin) {
-        case slate::Origin::Host:
-        case slate::Origin::ScaLAPACK:
-            return slate::Target::Host;
-
-        case slate::Origin::Devices:
-            return slate::Target::Devices;
-
-        default:
-            throw slate::Exception("unknown origin");
-    }
-}
-
-// -----------------------------------------------------------------------------
-inline slate::Target str2target(const char* target)
-{
-    std::string target_ = target;
-    std::transform(target_.begin(), target_.end(), target_.begin(), ::tolower);
-    if (target_ == "t" || target_ == "task")
-        return slate::Target::HostTask;
-    else if (target_ == "n" || target_ == "nest")
-        return slate::Target::HostNest;
-    else if (target_ == "b" || target_ == "batch")
-        return slate::Target::HostBatch;
-    else if (target_ == "d" || target_ == "dev" || target_ == "device" ||
-             target_ == "devices")
-        return slate::Target::Devices;
-    else if (target_ == "h" || target_ == "host")
-        return slate::Target::Host;
-    else
-        throw slate::Exception("unknown target");
-}
-
-inline const char* target2str(slate::Target target)
-{
-    switch (target) {
-        case slate::Target::HostTask:  return "task";
-        case slate::Target::HostNest:  return "nest";
-        case slate::Target::HostBatch: return "batch";
-        case slate::Target::Devices:   return "dev";
-        case slate::Target::Host:      return "host";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
-inline slate::GridOrder str2grid_order( const char* grid_order )
-{
-    std::string grid_order_ = grid_order;
-    std::transform( grid_order_.begin(), grid_order_.end(),
-                    grid_order_.begin(), ::tolower );
-    if (grid_order_ == "c" || grid_order_ == "col")
-        return slate::GridOrder::Col;
-    else if (grid_order_ == "r" || grid_order_ == "row")
-        return slate::GridOrder::Row;
-    else
-        throw slate::Exception("unknown grid_order");
-}
-
-inline const char* grid_order2str( slate::GridOrder grid_order )
-{
-    switch (grid_order) {
-        case slate::GridOrder::Col:     return "col";
-        case slate::GridOrder::Row:     return "row";
-        case slate::GridOrder::Unknown: return "un";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
-inline slate::NormScope str2scope(const char* scope)
-{
-    std::string scope_ = scope;
-    std::transform(scope_.begin(), scope_.end(), scope_.begin(), ::tolower);
-    if (scope_ == "m" || scope_ == "matrix")
-        return slate::NormScope::Matrix;
-    else if (scope_ == "c" || scope_ == "cols" || scope_ == "columns")
-        return slate::NormScope::Columns;
-    else if (scope_ == "r" || scope_ == "rows")
-        return slate::NormScope::Rows;
-    else
-        throw slate::Exception("unknown scope");
-}
-
-inline const char* scope2str(slate::NormScope scope)
-{
-    switch (scope) {
-        case slate::NormScope::Matrix:  return "matrix";
-        case slate::NormScope::Columns: return "columns";
-        case slate::NormScope::Rows:    return "rows";
-    }
-    return "?";
-}
-
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 inline double barrier_get_wtime(MPI_Comm comm)
 {
     slate::trace::Block trace_block("MPI_Barrier");

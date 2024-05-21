@@ -17,12 +17,34 @@
 // -----------------------------------------------------------------------------
 using testsweeper::ParamType;
 using testsweeper::DataType;
-using testsweeper::str2datatype;
-using testsweeper::datatype2str;
+using testsweeper::DataType_help;
+
 using testsweeper::ansi_bold;
 using testsweeper::ansi_red;
 using testsweeper::ansi_normal;
 
+using blas::Layout, blas::Layout_help;
+using blas::Side,   blas::Side_help;
+using blas::Uplo,   blas::Uplo_help;
+using blas::Op,     blas::Op_help;
+using blas::Diag,   blas::Diag_help;
+
+using lapack::itype_help;
+using lapack::Job;
+using lapack::Job_eig_help;
+using lapack::Job_eig_left_help;
+using lapack::Job_eig_right_help;
+using lapack::Job_svd_left_help;
+using lapack::Job_svd_right_help;
+using lapack::Range,      lapack::Range_help;
+using lapack::Norm,       lapack::Norm_help;
+using lapack::MatrixType, lapack::MatrixType_help;
+using lapack::Factored,   lapack::Factored_help;
+using lapack::Direction,  lapack::Direction_help;
+using lapack::StoreV,     lapack::StoreV_help;
+using lapack::Equed,      lapack::Equed_help;
+
+using slate::GridOrder,    slate::GridOrder_help;
 using slate::MethodCholQR, slate::MethodCholQR_help;
 using slate::MethodEig,    slate::MethodEig_help;
 using slate::MethodGels,   slate::MethodGels_help;
@@ -30,12 +52,22 @@ using slate::MethodGemm,   slate::MethodGemm_help;
 using slate::MethodHemm,   slate::MethodHemm_help;
 using slate::MethodLU,     slate::MethodLU_help;
 using slate::MethodTrsm,   slate::MethodTrsm_help;
+using slate::NormScope,    slate::NormScope_help;
+using slate::Origin,       slate::Origin_help;
+using slate::Target,       slate::Target_help;
 
 const ParamType PT_Value = ParamType::Value;
 const ParamType PT_List  = ParamType::List;
 const ParamType PT_Out   = ParamType::Output;
 
-using testsweeper::no_data_flag;
+const double no_data = testsweeper::no_data_flag;
+const char*  pi_rt2i = "3.141592653589793 + 1.414213562373095i";
+const char*  e_rt3i  = "2.718281828459045 + 1.732050807568877i";
+const double pi      = 3.141592653589793;
+const double e       = 2.718281828459045;
+
+// Macro to add indent string to parameter help.
+#define indent "                     "
 
 // -----------------------------------------------------------------------------
 // each section must have a corresponding entry in section_names
@@ -304,48 +336,51 @@ Params::Params():
 
     // w = width
     // p = precision
-    // ----- test framework parameters
-    //         name,       w,    type,        default, valid, help
-    check     ("check",   0,    ParamType::Value, 'y', "ny",  "check the results"),
-    error_exit("error-exit", 0, ParamType::Value, 'n', "ny",  "check error exits"),
-    ref       ("ref",     0,    ParamType::Value, 'n', "nyo", "run reference; sometimes check implies ref"),
-    hold_local_workspace("hold-local-workspace", 0, ParamType::Value, 'n', "ny",  "do not erase tiles in local workspace"),
-    trace     ("trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces"),
-    trace_scale("trace-scale", 0, 0, ParamType::Value, 1000, 1e-3, 1e6, "horizontal scale for traces, in pixels per sec"),
+    //----- test framework parameters
+    //          name,         w, type, default, valid, help
+    check     ( "check",      0, PT_Value, 'y', "ny", "check the results" ),
+    error_exit( "error-exit", 0, PT_Value, 'n', "ny", "check error exits" ),
+    ref       ( "ref",        0, PT_Value, 'n', "nyo", "run reference; sometimes check implies ref" ),
+    trace     ( "trace",      0, PT_Value, 'n', "ny",  "enable/disable traces" ),
+    trace_scale( "trace-scale", 0, 0, PT_Value, 1e3, 1e-3, 1e6, "horizontal scale for traces, in pixels per sec" ),
 
-    //         name,      w, p, type,         default, min,  max, help
-    tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
-    repeat    ("repeat",  0,    ParamType::Value,   1,   1, 1000, "number of times to repeat each test"),
+    //          name,         w, p, type, default,  min,  max, help
+    tol       ( "tol",        0, 0, PT_Value,  50,    1, 1000, "tolerance (e.g., error < tol*epsilon to pass)" ),
+    repeat    ( "repeat",     0,    PT_Value,   1,    1, 1000, "times to repeat each test" ),
+    verbose   ( "verbose",    0,    PT_Value,   0,    0,    4,
+                "verbose level:\n"
+                indent "0: no printing (default)\n"
+                indent "1: print metadata only (dimensions, uplo, etc.)\n"
+                indent "2: print first & last edgeitems rows & cols from the four corner tiles\n"
+                indent "3: print 4 corner elements of every tile\n"
+                indent "4: print full matrix" ),
 
-    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   4,
-               "verbose level:\n"
-               "                     0: no printing (default)\n"
-               "                     1: print metadata only (dimensions, uplo, etc.)\n"
-               "                     2: print first & last edgeitems rows & cols from the four corner tiles\n"
-               "                     3: print 4 corner elements of every tile\n"
-               "                     4: print full matrix" ),
+    print_edgeitems( "print-edgeitems", 0, PT_Value, 16,   1, 64,
+                     "for verbose=2, number of first & last rows & cols "
+                     "to print from the four corner tiles" ),
+    print_width    ( "print-width",     0, PT_Value, 10,   7, 24,
+                     "minimum number of characters to print per value" ),
+    print_precision( "print-precision", 0, PT_Value, 4,    1, 17,
+                     "number of digits to print after the decimal point" ),
 
-    print_edgeitems("print-edgeitems", 0, ParamType::Value, 16,   1, 64,
-                    "for verbose=2, number of first & last rows & cols to print from the four corner tiles"),
-    print_width    ("print-width",     0, ParamType::Value, 10,   7, 24,
-                    "minimum number of characters to print per value"),
-    print_precision("print-precision", 0, ParamType::Value, 4,    1, 17,
-                    "number of digits to print after the decimal point"),
+    timer_level( "timer-level", 0,  PT_Value,   1,    1,    2,
+                 "timer level of detail:\n"
+                 indent "1: driver routine (e.g., gels; default)\n"
+                 indent "2: computational routines (e.g., geqrf, unmqr, trsm inside gels)" ),
 
-    timer_level(
-        "timer-level", 0, ParamType::Value,   1,   1,   2,
-        "timer level of detail:\n"
-        "                     1: driver routine (e.g., gels; default)\n"
-        "                     2: computational routines (e.g., geqrf, unmqr, trsm inside gels)" ),
+    extended  ( "extended",   0,    PT_Value,   0,    0,   10, "extended tests" ),
+    cache     ( "cache",      0,    PT_Value,  20,    1, 1024, "total cache size, in MiB" ),
+    debug_rank( "debug-rank", 0,    PT_Value,  -1,    0,  1e6,
+                "given MPI rank waits for debugger (gdb/lldb) to attach; "
+                "use MPI size for all ranks to wait" ),
 
-    extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
-    cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
-
-    // ----- routine parameters
-    //         name,      w,    type,            default,                 str2enum,     enum2str,     help
-    datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
-    origin    ("origin",  6,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
-    target    ("target",  6,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
+    //----- routine parameters, enums
+    //          name,         w, type,    default, help
+    datatype  ( "type",       4, PT_List, DataType::Double, DataType_help ),
+    origin    ( "origin",     6, PT_List, Origin::Host, Origin_help ),
+    target    ( "target",     6, PT_List, Target::HostTask, Target_help ),
+    hold_local_workspace( "hold-local-workspace",
+                              0, PT_List, 'n', "ny", "do not erase tiles in local workspace" ),
 
     method_cholqr( "cholQR",  6, PT_List, MethodCholQR::Auto, MethodCholQR_help ),
     method_eig   ( "eig",     3, PT_List, MethodEig::DC, MethodEig_help ),
@@ -355,108 +390,121 @@ Params::Params():
     method_lu    ( "lu",      5, PT_List, MethodLU::PartialPiv, MethodLU_help ),
     method_trsm  ( "trsm",    4, PT_List, MethodTrsm::Auto, MethodTrsm_help ),
 
-    grid_order("go",      3,    ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
-    dev_order ("do",      3,    ParamType::List, slate::GridOrder::Row,   str2grid_order, grid_order2str, "(do) Device grid order: c=Col, r=Row"),
+    grid_order( "go",         3, PT_List, GridOrder::Col, "(go) MPI grid order: c=Col, r=Row" ),
+    dev_order ( "do",         3, PT_List, GridOrder::Row, "(do) Device grid order: c=Col, r=Row" ),
 
-    //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
-    layout    ("layout",  6,    ParamType::List, slate::Layout::ColMajor, blas::char2layout, blas::layout2char, blas::layout2str, "layout: r=row major, c=column major"),
-    jobz      ("jobz",    5,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "eigenvectors: n=no vectors, v=vectors"),
-    jobvl     ("jobvl",   5,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "left eigenvectors: n=no vectors, v=vectors"),
-    jobvr     ("jobvr",   5,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "right eigenvectors: n=no vectors, v=vectors"),
-    jobu      ("jobu",    9,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "left singular vectors (U): n=no vectors, s=some vectors, o=overwrite, a=all vectors"),
-    jobvt     ("jobvt",   9,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "right singular vectors (V^T): n=no vectors, s=some vectors, o=overwrite, a=all vectors"),
-    range     ("range",   9,    ParamType::List, lapack::Range::All, lapack::char2range, lapack::range2char, lapack::range2str, "find: a=all eigen/singular values, v=values in (vl, vu], i=il-th through iu-th values"),
-    norm      ("norm",    4,    ParamType::List, slate::Norm::One,        lapack::char2norm, lapack::norm2char, lapack::norm2str, "norm: o=one, 2=two, i=inf, f=fro, m=max"),
-    scope     ("scope",   7,    ParamType::List, slate::NormScope::Matrix, str2scope, scope2str, "norm scope: m=matrix, r=rows, c=columns"),
-    side      ("side",    6,    ParamType::List, slate::Side::Left,       blas::char2side,   blas::side2char,   blas::side2str,   "side: l=left, r=right"),
-    uplo      ("uplo",    6,    ParamType::List, slate::Uplo::Lower,      blas::char2uplo,   blas::uplo2char,   blas::uplo2str,   "triangle: l=lower, u=upper"),
-    trans     ("trans",   7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose: n=no-trans, t=trans, c=conj-trans"),
-    transA    ("transA",  7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose of A: n=no-trans, t=trans, c=conj-trans"),
-    transB    ("transB",  7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose of B: n=no-trans, t=trans, c=conj-trans"),
-    diag      ("diag",    7,    ParamType::List, slate::Diag::NonUnit,    blas::char2diag,   blas::diag2char,   blas::diag2str,   "diagonal: n=non-unit, u=unit"),
-    direction ("direction", 8,  ParamType::List, slate::Direction::Forward, lapack::char2direction, lapack::direction2char, lapack::direction2str, "direction: f=forward, b=backward"),
-    equed     ("equed",   5,    ParamType::List, slate::Equed::Both, lapack::char2equed, lapack::equed2char, lapack::equed2str, "row & col scaling (equilibration): b=both, r=row, c=col, n=none"),
-    storev    ("storev", 10,    ParamType::List, lapack::StoreV::Columnwise, lapack::char2storev, lapack::storev2char, lapack::storev2str, "store vectors: c=columnwise, r=rowwise"),
+    // BLAS & LAPACK options
+    layout    ( "layout",     6, PT_List, Layout::ColMajor, Layout_help ),
+    itype     ( "itype",      5, PT_List, 1, 1, 3, itype_help ),
+    jobz      ( "jobz",       5, PT_List, Job::NoVec, Job_eig_help ),
+    jobvl     ( "jobvl",      5, PT_List, Job::NoVec, Job_eig_left_help ),
+    jobvr     ( "jobvr",      5, PT_List, Job::NoVec, Job_eig_right_help ),
+    jobu      ( "jobu",       9, PT_List, Job::NoVec, Job_svd_left_help ),
+    jobvt     ( "jobvt",      9, PT_List, Job::NoVec, Job_svd_right_help ),
+    // range is set by vl, vu, il, iu, fraction
+    range     ( "range",      9, PT_List, Range::All, Range_help ),
+    norm      ( "norm",       4, PT_List, Norm::One, Norm_help ),
+    scope     ( "scope",      7, PT_List, NormScope::Matrix, NormScope_help ),
+    side      ( "side",       6, PT_List, Side::Left, Side_help ),
+    uplo      ( "uplo",       6, PT_List, Uplo::Lower, Uplo_help ),
+    trans     ( "trans",      7, PT_List, Op::NoTrans, Op_help ),
+    transA    ( "transA",     7, PT_List, Op::NoTrans, Op_help ),
+    transB    ( "transB",     7, PT_List, Op::NoTrans, Op_help ),
+    diag      ( "diag",       7, PT_List, Diag::NonUnit, Diag_help ),
+    direction ( "direction",  8, PT_List, Direction::Forward, Direction_help ),
+    storev    ( "storev",     7, PT_List, StoreV::Columnwise, StoreV_help ),
+    equed     ( "equed",      5, PT_List, Equed::Both, Equed_help ),
 
-    //         name,      w, p, type,        default,   min,     max, help
-    dim       ("dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions"),
-    kd        ("kd",      6,    ParamType::List,  10,     0, 1000000, "bandwidth"),
-    kl        ("kl",      6,    ParamType::List,  10,     0, 1000000, "lower bandwidth"),
-    ku        ("ku",      6,    ParamType::List,  10,     0, 1000000, "upper bandwidth"),
-    nrhs      ("nrhs",    6,    ParamType::List,  10,     0, 1000000, "number of right hand sides"),
-    vl        ("vl",      6, 3, ParamType::List,  10,     0, 1000000, "lower bound of eigen/singular values to find; default 10.0"),
-    vu        ("vu",      6, 3, ParamType::List, 100,     0, 1000000, "upper bound of eigen/singular values to find; default 100.0"),
-    il        ("il",      6,    ParamType::List,  10,     0, 1000000, "1-based index of smallest eigen/singular value to find; default 10"),
-    iu        ("iu",      6,    ParamType::List, 100,     0, 1000000, "1-based index of largest  eigen/singular value to find; default 100"),
-    alpha     ("alpha",   3, 1, ParamType::List, "3.141592653589793+1.414213562373095i", -inf, inf, "alpha value"),
-    beta      ("beta",    3, 1, ParamType::List, "2.718281828459045+1.732050807568877i", -inf, inf, "beta value"),
-    incx      ("incx",    4,    ParamType::List,   1, -1000,    1000, "stride of x vector"),
-    incy      ("incy",    4,    ParamType::List,   1, -1000,    1000, "stride of y vector"),
-    itype     ("itype",   5,    ParamType::List,   1,     1,       3, "generalized eigenvalue problem type (1:Ax=lBx, 2:ABx=lx 3:BAx=lx)"),
+    //----- routine parameters, numeric
+    //          name,         w, p, type,    default,  min,  max, help
+    dim       ( "dim",        6,    PT_List,             0, 1e10, "m by n by k dimensions" ),
+    kd        ( "kd",         6,    PT_List,      10,    0,  1e6, "bandwidth" ),
+    kl        ( "kl",         6,    PT_List,      10,    0,  1e6, "lower bandwidth" ),
+    ku        ( "ku",         6,    PT_List,      10,    0,  1e6, "upper bandwidth" ),
+    nrhs      ( "nrhs",       6,    PT_List,      10,    0, 1e10, "number of right hand sides" ),
+    nb        ( "nb",         4,    PT_List,     384,    0,  1e6, "block size" ),
+    ib        ( "ib",         2,    PT_List,      32,    0,  1e6, "inner blocking" ),
+
+    vl        ( "vl",         6, 3, PT_List,    -inf, -inf,  inf, "lower bound of eigen/singular values to find" ),
+    vu        ( "vu",         6, 3, PT_List,     inf, -inf,  inf, "upper bound of eigen/singular values to find" ),
+    // input il, iu, or fraction; output {il, iu}_out adjusted for matrix size or set by fraction
+    il        ( "il",         0,    PT_List,       1,    1, 1e10, "1-based index of smallest eigen/singular value to find" ),
+    iu        ( "iu",         0,    PT_List,      -1,   -1, 1e10, "1-based index of largest  eigen/singular value to find; -1 is all" ),
+    il_out    ( "il",         6,    PT_Out,        1,    1, 1e10, "1-based index of smallest eigen/singular value to find (actual value used)" ),
+    iu_out    ( "iu",         6,    PT_Out,       -1,   -1, 1e10, "1-based index of largest  eigen/singular value to find (actual value used)" ),
+    fraction_start( "fraction-start",
+                              0, 0, PT_List,       0,    0,    1, "index of smallest eigen/singular value to find, as fraction of n; sets il = 1 + fraction_start*n" ),
+    fraction  ( "fraction",   0, 0, PT_List,       1,    0,    1, "fraction of eigen/singular values to find; sets iu = il - 1 + fraction*n" ),
+
+    alpha     ( "alpha",      3, 1, PT_List, pi_rt2i, -inf,  inf, "scalar alpha" ),
+    beta      ( "beta",       3, 1, PT_List,  e_rt3i, -inf,  inf, "scalar beta" ),
+    incx      ( "incx",       4,    PT_List,       1, -1e3,  1e3, "stride of x vector" ),
+    incy      ( "incy",       4,    PT_List,       1, -1e3,  1e3, "stride of y vector" ),
 
     // SLATE options
-    nb        ("nb",      4,    ParamType::List, 384,     0, 1000000, "block size"),
-    ib        ("ib",      2,    ParamType::List, 32,      0, 1000000, "inner blocking"),
-    grid      ("grid",    3,    ParamType::List, "1x1",   0, 1000000, "MPI grid p x q dimensions"),
-    lookahead ("la",      2,    ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
-    panel_threads("pt",   2,    ParamType::List, std::max( omp_get_max_threads() / 2, 1 ),
-                                                          0, 1000000, "(pt) max number of threads used in panel; default omp_num_threads / 2"),
-    align     ("align",   5,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
-    nonuniform_nb("nonuniform-nb",
-                          0,    ParamType::List, 'n', "ny", "generate matrix with nonuniform tile sizes"),
-    debug     ("debug",   0,    ParamType::Value, -1,     0, 1000000,
-               "given rank waits for debugger (gdb/lldb) to attach"),
+    grid      ( "grid",       3,    PT_List,   "1x1",    0,  1e6, "MPI grid p by q dimensions" ),
+    lookahead ( "la",         2,    PT_List,       1,    0,  1e6, "(la) number of lookahead panels" ),
+    panel_threads( "pt",      2,    PT_List, std::max( omp_get_max_threads() / 2, 1 ),
+                                                         0,  1e6, "(pt) max number of threads used in panel; default omp_num_threads / 2" ),
+    nonuniform_nb( "nonuniform-nb",
+                              0,    PT_List, 'n', "ny", "generate matrix with nonuniform tile sizes" ),
     pivot_threshold(
-               "thresh",  6, 2, ParamType::List, 1.0,   0.0,     1.0, "threshold for pivoting a remote row"),
-    deflate   ("deflate", 12,   ParamType::List, "",
-               "multiple space-separated (index or /-separated index pairs)"
-               " to deflate, e.g., --deflate '1 2/4 3/5'"),
-    itermax   ("itermax", 7,    ParamType::List, 30,     -1, 1000000, "Maximum number of iterations for refinement"),
-    fallback  ("fallback",0,    ParamType::List, 'y',  "ny",          "If refinement fails, fallback to a robust solver"),
-    depth     ("depth",   5,    ParamType::List,  2,      0, 1000,    "Number of butterflies to apply"),
+                "threshold",  6, 2, PT_List, 1.0,   0.0,     1.0, "threshold for pivoting a remote row" ),
+    deflate   ( "deflate",   12,    PT_List, "",
+                "multiple space-separated indices or index pairs (/-separated)"
+                " to deflate, e.g., --deflate '1 2/4 3/5'" ),
+    itermax   ( "itermax",    7,    PT_List, 30,     -1, 1e6, "Maximum number of iterations for refinement" ),
+    fallback  ( "fallback",   0,    PT_List, 'y',  "ny",      "If refinement fails, fallback to a robust solver" ),
+    depth     ( "depth",      5,    PT_List,  2,      0, 1e3, "Number of butterflies to apply" ),
 
-    // ----- output parameters
+    //----- output parameters
     // min, max are ignored
-    //          name,           w, p, type,              default,      min, max, help
-    value      ("value",        9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
-    value2     ("value2",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
-    value3     ("value3",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
-    error      ("error",        9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
-    error2     ("error2",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
-    error3     ("error3",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
-    error4     ("error4",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
-    error5     ("error5",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
-    ortho      ("orth.",        9, 2, ParamType::Output, no_data_flag,   0,   0, "orthogonality error"),
-    ortho_U    ("U orth.",      9, 2, ParamType::Output, no_data_flag,   0,   0, "U orthogonality error"),
-    ortho_V    ("V orth.",      9, 2, ParamType::Output, no_data_flag,   0,   0, "V orthogonality error"),
-    error_sigma("Sigma err",    9, 2, ParamType::Output, no_data_flag,   0,   0, "Sigma error"),
+    // error:   %8.2e allows 9.99e-99
+    // time:    %9.3f allows 99999.999 s = 2.9 days
+    // gflops: %12.3f allows 99999999.999 Gflop/s = 100 Pflop/s
+    //          name,         w, p, type,   default, min, max, help
+    value     ( "value",      9, 3, PT_Out, no_data, 0, 0, "numerical value" ),
+    value2    ( "value2",     9, 3, PT_Out, no_data, 0, 0, "numerical value" ),
+    value3    ( "value3",     9, 3, PT_Out, no_data, 0, 0, "numerical value" ),
 
-    //  9.3 allows 99999.999 s = 2.9 days
-    // 12.3 allows 99999999.999 Gflop/s = 100 Pflop/s
-    time      ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "time to solution"),
-    gflops    ("gflop/s",      12, 3, ParamType::Output, no_data_flag,   0,   0, "Gflop/s rate"),
-    time2     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    gflops2   ("gflop/s",      12, 3, ParamType::Output, no_data_flag,   0,   0, "Gflop/s rate"),
-    time3     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time4     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time5     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time6     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time7     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time8     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time9     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time10    ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time11    ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    time12    ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
-    iters     ("iters",         5,    ParamType::Output,            0,   0,   0, "iterations to solution"),
+    error     ( "error",      8, 2, PT_Out, no_data, 0, 0, "numerical error" ),
+    error2    ( "error2",     8, 2, PT_Out, no_data, 0, 0, "numerical error" ),
+    error3    ( "error3",     8, 2, PT_Out, no_data, 0, 0, "numerical error" ),
+    error4    ( "error4",     8, 2, PT_Out, no_data, 0, 0, "numerical error" ),
+    error5    ( "error5",     8, 2, PT_Out, no_data, 0, 0, "numerical error" ),
+    ortho     ( "orth.",      8, 2, PT_Out, no_data, 0, 0, "orthogonality error" ),
+    ortho_U   ( "U orth.",    8, 2, PT_Out, no_data, 0, 0, "U orthogonality error" ),
+    ortho_V   ( "V orth.",    8, 2, PT_Out, no_data, 0, 0, "V orthogonality error" ),
 
-    ref_time  ("ref time (s)", 12, 3, ParamType::Output, no_data_flag,   0,   0, "reference time to solution"),
-    ref_gflops("ref gflop/s",  12, 3, ParamType::Output, no_data_flag,   0,   0, "reference Gflop/s rate"),
-    ref_iters ("ref iters",     9,    ParamType::Output,            0,   0,   0, "reference iterations to solution"),
+    time      ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "time to solution" ),
+    gflops    ( "gflop/s",   12, 3, PT_Out, no_data, 0, 0, "Gflop/s rate" ),
+    gbytes    ( "gbyte/s",   12, 3, PT_Out, no_data, 0, 0, "Gbyte/s rate" ),
+    iters     ( "iters",      5,    PT_Out, 0,       0, 0, "iterations to solution" ),
+
+    time2     ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    gflops2   ( "gflop/s",   12, 3, PT_Out, no_data, 0, 0, "Gflop/s rate" ),
+    gbytes2   ( "gbyte/s",   12, 3, PT_Out, no_data, 0, 0, "Gbyte/s rate" ),
+
+    time3     ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time4     ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time5     ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time6     ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time7     ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time8     ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time9     ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time10    ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time11    ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+    time12    ( "time (s)",   9, 3, PT_Out, no_data, 0, 0, "extra timer" ),
+
+    ref_time  ( "ref time (s)",  9, 3, PT_Out, no_data, 0, 0, "reference time to solution" ),
+    ref_gflops( "ref gflop/s",  12, 3, PT_Out, no_data, 0, 0, "reference Gflop/s rate" ),
+    ref_gbytes( "ref gbyte/s",  12, 3, PT_Out, no_data, 0, 0, "reference Gbyte/s rate" ),
+    ref_iters ( "ref iters",     5,    PT_Out, 0,       0, 0, "reference iterations to solution" ),
 
     // default -1 means "no check"
-    //         name,     w, type,          default, min, max, help
-    okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator"),
-    msg       ( "",      1, ParamType::Output,  "",           "error message" )
+    //          name,         w, type, default, min, max, help
+    okay      ( "status",     6, PT_Out,    -1, 0, 0, "success indicator" ),
+    msg       ( "",           1, PT_Out,    "",       "error message" )
 {
     // set header different than command line prefix
     lookahead.name("la", "lookahead");
@@ -502,12 +550,12 @@ Params::Params():
     repeat();
     verbose();
     cache();
-    debug();
+    debug_rank();
     print_edgeitems();
     print_width();
     print_precision();
 
-    //  change names of grid elements
+    // change names of grid elements
     grid.names("p", "q");
     grid.width( 3 );
 
@@ -582,6 +630,12 @@ int print_reduce_error(
 int run(int argc, char** argv)
 {
     using testsweeper::QuitException;
+
+    // These may or may not be used; mark unused to silence warnings.
+    blas_unused( pi_rt2i );
+    blas_unused( e_rt3i  );
+    blas_unused( pi      );
+    blas_unused( e       );
 
     // check that all sections have names
     assert(sizeof(section_names) / sizeof(*section_names) == Section::num_sections);
@@ -704,8 +758,8 @@ int run(int argc, char** argv)
 
         // Wait for debugger to attach.
         // See https://www.open-mpi.org/faq/?category=debugging#serial-debuggers
-        if (params.debug() == mpi_rank
-            || params.debug() == mpi_size) {
+        if (params.debug_rank() == mpi_rank
+            || params.debug_rank() == mpi_size) {
             volatile int i = 0;
             char hostname[256];
             gethostname( hostname, sizeof(hostname) );

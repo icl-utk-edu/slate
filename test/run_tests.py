@@ -129,7 +129,7 @@ group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process
 group_opt.add_argument( '--grid-order', action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--dev-order',  action='store', help='default=%(default)s', default='r,c' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
-group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5' )
+group_opt.add_argument( '--threshold', action='store', help='default=%(default)s', default='1,0.5' )
 group_opt.add_argument( '--matrix',  action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--matrixB', action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--matrixC', action='store', help='default=%(default)s', default='' )
@@ -305,7 +305,7 @@ grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
 grid_order = ' --grid-order ' + opts.grid_order if (opts.grid_order) else ''
 dev_order  = ' --dev-order '  + opts.dev_order  if (opts.dev_order)  else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
-thresh = ' --thresh ' + opts.thresh if (opts.thresh) else ''
+threshold = ' --threshold ' + opts.threshold if (opts.threshold) else ''
 matrix  = ' --matrix  ' + opts.matrix  if (opts.matrix)  else ''
 matrixB = ' --matrixB ' + opts.matrixB if (opts.matrixB) else ''
 matrixC = ' --matrixC ' + opts.matrixC if (opts.matrixC) else ''
@@ -393,18 +393,18 @@ if (opts.blas3):
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',         gen + dtype + la + n + ge_matrix + nonuniform_nb + thresh ],
+    [ 'gesv',         gen + dtype + la + n + ge_matrix + nonuniform_nb + threshold ],
     [ 'gesv_tntpiv',  gen + dtype + la + n + ge_matrix ],
     [ 'gesv_nopiv',   gen + dtype + la + n + ge_matrix + nonuniform_nb
                       + ' --matrix rand_dominant' ],
 
     # todo: mn
-    [ 'getrf',        gen + dtype + la + n + ge_matrix + nonuniform_nb + thresh ],
+    [ 'getrf',        gen + dtype + la + n + ge_matrix + nonuniform_nb + threshold ],
     [ 'getrf_tntpiv', gen + dtype + la + n + ge_matrix ],
     [ 'getrf_nopiv',  gen + dtype + la + n + ge_matrix + nonuniform_nb
                       + ' --matrix rand_dominant' ],
 
-    [ 'getrs',        gen + dtype + la + n + trans + ge_matrix + nonuniform_nb + thresh ],
+    [ 'getrs',        gen + dtype + la + n + trans + ge_matrix + nonuniform_nb + threshold ],
     [ 'getrs_tntpiv', gen + dtype + la + n + trans + ge_matrix ],
     [ 'getrs_nopiv',  gen + dtype + la + n + trans + ge_matrix + nonuniform_nb
                       + ' --matrix rand_dominant' ],

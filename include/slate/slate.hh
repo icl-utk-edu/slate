@@ -536,30 +536,6 @@ int64_t gesv_mixed(
     int& iter,
     Options const& opts = Options());
 
-template <typename scalar_t>
-[[deprecated( "Use gesv_mixed instead. Will be removed 2024-02." )]]
-int64_t gesvMixed(
-    Matrix<scalar_t>& A, Pivots& pivots,
-    Matrix<scalar_t>& B,
-    Matrix<scalar_t>& X,
-    int& iter,
-    Options const& opts = Options())
-{
-    return gesv_mixed( A, pivots, B, X, iter, opts );
-}
-
-template <typename scalar_hi, typename scalar_lo>
-[[deprecated( "Use gesv_mixed instead. Will be removed 2024-02." )]]
-int64_t gesvMixed(
-    Matrix<scalar_hi>& A, Pivots& pivots,
-    Matrix<scalar_hi>& B,
-    Matrix<scalar_hi>& X,
-    int& iter,
-    Options const& opts = Options())
-{
-    return gesv_mixed( A, pivots, B, X, iter, opts );
-}
-
 //-----------------------------------------
 // gesv_mixed_gmres()
 template <typename scalar_t>
@@ -707,30 +683,6 @@ int64_t posv_mixed(
     Options const& opts = Options());
 
 // todo: forward real-symmetric matrices to posv_mixed?
-
-template <typename scalar_t>
-[[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
-int64_t posvMixed(
-    HermitianMatrix<scalar_t>& A,
-             Matrix<scalar_t>& B,
-             Matrix<scalar_t>& X,
-    int& iter,
-    Options const& opts = Options())
-{
-    return posv_mixed( A, B, X, iter, opts );
-}
-
-template <typename scalar_hi, typename scalar_lo>
-[[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
-int64_t posvMixed(
-    HermitianMatrix<scalar_hi>& A,
-             Matrix<scalar_hi>& B,
-             Matrix<scalar_hi>& X,
-    int& iter,
-    Options const& opts = Options())
-{
-    return posv_mixed( A, B, X, iter, opts );
-}
 
 //-----------------------------------------
 // posv_mixed_gmres()
@@ -925,17 +877,6 @@ void gels_cholqr(
     Matrix<scalar_t>& A, Matrix<scalar_t>& R,
     Matrix<scalar_t>& BX,
     Options const& opts = Options());
-
-// Backward compatibility
-template <typename scalar_t>
-[[deprecated( "Use gels( A, BX[, opts] ) instead. Will be removed 2024-02." )]]
-void gels(
-    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& BX,
-    Options const& opts = Options())
-{
-    gels_qr( A, T, BX, opts );
-}
 
 // Routine selection
 template <typename scalar_t>

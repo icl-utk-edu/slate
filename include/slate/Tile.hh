@@ -90,29 +90,6 @@ MatrixType conj_transpose( MatrixType&& A )
 }
 
 //------------------------------------------------------------------------------
-/// Conjugate-transpose a Tile or any type of Matrix object,
-/// changing op flag from NoTrans to ConjTrans, or from ConjTrans to NoTrans.
-/// @return copy of Tile, etc. with updated op flag.
-/// @see transpose()
-///
-/// @ingroup util
-///
-template<typename MatrixType>
-[[deprecated( "Use conj_transpose instead. Remove 2024-02." )]]
-MatrixType conjTranspose( MatrixType& A )
-{
-    return conj_transpose( A );
-}
-
-//--------------------------------------
-template<typename MatrixType>
-[[deprecated( "Use conj_transpose instead. Remove 2024-02." )]]
-MatrixType conjTranspose( MatrixType&& A )
-{
-    return conj_transpose( A );
-}
-
-//------------------------------------------------------------------------------
 /// Whether a tile is workspace or origin (local non-workspace),
 /// and who owns (allocated, deallocates) the data.
 /// @ingroup enum

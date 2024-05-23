@@ -173,9 +173,7 @@ void test_alloc_device()
             test_assert(int(mem.capacity (dev)) == max(cnt, i+1));
 
             // Touch memory to verify it is valid.
-            blas::device_memcpy<double>(dx[i], hx, nb * nb,
-                                        blas::MemcpyKind::HostToDevice,
-                                        *dev_queues[dev]);
+            blas::device_memcpy<double>( dx[i], hx, nb * nb, *dev_queues[dev] );
         }
 
         // Free some.

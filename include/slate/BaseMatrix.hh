@@ -3460,8 +3460,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             // else
 
             blas::device_memcpy<scalar_t*>(
-                array_dev, bucket->second.first.data(),
-                batch_count, blas::MemcpyKind::HostToDevice, *queue);
+                array_dev, bucket->second.first.data(), batch_count, *queue );
 
             if (mb == nb) {
                 // in-place transpose
@@ -3474,7 +3473,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 // rectangular tiles: out-of-place transpose
                 blas::device_memcpy<scalar_t*>(
                     work_array_dev, bucket->second.second.data(),
-                    batch_count, blas::MemcpyKind::HostToDevice, *queue);
+                    batch_count, *queue );
 
                 if (! extended) {
                     // copy back to data buffer

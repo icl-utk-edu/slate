@@ -226,8 +226,7 @@ void geqrf(
             blas::device_memcpy_2d<scalar_t>(
                     &dA[ temp_loc ], mlocal,
                     Ai0.data(), Ai0.stride(),
-                    Ai0.mb(), nb,
-                    blas::MemcpyKind::Default, *queue );
+                    Ai0.mb(), nb, *queue );
             temp_loc += Ai0.mb();
         }
     }
@@ -263,8 +262,7 @@ void geqrf(
             blas::device_memcpy_2d<scalar_t>(
                     Ai0.data(), Ai0.stride(),
                     &dA[ temp_loc ], mlocal,
-                    Ai0.mb(), nb,
-                    blas::MemcpyKind::Default, *queue );
+                    Ai0.mb(), nb, *queue );
             temp_loc += Ai0.mb();
         }
     }
@@ -273,8 +271,7 @@ void geqrf(
     //
     // TODO: Would be better to have trmm allow for pointer vs scalar to avoid
     //       this copy.
-    blas::device_memcpy<scalar_t>( htau.data(), dtau, diag_len,
-                                   blas::MemcpyKind::Default, *queue);
+    blas::device_memcpy<scalar_t>( htau.data(), dtau, diag_len, *queue );
 
     // Constructing T-(blocking)-factor.
     T.tileInsert  ( tile_index_zero, 0, device );

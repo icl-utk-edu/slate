@@ -129,8 +129,7 @@ void set(internal::TargetType<Target::Devices>,
 
             scalar_t** a_array_dev = A.array_device( device, queue_index );
             blas::device_memcpy<scalar_t*>(
-                a_array_dev, a_array_host, batch_size,
-                blas::MemcpyKind::HostToDevice, *queue);
+                a_array_dev, a_array_host, batch_size, *queue );
 
             for (size_t g = 0; g < group_params.size(); ++g) {
                 int64_t group_count = group_params[ g ].count;

@@ -68,20 +68,14 @@ void test_gecopy_dev()
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
 
-    blas::device_memcpy<double*>(dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
+    blas::device_memcpy<double*>( dAarray, Aarray, batch_count, queue );
 
     double* Barray[batch_count];
     double** dBarray;
     dBarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dBarray != nullptr);
     Barray[0] = dB.data();
-    blas::device_memcpy<double*>(dBarray, Barray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
+    blas::device_memcpy<double*>( dBarray, Barray, batch_count, queue );
 
     slate::device::gecopy( m, n,
                            dAarray, lda,
@@ -90,10 +84,7 @@ void test_gecopy_dev()
 
     queue.sync();
 
-    blas::device_memcpy<double*>(Barray, dBarray,
-                        batch_count,
-                        blas::MemcpyKind::DeviceToHost,
-                        queue);
+    blas::device_memcpy<double*>( Barray, dBarray, batch_count, queue );
     queue.sync(); // sync before looking at data
 
     dB.copyData(&B, queue);

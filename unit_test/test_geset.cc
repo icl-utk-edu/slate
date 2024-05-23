@@ -230,7 +230,7 @@ void test_geset_batch_dev_worker(
 
     // dAarray setup device-pointers to device-data in Aarray[]=dA[].data() for batch call
     blas::device_memcpy<scalar_t*>(
-        dAarray, Aarray, batch_count, blas::MemcpyKind::HostToDevice, queue );
+        dAarray, Aarray, batch_count, queue );
 
     // call device::batch::geset
     slate::device::batch::geset( m, n,

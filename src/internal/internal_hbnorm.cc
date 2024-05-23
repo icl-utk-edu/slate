@@ -517,10 +517,8 @@ void norm(
             {
                 trace::Block trace_block("slate::device::henorm");
 
-                blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
-                                    batch_count,
-                                    blas::MemcpyKind::HostToDevice,
-                                    *queue);
+                blas::device_memcpy<scalar_t*>(
+                    a_dev_array, a_host_array, batch_count, *queue );
 
                 scalar_t** a_dev_array_g = a_dev_array;
                 real_t* vals_dev_array_g = vals_dev_array;
@@ -559,10 +557,8 @@ void norm(
                     }
                 }
 
-                blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
-                                    batch_count*ldv,
-                                    blas::MemcpyKind::DeviceToHost,
-                                    *queue);
+                blas::device_memcpy<real_t>(
+                    vals_host_array, vals_dev_array, batch_count*ldv, *queue );
 
                 queue->sync();
             }

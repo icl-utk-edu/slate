@@ -325,8 +325,7 @@ void getrf_tntpiv_local(
     lapack::getrf( mlocal, nb, dA, mlocal, dipiv,
                    dwork, dsize, hwork, hsize, dinfo, *queue );
 
-    blas::device_memcpy<device_pivot_int>( &hipiv[0], dipiv, diag_len,
-                                   blas::MemcpyKind::Default, *queue);
+    blas::device_memcpy<device_pivot_int>( &hipiv[0], dipiv, diag_len, *queue );
 
     // todo: could merge with above memcpy if host_info and dinfo are
     // made the last entry of hipiv and dipiv; slightly complicated if
@@ -427,8 +426,7 @@ void getrf_tntpiv_panel(
                 blas::device_memcpy_2d<scalar_t>(
                         &dA[ temp_loc ], mlocal,
                         Ai0.data(), Ai0.stride(),
-                        Ai0.mb(), nb,
-                        blas::MemcpyKind::Default, *queue );
+                        Ai0.mb(), nb, *queue );
                 temp_loc += Ai0.mb();
             }
         }
@@ -643,8 +641,7 @@ void getrf_tntpiv_panel(
                     blas::device_memcpy_2d<scalar_t>(
                             Ai0.data(), Ai0.stride(),
                             &dA[ temp_loc ], mlocal,
-                            Ai0.mb(), nb,
-                            blas::MemcpyKind::Default, *queue );
+                            Ai0.mb(), nb, *queue );
                     temp_loc += Ai0.mb();
                 }
             }

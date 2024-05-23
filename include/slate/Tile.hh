@@ -915,8 +915,7 @@ void Tile<scalar_t>::layoutConvert(
             src_stride = old_layout == Layout::ColMajor ? mb() : nb();
 
             blas::device_memcpy<scalar_t>(
-                work_data, data_, size(),
-                blas::MemcpyKind::DeviceToDevice, queue);
+                work_data, data_, size(), queue);
         }
         device::transpose(
             false,
@@ -975,67 +974,31 @@ void Tile<scalar_t>::copyData(
     slate_assert(mb_ == dst_tile->mb_);
     slate_assert(nb_ == dst_tile->nb_);
 
-    int device;
-    blas::MemcpyKind memcpy_kind;
-
-    // figure out copy direction and device
-    if (this->device_ >= 0 && dst_tile->device() == HostNum) {
-        // device to host copy
-        device = this->device_;
-        memcpy_kind = blas::MemcpyKind::DeviceToHost;
-    }
-    else if (this->device_ == HostNum && dst_tile->device() >= 0) {
-        // host to device copy
-        device = dst_tile->device();
-        memcpy_kind = blas::MemcpyKind::HostToDevice;
-    }
-    else if (this->device_ == HostNum && dst_tile->device() == HostNum) {
-        // host to host copy
-        device = -1;
-        memcpy_kind = blas::MemcpyKind::HostToHost;
-        copyData(dst_tile);
-        return;
-    }
-    else if (this->device_ >= 0 && dst_tile->device() >= 0) {
-        // device to device copy
-        device = this->device_;
-        memcpy_kind = blas::MemcpyKind::DeviceToDevice;
+    if (this->device_ == HostNum && dst_tile->device() == HostNum) {
+        // host to host
+        copyData( dst_tile );
     }
     else {
-        // silence compiler warnings
-        device = HostNum;
-        memcpy_kind = blas::MemcpyKind::HostToHost;
-        slate_error("illegal combination of source and destination devices");
-    }
+        // (host or device) to (host or device)
+        dst_tile->setLayout( this->layout() );
 
-    dst_tile->setLayout( this->layout() );
-
-    slate_assert(device >= 0);
-
-    // If no stride on both sides.
-    if (this->isContiguous() &&
-        dst_tile->isContiguous()) {
-
-        // Use simple copy.
-        trace::Block trace_block("blas::device_memcpy");
-
-        blas::device_memcpy<scalar_t>(
-            dst_tile->data_, data_, size(), memcpy_kind, queue);
-
-        if (! async)
-            queue.sync();
-    }
-    else {
-        // Otherwise, use 2D copy.
-        trace::Block trace_block("blas::device_memcpy_2d");
-
-        blas::device_memcpy_2d<scalar_t>(
-            dst_tile->data_, dst_tile->stride_,
-            data_, stride_,
-            (this->layout() == Layout::ColMajor ? mb_ : nb_),
-            (this->layout() == Layout::ColMajor ? nb_ : mb_),
-            memcpy_kind, queue);
-
+        // If no stride on both sides.
+        if (this->isContiguous() && dst_tile->isContiguous()) {
+            // Use simple copy.
+            trace::Block trace_block( "blas::device_memcpy" );
+            blas::device_memcpy<scalar_t>(
+                dst_tile->data_, data_, size(), queue );
+        }
+        else {
+            // Otherwise, use 2D copy.
+            trace::Block trace_block( "blas::device_memcpy_2d" );
+            blas::device_memcpy_2d<scalar_t>(
+                dst_tile->data_, dst_tile->stride_,
+                data_, stride_,
+                (this->layout() == Layout::ColMajor ? mb_ : nb_),
+                (this->layout() == Layout::ColMajor ? nb_ : mb_),
+                queue );
+        }
         if (! async)
             queue.sync();
     }

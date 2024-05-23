@@ -180,10 +180,8 @@ void test_genorm_dev(Norm norm)
     dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>(dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
+    blas::device_memcpy<double*>(
+        dAarray, Aarray, batch_count, queue );
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -204,10 +202,8 @@ void test_genorm_dev(Norm norm)
     slate::device::genorm( norm, slate::NormScope::Matrix, m, n, dAarray, lda,
                            dvalues, ldv, batch_count, queue );
     queue.sync();
-    blas::device_memcpy<double>(&values[0], dvalues,
-                        values.size(),
-                        blas::MemcpyKind::DeviceToHost,
-                        queue);
+    blas::device_memcpy<double>(
+        &values[0], dvalues, values.size(), queue );
     queue.sync(); // sync before looking at values
 
     // check column & row sum results
@@ -401,10 +397,8 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>(dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
+    blas::device_memcpy<double*>(
+        dAarray, Aarray, batch_count, queue );
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -423,10 +417,8 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     slate::device::synorm( norm, uplo, n, dAarray, lda,
                            dvalues, ldv, batch_count, queue );
     queue.sync();
-    blas::device_memcpy<double>(&values[0], dvalues,
-                        values.size(),
-                        blas::MemcpyKind::DeviceToHost,
-                        queue);
+    blas::device_memcpy<double>(
+        &values[0], dvalues, values.size(), queue );
     queue.sync(); // sync before looking at values
 
     // check column & row sum results
@@ -569,10 +561,8 @@ void test_synorm_offdiag_dev(Norm norm)
     dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>(dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
+    blas::device_memcpy<double*>(
+        dAarray, Aarray, batch_count, queue );
 
     int ldv = n + m;
     std::vector<double> values( ldv );
@@ -585,10 +575,8 @@ void test_synorm_offdiag_dev(Norm norm)
                                   dvalues, ldv,
                                   batch_count, queue );
     queue.sync();
-    blas::device_memcpy<double>(&values[0], dvalues,
-                        values.size(),
-                        blas::MemcpyKind::DeviceToHost,
-                        queue);
+    blas::device_memcpy<double>(
+        &values[0], dvalues, values.size(), queue );
     queue.sync(); // sync before looking at values
 
     // check column & row sum results
@@ -815,10 +803,8 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>(dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
+    blas::device_memcpy<double*>(
+        dAarray, Aarray, batch_count, queue );
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -839,10 +825,8 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     slate::device::trnorm( norm, uplo, diag, m, n, dAarray, lda,
                            dvalues, ldv, batch_count, queue );
     queue.sync();
-    blas::device_memcpy<double>(&values[0], dvalues,
-                        values.size(),
-                        blas::MemcpyKind::DeviceToHost,
-                        queue);
+    blas::device_memcpy<double>(
+        &values[0], dvalues, values.size(), queue );
     queue.sync(); // sync before looking at values
 
     // check column & row sum results

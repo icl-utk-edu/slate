@@ -187,15 +187,11 @@ void copy(internal::TargetType<Target::Devices>,
 
             blas::Queue* queue = B.compute_queue(device, queue_index);
 
-            blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
-                                batch_count,
-                                blas::MemcpyKind::HostToDevice,
-                                *queue);
+            blas::device_memcpy<src_scalar_t*>(
+                a_array_dev, a_array_host, batch_count, *queue );
 
-            blas::device_memcpy<dst_scalar_t*>(b_array_dev, b_array_host,
-                                batch_count,
-                                blas::MemcpyKind::HostToDevice,
-                                *queue);
+            blas::device_memcpy<dst_scalar_t*>(
+                b_array_dev, b_array_host, batch_count, *queue );
 
             bool is_trans = (A.op() != B.op());
             bool is_conj = false;

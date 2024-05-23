@@ -174,15 +174,11 @@ void copy(internal::TargetType<Target::Devices>,
 
             blas::Queue* queue = A.compute_queue(device, queue_index);
 
-            blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
-                                batch_count,
-                                blas::MemcpyKind::HostToDevice,
-                                *queue);
+            blas::device_memcpy<src_scalar_t*>(
+                a_array_dev, a_array_host, batch_count, *queue );
 
-            blas::device_memcpy<dst_scalar_t*>(b_array_dev, b_array_host,
-                                batch_count,
-                                blas::MemcpyKind::HostToDevice,
-                                *queue);
+            blas::device_memcpy<dst_scalar_t*>(
+                b_array_dev, b_array_host, batch_count, *queue );
 
             for (size_t g = 0; g < group_params.size(); ++g) {
                 int64_t group_count = group_params[ g ].count;

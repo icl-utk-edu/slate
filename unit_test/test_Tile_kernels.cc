@@ -1016,10 +1016,8 @@ void test_device_convert_layout(int m, int n)
     blas::Queue queue( device );
 
     Adata_dev = blas::device_malloc<scalar_t>(Adata.size(), queue);
-    blas::device_memcpy<scalar_t>(Adata_dev, Adata.data(),
-                        Adata.size(),
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
+    blas::device_memcpy<scalar_t>(
+        Adata_dev, Adata.data(), Adata.size(), queue );
 
     scalar_t* dev_work = blas::device_malloc<scalar_t>(lda*n, queue);
 

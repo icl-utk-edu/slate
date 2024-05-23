@@ -160,10 +160,8 @@ void add(internal::TargetType<Target::Devices>,
 
             blas::Queue* queue = B.compute_queue(device, queue_index);
 
-            blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
-                                batch_size*2,
-                                blas::MemcpyKind::HostToDevice,
-                                *queue);
+            blas::device_memcpy<scalar_t*>(
+                a_array_dev, a_array_host, batch_size*2, *queue );
 
             for (size_t g = 0; g < group_params.size(); ++g) {
                 int64_t group_count = group_params[ g ].count;

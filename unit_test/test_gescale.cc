@@ -101,11 +101,7 @@ void test_gescale_dev_worker(
 
     setup_data( A, offdiag_value, diag_value );
 
-    blas::device_memcpy<scalar_t>(
-                        dA.data(), A.data(),
-                        lda * n,
-                        blas::MemcpyKind::HostToDevice,
-                        queue );
+    blas::device_memcpy<scalar_t>( dA.data(), A.data(), lda * n, queue );
 
     slate::device::gescale(
                           m, n,
@@ -329,18 +325,10 @@ void test_gescale_batch_dev_worker(
         Aarray[ m_i ] = dA.data();
 
         // Copy the m_i'th matrix to the device
-        blas::device_memcpy<scalar_t>(
-                            dA.data(), A.data(),
-                            lda * n,
-                            blas::MemcpyKind::HostToDevice,
-                            queue );
+        blas::device_memcpy<scalar_t>( dA.data(), A.data(), lda * n, queue );
     }
     // Transfer the batch_array to the device
-    blas::device_memcpy<scalar_t*>(
-                        dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue );
+    blas::device_memcpy<scalar_t*>( dAarray, Aarray, batch_count, queue );
 
     slate::device::batch::gescale(
                           m, n,

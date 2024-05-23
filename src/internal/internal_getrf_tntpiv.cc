@@ -122,13 +122,13 @@ void permutation_to_sequential_pivot(
 //------------------------------------------------------------------------------
 /// Multi-threaded LU factorization of local tiles.
 ///
-/// @params[in] target
+/// @param[in] target
 ///     Target for dispacth to correct implementation.
 ///
-/// @params[in,out] tiles
+/// @param[in,out] tiles
 ///     List of tiles to factor on the CPU.
 ///
-/// @params[in,out] dwork_array
+/// @param[in,out] dwork_array
 ///     Array of GPU device workspaces, dimension (num_devices).
 ///     dwork_array[ dev ] stores dA, dwork, dipiv, and dinfo on GPU dev;
 ///     dA    is contiguous copy of tiles on GPU,
@@ -136,46 +136,46 @@ void permutation_to_sequential_pivot(
 ///     dipiv is pivot vector,
 ///     dinfo is getrf return value.
 ///
-/// @params[in] dwork_bytes
+/// @param[in] dwork_bytes
 ///    Total size of dwork_array[ dev ] in bytes for each GPU device.
 ///
-/// @params[in] mlocal
+/// @param[in] mlocal
 ///    Number of rows in dwork_array.
 ///
-/// @params[in] device
+/// @param[in] device
 ///    Device performing factorization,
 ///    needed for pointing to correct memory in dwork_array.
 ///    Device == HostNum for CPU implementation.
 ///
-/// @params[in] queue
+/// @param[in] queue
 ///    Queue associated to input device.
 ///
-/// @params[in] diag_len
+/// @param[in] diag_len
 ///     Length of diagonal, min( mb, nb ) of diagonal tile.
 ///
-/// @params[in] ib
+/// @param[in] ib
 ///     Inner blocking.
 ///
-/// @params[in] stage
+/// @param[in] stage
 ///     Stage = 0 is initial local tiles,
 ///     stage = 1 is subsequent tournament.
 ///
-/// @params[in] mb
+/// @param[in] mb
 ///     Tile row block size.
 ///
-/// @params[in] nb
+/// @param[in] nb
 ///     Tile column block size.
 ///
-/// @params[in] tile_indices
+/// @param[in] tile_indices
 ///     Block row indices of tiles in tiles array.
 ///
-/// @params[in] mpi_rank
+/// @param[in] mpi_rank
 ///     MPI rank of this process.
 ///
-/// @params[in] max_panel_threads
+/// @param[in] max_panel_threads
 ///     Maximum number of threads to launch for local panel.
 ///
-/// @params[in] priority
+/// @param[in] priority
 ///     OpenMP priority.
 ///     todo: unused. Should it be on taskloop?
 ///

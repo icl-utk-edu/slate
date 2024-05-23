@@ -183,10 +183,10 @@ struct is_complex< std::complex<T> >:
 /// @param[in] opt
 ///     Map of options and values.
 ///
-///  @param[in] option
+/// @param[in] option
 ///     Option to get.
 ///
-///  @param [in] defval
+/// @param[in] defval
 ///     Default option value if option is not found in map.
 ///
 template <typename T>

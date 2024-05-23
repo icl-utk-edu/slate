@@ -20,7 +20,7 @@ namespace internal {
 /// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
 /// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
 ///
-/// @param[inout] batchArrays
+/// @param[in,out] batchArrays
 ///     holds the pointer arrays to be prepared for later execution
 ///     of the batch-gemm kernel in gemmExec()
 ///

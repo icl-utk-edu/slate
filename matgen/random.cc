@@ -193,10 +193,10 @@ void generate_helper( int64_t seed,
 /// @param[in] joffset
 ///     The first column of the sub-matrix in the global matrix.
 ///
-/// @param[out]A
+/// @param[out] A
 ///     The m-by-n, column-major sub-matrix to fill with random values.
 ///
-/// @param[in]lda
+/// @param[in] lda
 ///     The leading dimension of the matrix.
 template<typename scalar_t>
 void generate(Dist dist, int64_t seed,

@@ -217,10 +217,10 @@ public:
 //------------------------------------------------------------------------------
 /// @copydoc device_regions_build(std::array< std::reference_wrapper<BaseMatrix<scalar_t>>, mat_count >, std::array< scalar_t**, mat_count >, int64_t, std::function<void(int64_t, int64_t, int64_t)>)
 ///
-/// @params[in] irange
+/// @param[in] irange
 ///     The ranges of tiles with a uniform number of rows
 ///
-/// @params[in] jrange
+/// @param[in] jrange
 ///     The ranges of tiles with a uniform number of columns
 ///
 template< bool store_diag, int mat_count, typename scalar_t, bool diag_same=!store_diag >

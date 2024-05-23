@@ -340,20 +340,20 @@ TestMatrix<slate::TriangularMatrix<std::complex<double>>> allocate_test_Triangul
 //------------------------------------------------------------------------------
 /// Allocates a TrapezoidMatrix<scalar_t> and a reference version for testing.
 ///
-/// @param ref_matrix[in]
+/// @param[in] ref_matrix
 ///     Whether to allocate a reference matrix
 ///
-/// @param nonuniform_ref[in]
+/// @param[in] nonuniform_ref
 ///     If params.nonuniform_nb(), whether to also allocate the reference matrix
 ///     with non-uniform tiles.
 ///
-/// @param m[in]
+/// @param[in] m
 ///     The number of rows
 ///
-/// @param n[in]
+/// @param[in] n
 ///     The number of columns
 ///
-/// @param params[in]
+/// @param[in] params
 ///     The test params object which contains many of the key parameters
 ///
 template <typename scalar_t>

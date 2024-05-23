@@ -64,7 +64,7 @@ void hettmqr(
 /// Host implementation.
 /// @ingroup heev_internal
 ///
-/// @param tag_base[in]
+/// @param[in] tag_base
 ///     This process uses MPI tags from the range [tag_base, tag_base+mt*nt)
 ///
 template <typename scalar_t>

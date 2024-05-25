@@ -18,7 +18,7 @@
 # Define functions.
 
 # Get parent directory, stripping trailing /.
-dir_strip = $(patsubst %/,%,$(dir $(1)))
+dir_strip = ${patsubst %/,%,${dir ${1}}}
 
 #-------------------------------------------------------------------------------
 # Set defaults
@@ -31,11 +31,11 @@ c_api           ?= 0
 fortran_api     ?= 0
 
 # Strip whitespace.
-blas            := $(strip $(blas))
+blas            := ${strip ${blas}}
 
 # MKL doesn't oversubscribe within OpenMP tasks, so it's safe and
 # desirable to use multi-threaded BLAS.
-ifeq ($(blas),mkl)
+ifeq (${blas},mkl)
     blas_threaded ?= 1
 else
     blas_threaded ?= 0
@@ -51,19 +51,19 @@ gpu_backend     ?= auto
 python          ?= python3
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
-mpi             := $(strip $(mpi))
-blas_int        := $(strip $(blas_int))
-blas_threaded   := $(strip $(blas_threaded))
-blas_fortran    := $(strip $(blas_fortran))
-mkl_blacs       := $(strip $(mkl_blacs))
-openmp          := $(strip $(openmp))
-static          := $(strip $(static))
-gpu_backend     := $(strip $(gpu_backend))
-cuda_arch       := $(strip $(cuda_arch))
-hip_arch        := $(strip $(hip_arch))
-prefix          := $(strip $(prefix))
-c_api           := $(strip $(c_api))
-fortran_api     := $(strip $(fortran_api))
+mpi             := ${strip ${mpi}}
+blas_int        := ${strip ${blas_int}}
+blas_threaded   := ${strip ${blas_threaded}}
+blas_fortran    := ${strip ${blas_fortran}}
+mkl_blacs       := ${strip ${mkl_blacs}}
+openmp          := ${strip ${openmp}}
+static          := ${strip ${static}}
+gpu_backend     := ${strip ${gpu_backend}}
+cuda_arch       := ${strip ${cuda_arch}}
+hip_arch        := ${strip ${hip_arch}}
+prefix          := ${strip ${prefix}}
+c_api           := ${strip ${c_api}}
+fortran_api     := ${strip ${fortran_api}}
 
 abs_prefix      := ${abspath ${prefix}}
 
@@ -78,46 +78,46 @@ HIPCCFLAGS += -std=c++14 -DTCE_HIP -fno-gpu-rdc
 force: ;
 
 # Auto-detect CUDA, HIP, SYCL.
-ifneq ($(filter-out auto cuda hip sycl none, $(gpu_backend)),)
-    $(error ERROR: gpu_backend = $(gpu_backend) is unknown)
+ifneq (,${filter-out auto cuda hip sycl none, ${gpu_backend}})
+    ${error ERROR: gpu_backend = ${gpu_backend} is unknown}
 endif
 
 cuda = 0
-ifneq ($(filter auto cuda, $(gpu_backend)),)
-    NVCC_which := $(shell which $(NVCC) 2>/dev/null)
-    ifneq ($(NVCC_which),)
+ifneq (,${filter auto cuda, ${gpu_backend}})
+    NVCC_which := ${shell which ${NVCC} 2>/dev/null}
+    ifneq (${NVCC_which},)
         cuda = 1
         ifeq (${CUDA_PATH},)
             ifneq (${CUDA_HOME},)
                 CUDA_PATH = ${CUDA_HOME}
             else
-                CUDA_PATH = $(call dir_strip, $(call dir_strip, $(NVCC_which)))
+                CUDA_PATH = ${call dir_strip, ${call dir_strip, ${NVCC_which}}}
             endif
         endif
-    else ifeq ($(gpu_backend),cuda)
-        $(error ERROR: gpu_backend = $(gpu_backend), but NVCC = $(NVCC) not found)
+    else ifeq (${gpu_backend},cuda)
+        ${error ERROR: gpu_backend = ${gpu_backend}, but NVCC = ${NVCC} not found}
     endif
 endif
 
 hip = 0
-ifneq ($(cuda),1)
-    ifneq ($(filter auto hip, $(gpu_backend)),)
-        HIPCC_which = $(shell which $(HIPCC) 2>/dev/null)
-        ifneq ($(HIPCC_which),)
+ifneq (${cuda},1)
+    ifneq (,${filter auto hip, ${gpu_backend}})
+        HIPCC_which = ${shell which ${HIPCC} 2>/dev/null}
+        ifneq (${HIPCC_which},)
             hip = 1
-            ROCM_PATH ?= $(call dir_strip, $(call dir_strip, $(HIPCC_which)))
-        else ifeq ($(gpu_backend),hip)
-            $(error ERROR: gpu_backend = $(gpu_backend), but HIPCC = $(HIPCC) not found)
+            ROCM_PATH ?= ${call dir_strip, ${call dir_strip, ${HIPCC_which}}}
+        else ifeq (${gpu_backend},hip)
+            ${error ERROR: gpu_backend = ${gpu_backend}, but HIPCC = ${HIPCC} not found}
         endif
     endif
 endif
 
 omptarget = 0
-ifneq ($(cuda),1)
-ifneq ($(hip),1)
+ifneq (${cuda},1)
+ifneq (${hip},1)
     ifeq (${gpu_backend},sycl)
         # enable the omptarget offload kernels in SLATE for oneMKL-SYCL devices
-        $(info Note: enabling omp-target-offload kernels)
+        ${info Note: enabling omp-target-offload kernels}
         omptarget = 1
 
         # -Wno-unused-command-line-argument avoids
@@ -137,33 +137,33 @@ endif
 endif
 
 # Default LD=ld won't work; use CXX. Can override in make.inc or environment.
-ifeq ($(origin LD),default)
-    LD = $(CXX)
+ifeq (${origin LD},default)
+    LD = ${CXX}
 endif
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
-ostype := $(shell echo $${OSTYPE})
-ifneq ($(findstring darwin, $(ostype)),)
+ostype := ${shell echo $${OSTYPE}}
+ifneq (,${findstring darwin, ${ostype}})
     # MacOS is darwin
     macos = 1
 endif
 
 # Check if Fortran compiler exists.
-# Note that 'make' sets $(FC) to f77 by default.
-have_fortran := $(shell which $(FC) 2>/dev/null)
-ifeq ($(have_fortran),)
+# Note that 'make' sets ${FC} to f77 by default.
+have_fortran := ${shell which ${FC} 2>/dev/null}
+ifeq (${have_fortran},)
     fortran_api = 0
 endif
 
 # Fortran API depends on C API.
-ifneq ($(c_api),1)
+ifneq (${c_api},1)
     fortran_api = 0
 endif
 
 #-------------------------------------------------------------------------------
 # if shared
-ifneq ($(static),1)
+ifneq (${static},1)
     CXXFLAGS   += -fPIC
     LDFLAGS    += -fPIC
     FCFLAGS    += -fPIC
@@ -176,7 +176,7 @@ endif
 
 #-------------------------------------------------------------------------------
 # if OpenMP
-ifeq ($(openmp),1)
+ifeq (${openmp},1)
     ifeq (${gpu_backend},sycl)
         # Intel icpx options for OpenMP offload.
         CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
@@ -192,15 +192,15 @@ endif
 
 #-------------------------------------------------------------------------------
 # if MPI
-ifneq ($(filter mpi%,$(CXX)),)
+ifneq (,${filter mpi%,${CXX}})
     # CXX = mpicxx, mpic++, ...
     # Generic MPI via compiler wrapper. No flags to set.
-else ifeq ($(mpi),cray)
+else ifeq (${mpi},cray)
     # Cray MPI via compiler wrapper. No flags to set.
-else ifeq ($(mpi),1)
+else ifeq (${mpi},1)
     # Generic MPI.
     LIBS  += -lmpi
-else ifeq ($(mpi),spectrum)
+else ifeq (${mpi},spectrum)
     # IBM Spectrum MPI
     LIBS  += -lmpi_ibm
 else
@@ -215,47 +215,47 @@ endif
 # If using shared libraries, and Fortran files that directly call BLAS are
 # removed, BLAS++ would pull in the BLAS library for us.
 
-ifeq ($(blas),mkl)
+ifeq (${blas},mkl)
     # Intel MKL
     # Auto-detect whether to use Intel or GNU conventions.
     # Won't detect if CXX = mpicxx.
-    ifeq ($(CXX),icpc)
+    ifeq (${CXX},icpc)
         blas_fortran = ifort
     endif
     # BLAS is Intel MKL and SLATE is using the SYCL backend
     # Use ifort, threaded-blas and mkl_intel_thread
-    ifeq ($(gpu_backend),sycl)
+    ifeq (${gpu_backend},sycl)
         blas_fortran = ifort
         blas_threaded = 1
     endif
-    ifeq ($(macos),1)
+    ifeq (${macos},1)
         # MKL on MacOS (version 20180001) has only Intel Fortran version
         blas_fortran = ifort
     endif
-    ifeq ($(blas_fortran),ifort)
+    ifeq (${blas_fortran},ifort)
         # use Intel Fortran conventions
-        ifeq ($(blas_int),int64)
+        ifeq (${blas_int},int64)
             LIBS += -lmkl_intel_ilp64
         else
             LIBS += -lmkl_intel_lp64
         endif
 
         # if threaded, use Intel OpenMP (iomp5)
-        ifeq ($(blas_threaded),1)
+        ifeq (${blas_threaded},1)
             LIBS += -lmkl_intel_thread
         else
             LIBS += -lmkl_sequential
         endif
     else
         # use GNU Fortran conventions
-        ifeq ($(blas_int),int64)
+        ifeq (${blas_int},int64)
             LIBS += -lmkl_gf_ilp64
         else
             LIBS += -lmkl_gf_lp64
         endif
 
         # if threaded, use GNU OpenMP (gomp)
-        ifeq ($(blas_threaded),1)
+        ifeq (${blas_threaded},1)
             LIBS += -lmkl_gnu_thread
         else
             LIBS += -lmkl_sequential
@@ -266,35 +266,36 @@ ifeq ($(blas),mkl)
 
     # MKL on MacOS doesn't include ScaLAPACK; use default.
     # For others, link with appropriate version of ScaLAPACK and BLACS.
-    ifneq ($(macos),1)
-        ifeq ($(mkl_blacs),openmpi)
-            ifeq ($(blas_int),int64)
+    ifneq (${macos},1)
+        ifeq (${mkl_blacs},openmpi)
+            ifeq (${blas_int},int64)
                 SCALAPACK_LIBRARIES ?= -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
             else
                 SCALAPACK_LIBRARIES ?= -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
             endif
         else
-            ifeq ($(blas_int),int64)
+            ifeq (${blas_int},int64)
                 SCALAPACK_LIBRARIES ?= -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
             else
                 SCALAPACK_LIBRARIES ?= -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
             endif
         endif
     endif
-else ifeq ($(blas),essl)
+else ifeq (${blas},essl)
     # IBM ESSL
     # todo threaded, int64
     # hmm... likely LAPACK won't be int64 even if ESSL is.
     LIBS += -lessl -llapack
-else ifeq ($(blas),openblas)
+else ifeq (${blas},openblas)
     # OpenBLAS
     LIBS += -lopenblas
-else ifeq ($(blas),libsci)
+else ifeq (${blas},libsci)
     # Cray LibSci
     # no LIBS to add
     SCALAPACK_LIBRARIES ?=
 else
-    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas, libsci)
+    ${error ERROR: unknown `blas=${blas}`. Set blas to one of mkl, essl, \
+            openbblas, libsci, accelerate}
 endif
 
 # If not set by user or above, set default.
@@ -302,54 +303,57 @@ SCALAPACK_LIBRARIES ?= -lscalapack
 
 #-------------------------------------------------------------------------------
 # if CUDA
-ifeq ($(cuda),1)
+ifeq (${cuda},1)
     # Generate flags for which CUDA architectures to build.
     # cuda_arch_ is a local copy to modify.
-    cuda_arch_ = $(cuda_arch)
-    ifneq ($(findstring kepler, $(cuda_arch_)),)
+    cuda_arch_ = ${cuda_arch}
+    ifneq (,${findstring kepler, ${cuda_arch_}})
         cuda_arch_ += sm_30
     endif
-    ifneq ($(findstring maxwell, $(cuda_arch_)),)
+    ifneq (,${findstring maxwell, ${cuda_arch_}})
         cuda_arch_ += sm_50
     endif
-    ifneq ($(findstring pascal, $(cuda_arch_)),)
+    ifneq (,${findstring pascal, ${cuda_arch_}})
         cuda_arch_ += sm_60
     endif
-    ifneq ($(findstring volta, $(cuda_arch_)),)
+    ifneq (,${findstring volta, ${cuda_arch_}})
         cuda_arch_ += sm_70
     endif
-    ifneq ($(findstring turing, $(cuda_arch_)),)
+    ifneq (,${findstring turing, ${cuda_arch_}})
         cuda_arch_ += sm_75
     endif
-    ifneq ($(findstring ampere, $(cuda_arch_)),)
+    ifneq (,${findstring ampere, ${cuda_arch_}})
         cuda_arch_ += sm_80
     endif
-    ifneq ($(findstring hopper, $(cuda_arch_)),)
+    ifneq (,${findstring hopper, ${cuda_arch_}})
         cuda_arch_ += sm_90
     endif
 
     # Extract CUDA sm architectures.
-    sms = $(sort $(patsubst sm_%, %, $(filter sm_%, $(cuda_arch_))))
+    sms = ${sort ${patsubst sm_%, %, ${filter sm_%, ${cuda_arch_}}}}
 
     # Generate nvcc gencode options for all sm_XY in cuda_arch_.
     # code=sm_XX is binary, code=compute_XX is PTX
-    nv_sm      = $(foreach sm, $(sms),-gencode arch=compute_$(sm),code=sm_$(sm))
-    nv_compute = $(foreach sm, $(sms),-gencode arch=compute_$(sm),code=compute_$(sm))
+    nv_sm      = ${foreach sm, ${sms},-gencode arch=compute_${sm},code=sm_${sm}}
+    nv_compute = ${foreach sm, ${sms},-gencode arch=compute_${sm},code=compute_${sm}}
 
-    ifeq ($(sms),)
+    ifeq (${sms},)
         # Error if cuda_arch is not empty and sms is empty.
-        ifneq ($(cuda_arch),)
-            $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one or more of kepler, maxwell, pascal, volta, turing, ampere, hopper, or valid sm_XY from nvcc -h)
+        ifneq (${cuda_arch},)
+            ${error ERROR: unknown `cuda_arch=${cuda_arch}`. Set cuda_arch \
+                    to one or more of kepler, maxwell, pascal, volta, \
+                    turing, ampere, hopper, \
+                    or valid sm_XY from nvcc -h}
         endif
     else
         # Get last option (last 2 words) of nv_compute.
-        nwords := $(words $(nv_compute))
-        nwords_1 := $(shell expr $(nwords) - 1)
-        nv_compute_last := $(wordlist $(nwords_1), $(nwords), $(nv_compute))
+        nwords := ${words ${nv_compute}}
+        nwords_1 := ${shell expr ${nwords} - 1}
+        nv_compute_last := ${wordlist ${nwords_1}, ${nwords}, ${nv_compute}}
     endif
 
     # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
-    NVCCFLAGS += $(nv_sm) $(nv_compute_last)
+    NVCCFLAGS += ${nv_sm} ${nv_compute_last}
 
     libdir := ${CUDA_PATH}/lib64
     ifeq (${wildcard ${libdir}},)
@@ -361,47 +365,49 @@ endif
 
 #-------------------------------------------------------------------------------
 # if HIP
-ifeq ($(hip),1)
+ifeq (${hip},1)
     # Generate flags for which HIP architectures to build.
     # hip_arch_ is a local copy to modify.
-    hip_arch_ = $(hip_arch)
-    ifneq ($(findstring mi25, $(hip_arch_)),)
+    hip_arch_ = ${hip_arch}
+    ifneq (,${findstring mi25, ${hip_arch_}})
         hip_arch_ += gfx900
     endif
-    ifneq ($(findstring mi50, $(hip_arch_)),)
+    ifneq (,${findstring mi50, ${hip_arch_}})
         hip_arch_ += gfx906
     endif
-    ifneq ($(findstring mi100, $(hip_arch_)),)
+    ifneq (,${findstring mi100, ${hip_arch_}})
         hip_arch_ += gfx908
     endif
-    ifneq ($(findstring mi200, $(hip_arch_)),)
+    ifneq (,${findstring mi200, ${hip_arch_}})
         hip_arch_ += gfx90a
     endif
 
     # Extract AMD gfx architectures.
-    gfx = $(sort $(filter gfx%, $(hip_arch_)))
-    ifeq ($(gfx),)
+    gfx = ${sort ${filter gfx%, ${hip_arch_}}}
+    ifeq (${gfx},)
         # Error if hip_arch is not empty and gfx is empty.
-        ifneq ($(hip_arch),)
-            $(error ERROR: unknown `hip_arch=$(hip_arch)`. Set hip_arch to one or more of mi25, mi50, mi100, or valid gfxXYZ. See https://llvm.org/docs/AMDGPUUsage.html)
+        ifneq (${hip_arch},)
+            ${error ERROR: unknown `hip_arch=${hip_arch}`. Set hip_arch \
+                    to one or more of mi25, mi50, mi100, or valid gfxXYZ. \
+                    See https://llvm.org/docs/AMDGPUUsage.html}
         endif
     endif
 
     # Generate hipcc target options for all gfx in hip_arch_.
-    offload_arch = $(foreach arch, $(gfx),--offload-arch=$(arch))
-    HIPCCFLAGS += $(offload_arch)
+    offload_arch = ${foreach arch, ${gfx},--offload-arch=${arch}}
+    HIPCCFLAGS += ${offload_arch}
     FLAGS += -I${ROCM_PATH}/include -D__HIP_PLATFORM_AMD__
-    LIBS  += -L$(ROCM_PATH)/lib -Wl,-rpath,${ROCM_PATH}/lib -lrocsolver -lrocblas -lamdhip64
+    LIBS  += -L${ROCM_PATH}/lib -Wl,-rpath,${ROCM_PATH}/lib -lrocsolver -lrocblas -lamdhip64
 
     # ROCm 4.0 has errors in its headers that produce excessive warnings.
-    CXXFLAGS := $(filter-out -pedantic, $(CXXFLAGS))
+    CXXFLAGS := ${filter-out -pedantic, ${CXXFLAGS}}
     CXXFLAGS += -Wno-unused-result
 endif
 
 #-------------------------------------------------------------------------------
 # MacOS needs shared library's path set
-ifeq ($(macos),1)
-    install_name = -install_name @rpath/$(notdir $@)
+ifeq (${macos},1)
+    install_name = -install_name @rpath/${notdir $@}
 else
     install_name =
 endif
@@ -426,7 +432,7 @@ libslate_src += \
         # End. Add alphabetically.
 
 # Most unit testers don't need the whole library, only the above subset.
-ifneq ($(only_unit),1)
+ifneq (${only_unit},1)
     libslate_src += \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
@@ -509,8 +515,8 @@ cuda_src := \
 cuda_hdr := \
         src/cuda/device_util.cuh
 
-hip_src := $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(cuda_src))
-hip_hdr := $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(cuda_hdr))
+hip_src := ${patsubst src/cuda/%.cu,src/hip/%.hip.cc,${cuda_src}}
+hip_hdr := ${patsubst src/cuda/%.cuh,src/hip/%.hip.hh,${cuda_hdr}}
 
 # OpenMP implementations of device kernels
 omptarget_src := \
@@ -542,7 +548,7 @@ endif
 
 #-------------------------------------------------------------------------------
 # driver
-ifneq ($(only_unit),1)
+ifneq (${only_unit},1)
     libslate_src += \
         src/add.cc \
         src/bdsqr.cc \
@@ -641,7 +647,7 @@ ifneq ($(only_unit),1)
         # End. Add alphabetically.
 endif
 
-ifneq ($(have_fortran),)
+ifneq (${have_fortran},)
     libslate_src += \
         src/ssteqr2.f \
         src/dsteqr2.f \
@@ -649,11 +655,13 @@ ifneq ($(have_fortran),)
         src/zsteqr2.f \
         # End. Add alphabetically, by base name after precision.
 else
-    $(error ERROR: Fortran compiler FC='$(FC)' not found. Set FC to a Fortran compiler (mpif90, gfortran, ifort, xlf, ftn, ...). We hope to eventually remove this requirement.)
+    ${error ERROR: Fortran compiler FC='${FC}' not found. Set FC to a \
+            Fortran compiler (mpif90, gfortran, ifort, xlf, ftn, ...}. \
+            We hope to eventually remove this requirement.)
 endif
 
 # C API
-ifeq ($(c_api),1)
+ifeq (${c_api},1)
     libslate_src += \
         src/c_api/matrix.cc \
         src/c_api/util.cc \
@@ -663,7 +671,7 @@ ifeq ($(c_api),1)
 endif
 
 # Fortran module
-ifeq ($(fortran_api),1)
+ifeq (${fortran_api},1)
     libslate_src += \
         src/fortran/slate_module.f90 \
         # End. Add alphabetically.
@@ -740,9 +748,9 @@ tester_src += \
         test/test_unmtr_he2hb.cc \
         # End. Add alphabetically.
 
-# Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
+# Compile fixes for ScaLAPACK routines if Fortran compiler ${FC} exists.
 ifneq (${SCALAPACK_LIBRARIES},none)
-ifneq ($(have_fortran),)
+ifneq (${have_fortran},)
     tester_src += \
         test/pslange.f \
         test/pdlange.f \
@@ -789,7 +797,7 @@ ifeq (${c_api},1)
         unit_test/test_c_api.cc
 endif
 
-ifneq ($(only_unit),1)
+ifneq (${only_unit},1)
     unit_src += \
         unit_test/test_lq.cc \
         unit_test/test_qr.cc \
@@ -800,15 +808,15 @@ endif
 unit_test_obj = \
         unit_test/unit_test.o
 
-libslate_obj  = $(addsuffix .o, $(basename $(libslate_src)))
-libmatgen_obj = $(addsuffix .o, $(basename $(libmatgen_src)))
-tester_obj    = $(addsuffix .o, $(basename $(tester_src)))
-unit_obj      = $(addsuffix .o, $(basename $(unit_src)))
-dep           = $(addsuffix .d, $(basename $(libslate_src) $(libmatgen_src) \
-                                           $(tester_src) $(unit_src) $(unit_test_obj)))
+libslate_obj  = ${addsuffix .o, ${basename ${libslate_src}}}
+libmatgen_obj = ${addsuffix .o, ${basename ${libmatgen_src}}}
+tester_obj    = ${addsuffix .o, ${basename ${tester_src}}}
+unit_obj      = ${addsuffix .o, ${basename ${unit_src}}}
+dep           = ${addsuffix .d, ${basename ${libslate_src} ${libmatgen_src} \
+                                           ${tester_src} ${unit_src} ${unit_test_obj}}}
 
 tester    = test/tester
-unit_test = $(basename $(unit_src))
+unit_test = ${basename ${unit_src}}
 
 # For `tester --debug`, lldb may need test.o compiled with -O0 (after -O3)
 # to see variable `i`.
@@ -817,18 +825,18 @@ test/test.o: CXXFLAGS += -O0
 #-------------------------------------------------------------------------------
 # Get Mercurial id, and make version.o depend on it via .id file.
 
-ifneq ($(wildcard .git),)
-    id := $(shell git rev-parse --short HEAD)
-    src/version.o: CXXFLAGS += -DSLATE_ID='"$(id)"'
+ifneq (${wildcard .git},)
+    id := ${shell git rev-parse --short HEAD}
+    src/version.o: CXXFLAGS += -DSLATE_ID='"${id}"'
 endif
 
-last_id := $(shell [ -e .id ] && cat .id || echo 'NA')
-ifneq ($(id),$(last_id))
+last_id := ${shell [ -e .id ] && cat .id || echo 'NA'}
+ifneq (${id},${last_id})
     .id: force
 endif
 
 .id:
-	echo $(id) > .id
+	echo ${id} > .id
 
 src/version.o: .id
 
@@ -841,34 +849,34 @@ FLAGS += -I./lapackpp/include
 FLAGS += -I./include
 FLAGS += -I./src
 
-CXXFLAGS   += $(FLAGS)
-NVCCFLAGS  += $(FLAGS)
-HIPCCFLAGS += $(FLAGS)
+CXXFLAGS   += ${FLAGS}
+NVCCFLAGS  += ${FLAGS}
+HIPCCFLAGS += ${FLAGS}
 
 # libraries to create libslate.so
 LDFLAGS  += -L./blaspp/lib
 LDFLAGS  += -L./lapackpp/lib
-LIBS     := -lblaspp -llapackpp $(LIBS)
+LIBS     := -lblaspp -llapackpp ${LIBS}
 
 # additional flags and libraries for testers
-$(tester_obj):    CXXFLAGS += -I./testsweeper
-$(unit_obj):      CXXFLAGS += -I./testsweeper
-$(unit_test_obj): CXXFLAGS += -I./testsweeper
+${tester_obj}:    CXXFLAGS += -I./testsweeper
+${unit_obj}:      CXXFLAGS += -I./testsweeper
+${unit_test_obj}: CXXFLAGS += -I./testsweeper
 
-TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
-TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
-TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
+TEST_LDFLAGS += -L./lib -Wl,-rpath,${abspath ./lib}
+TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,${abspath ./testsweeper}
+TEST_LDFLAGS += -Wl,-rpath,${abspath ./blaspp/lib}
+TEST_LDFLAGS += -Wl,-rpath,${abspath ./lapackpp/lib}
 TEST_LIBS    += -lslate -lslate_matgen -ltestsweeper
 ifneq (${SCALAPACK_LIBRARIES},none)
     TEST_LIBS += ${SCALAPACK_LIBRARIES}
     CXXFLAGS  += -DSLATE_HAVE_SCALAPACK
 endif
 
-UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
-UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
-UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
-UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
+UNIT_LDFLAGS += -L./lib -Wl,-rpath,${abspath ./lib}
+UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,${abspath ./testsweeper}
+UNIT_LDFLAGS += -Wl,-rpath,${abspath ./blaspp/lib}
+UNIT_LDFLAGS += -Wl,-rpath,${abspath ./lapackpp/lib}
 UNIT_LIBS    += -lslate -ltestsweeper
 
 #-------------------------------------------------------------------------------
@@ -882,7 +890,7 @@ all: lib unit_test hooks
 
 pkg = lib/pkgconfig/slate.pc
 
-ifneq ($(only_unit),1)
+ifneq (${only_unit},1)
     all: tester lapack_api
     install: lapack_api
     ifneq (${SCALAPACK_LIBRARIES},none)
@@ -929,7 +937,7 @@ docs:
 
 #-------------------------------------------------------------------------------
 # C API
-ifeq ($(c_api),1)
+ifeq (${c_api},1)
     include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
 		${python} tools/c_api/generate_wrappers.py $< $@ \
 			src/c_api/wrappers_precisions.cc
@@ -952,7 +960,7 @@ endif
 
 #-------------------------------------------------------------------------------
 # Fortran module
-ifeq ($(fortran_api),1)
+ifeq (${fortran_api},1)
     src/fortran/slate_module.f90: include/slate/c_api/wrappers.h \
                                   include/slate/c_api/types.h \
                                   include/slate/c_api/matrix.h
@@ -963,119 +971,119 @@ endif
 
 #-------------------------------------------------------------------------------
 # testsweeper library
-testsweeper_src = $(wildcard testsweeper/*.hh testsweeper/*.cc)
+testsweeper_src = ${wildcard testsweeper/*.hh testsweeper/*.cc}
 
-testsweeper = testsweeper/libtestsweeper.$(lib_ext)
+testsweeper = testsweeper/libtestsweeper.${lib_ext}
 
-$(testsweeper): $(testsweeper_src)
-	cd testsweeper && $(MAKE) lib
+${testsweeper}: ${testsweeper_src}
+	cd testsweeper && ${MAKE} lib
 
-testsweeper: $(testsweeper)
+testsweeper: ${testsweeper}
 
 #-------------------------------------------------------------------------------
 # BLAS++ library
-libblaspp_src = $(wildcard blaspp/include/*.h \
+libblaspp_src = ${wildcard blaspp/include/*.h \
                            blaspp/include/*.hh \
-                           blaspp/src/*.cc)
+                           blaspp/src/*.cc}
 
-libblaspp = blaspp/lib/libblaspp.$(lib_ext)
+libblaspp = blaspp/lib/libblaspp.${lib_ext}
 
 # dependency on testsweeper serializes compiles
-$(libblaspp): $(libblaspp_src) | $(testsweeper)
-	cd blaspp && $(MAKE) lib
+${libblaspp}: ${libblaspp_src} | ${testsweeper}
+	cd blaspp && ${MAKE} lib
 
-blaspp: $(libblaspp)
+blaspp: ${libblaspp}
 
 #-------------------------------------------------------------------------------
 # LAPACK++ library
-liblapackpp_src = $(wildcard lapackpp/include/*.h \
+liblapackpp_src = ${wildcard lapackpp/include/*.h \
                              lapackpp/include/*.hh \
-                             lapackpp/src/*.cc)
+                             lapackpp/src/*.cc}
 
-liblapackpp = lapackpp/lib/liblapackpp.$(lib_ext)
+liblapackpp = lapackpp/lib/liblapackpp.${lib_ext}
 
 # dependency on testsweeper, BLAS++ serializes compiles
-$(liblapackpp): $(liblapackpp_src) | $(testsweeper) $(libblaspp)
-	cd lapackpp && $(MAKE) lib
+${liblapackpp}: ${liblapackpp_src} | ${testsweeper} ${libblaspp}
+	cd lapackpp && ${MAKE} lib
 
-lapackpp: $(liblapackpp)
+lapackpp: ${liblapackpp}
 
 #-------------------------------------------------------------------------------
 # libslate library
 libslate_a  = lib/libslate.a
 libslate_so = lib/libslate.so
-libslate    = lib/libslate.$(lib_ext)
+libslate    = lib/libslate.${lib_ext}
 
-$(libslate_a): $(libslate_obj)
+${libslate_a}: ${libslate_obj}
 	mkdir -p lib
 	-rm $@
-	ar cr $@ $(libslate_obj)
+	ar cr $@ ${libslate_obj}
 	ranlib $@
 
-$(libslate_so): $(libslate_obj)
+${libslate_so}: ${libslate_obj}
 	mkdir -p lib
-	$(LD) $(LDFLAGS) \
-		$(libslate_obj) \
-		$(LIBS) \
-		-shared $(install_name) -o $@
+	${LD} ${LDFLAGS} \
+		${libslate_obj} \
+		${LIBS} \
+		-shared ${install_name} -o $@
 
-src: $(libslate)
+src: ${libslate}
 
 #-------------------------------------------------------------------------------
 # headers
 # precompile headers to verify self-sufficiency
-headers     = $(wildcard include/slate/*.hh \
+headers     = ${wildcard include/slate/*.hh \
                          include/slate/internal/*.hh \
                          test/*.hh \
                          include/slate/c_api/*.h \
-                         include/slate/c_api/*.hh)
+                         include/slate/c_api/*.hh}
 
-headers_gch = $(addsuffix .gch, $(basename $(headers)))
+headers_gch = ${addsuffix .gch, ${basename ${headers}}}
 
-headers: $(headers_gch)
+headers: ${headers_gch}
 
 # sub-directory rules
 include: headers
 
 include/clean:
-	$(RM) include/*/*.gch test/*.gch
+	${RM} include/*/*.gch test/*.gch
 
 #-------------------------------------------------------------------------------
 # libslate_matgen library
 libmatgen_a  = lib/libslate_matgen.a
 libmatgen_so = lib/libslate_matgen.so
-libmatgen    = lib/libslate_matgen.$(lib_ext)
+libmatgen    = lib/libslate_matgen.${lib_ext}
 
 MATGEN_LDFLAGS += -L./lib
 MATGEN_LIBS    += -lslate
 
-$(libmatgen_a): $(libmatgen_obj)
+${libmatgen_a}: ${libmatgen_obj}
 	mkdir -p lib
 	-rm $@
-	ar cr $@ $(libmatgen_obj)
+	ar cr $@ ${libmatgen_obj}
 	ranlib $@
 
-$(libmatgen_so): $(libmatgen_obj) $(libslate_so)
+${libmatgen_so}: ${libmatgen_obj} ${libslate_so}
 	mkdir -p lib
-	$(LD) $(MATGEN_LDFLAGS) $(LDFLAGS) \
-		$(libmatgen_obj) \
-		$(MATGEN_LIBS) $(LIBS) \
-		-shared $(install_name) -o $@
+	${LD} ${MATGEN_LDFLAGS} ${LDFLAGS} \
+		${libmatgen_obj} \
+		${MATGEN_LIBS} ${LIBS} \
+		-shared ${install_name} -o $@
 
-matgen: $(libmatgen)
+matgen: ${libmatgen}
 
 #-------------------------------------------------------------------------------
 # main tester
 # Note 'test' is sub-directory rule; 'tester' is CMake-compatible rule.
-test: $(tester)
-tester: $(tester)
+test: ${tester}
+tester: ${tester}
 
 test/clean:
-	rm -f $(tester) $(tester_obj)
+	rm -f ${tester} ${tester_obj}
 
-$(tester): $(tester_obj) $(libslate) $(libmatgen) $(testsweeper)
-	$(LD) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
-		$(TEST_LIBS) $(LIBS) \
+${tester}: ${tester_obj} ${libslate} ${libmatgen} ${testsweeper}
+	${LD} ${TEST_LDFLAGS} ${LDFLAGS} ${tester_obj} \
+		${TEST_LIBS} ${LIBS} \
 		-o $@
 
 test/check: check
@@ -1087,21 +1095,21 @@ check: test unit_test
 
 #-------------------------------------------------------------------------------
 # unit testers
-unit_test: $(unit_test)
+unit_test: ${unit_test}
 
 unit_test/clean:
-	rm -f $(unit_test) $(unit_obj) $(unit_test_obj)
+	rm -f ${unit_test} ${unit_obj} ${unit_test_obj}
 
-$(unit_test): %: %.o $(unit_test_obj) $(libslate)
-	$(LD) $(UNIT_LDFLAGS) $(LDFLAGS) $< \
-		$(unit_test_obj) $(UNIT_LIBS) $(LIBS)  \
+${unit_test}: %: %.o ${unit_test_obj} ${libslate}
+	${LD} ${UNIT_LDFLAGS} ${LDFLAGS} $< \
+		${unit_test_obj} ${UNIT_LIBS} ${LIBS}  \
 		-o $@
 
 #-------------------------------------------------------------------------------
 # scalapack_api library
 scalapack_api_a  = lib/libslate_scalapack_api.a
 scalapack_api_so = lib/libslate_scalapack_api.so
-scalapack_api    = lib/libslate_scalapack_api.$(lib_ext)
+scalapack_api    = lib/libslate_scalapack_api.${lib_ext}
 
 scalapack_api_src += \
         scalapack_api/scalapack_gecon.cc \
@@ -1134,29 +1142,29 @@ scalapack_api_src += \
         scalapack_api/scalapack_trsm.cc \
         # End. Add alphabetically.
 
-scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
+scalapack_api_obj = ${addsuffix .o, ${basename ${scalapack_api_src}}}
 
-dep += $(addsuffix .d, $(basename $(scalapack_api_src)))
+dep += ${addsuffix .d, ${basename ${scalapack_api_src}}}
 
 SCALAPACK_API_LDFLAGS += -L./lib
 SCALAPACK_API_LIBS    += -lslate ${SCALAPACK_LIBRARIES}
 
-scalapack_api: $(scalapack_api)
+scalapack_api: ${scalapack_api}
 
 scalapack_api/clean:
-	rm -f $(scalapack_api) $(scalapack_api_obj)
+	rm -f ${scalapack_api} ${scalapack_api_obj}
 
-$(scalapack_api_a): $(scalapack_api_obj) $(libslate)
+${scalapack_api_a}: ${scalapack_api_obj} ${libslate}
 	-rm $@
-	ar cr $@ $(scalapack_api_obj)
+	ar cr $@ ${scalapack_api_obj}
 	ranlib $@
 
 ifneq (${SCALAPACK_LIBRARIES},none)
-    $(scalapack_api_so): $(scalapack_api_obj) $(libslate)
-		$(LD) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
-			$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
+    ${scalapack_api_so}: ${scalapack_api_obj} ${libslate}
+		${LD} ${SCALAPACK_API_LDFLAGS} ${LDFLAGS} ${scalapack_api_obj} \
+			${SCALAPACK_API_LIBS} ${LIBS} -shared ${install_name} -o $@
 else
-    $(scalapack_api_so):
+    ${scalapack_api_so}:
 		@echo "Error: building $@ requires ScaLAPACK library, currently set to ${SCALAPACK_LIBRARIES}."
 		false
 endif
@@ -1165,7 +1173,7 @@ endif
 # lapack_api library
 lapack_api_a  = lib/libslate_lapack_api.a
 lapack_api_so = lib/libslate_lapack_api.so
-lapack_api    = lib/libslate_lapack_api.$(lib_ext)
+lapack_api    = lib/libslate_lapack_api.${lib_ext}
 
 lapack_api_src += \
         lapack_api/lapack_gecon.cc \
@@ -1198,26 +1206,26 @@ lapack_api_src += \
         lapack_api/lapack_trsm.cc \
         # End. Add alphabetically.
 
-lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
+lapack_api_obj = ${addsuffix .o, ${basename ${lapack_api_src}}}
 
-dep += $(addsuffix .d, $(basename $(lapack_api_src)))
+dep += ${addsuffix .d, ${basename ${lapack_api_src}}}
 
 LAPACK_API_LDFLAGS += -L./lib
 LAPACK_API_LIBS    += -lslate
 
-lapack_api: $(lapack_api)
+lapack_api: ${lapack_api}
 
 lapack_api/clean:
-	rm -f $(lapack_api) $(lapack_api_obj)
+	rm -f ${lapack_api} ${lapack_api_obj}
 
-$(lapack_api_a): $(lapack_api_obj) $(libslate)
+${lapack_api_a}: ${lapack_api_obj} ${libslate}
 	-rm $@
-	ar cr $@ $(lapack_api_obj)
+	ar cr $@ ${lapack_api_obj}
 	ranlib $@
 
-$(lapack_api_so): $(lapack_api_obj) $(libslate)
-	$(LD) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
-		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
+${lapack_api_so}: ${lapack_api_obj} ${libslate}
+	${LD} ${LAPACK_API_LDFLAGS} ${LDFLAGS} ${lapack_api_obj} \
+		${LAPACK_API_LIBS} ${LIBS} -shared ${install_name} -o $@
 
 #-------------------------------------------------------------------------------
 # HIP sources converted from CUDA sources.
@@ -1299,11 +1307,11 @@ ${pkg}:
 #-------------------------------------------------------------------------------
 # general rules
 
-lib: $(libslate) $(libmatgen)
+lib: ${libslate} ${libmatgen}
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
-	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep) \
-			$(libmatgen_a) $(libmatgen_so) $(libmatgen_obj)
+	rm -f ${libslate_a} ${libslate_so} ${libslate_obj} ${dep} \
+			${libmatgen_a} ${libmatgen_so} ${libmatgen_obj}
 	rm -f trace_*.svg
 
 distclean: clean
@@ -1315,9 +1323,9 @@ distclean: clean
 	rm -f include/slate/c_api/util.hh
 	rm -f src/fortran/slate_module.f90
 	rm -f ${md5_files}
-	cd testsweeper && $(MAKE) distclean
-	cd blaspp      && $(MAKE) distclean
-	cd lapackpp    && $(MAKE) distclean
+	cd testsweeper && ${MAKE} distclean
+	cd blaspp      && ${MAKE} distclean
+	cd lapackpp    && ${MAKE} distclean
 
 # Install git hooks
 hooks = .git/hooks/pre-commit .git/hooks/pre-push
@@ -1334,60 +1342,60 @@ hooks: ${hooks}
 # Compile object files
 
 # .hip.cc rule before .cc rule.
-%.hip.o: %.hip.cc | $(hip_hdr)
-	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
+%.hip.o: %.hip.cc | ${hip_hdr}
+	${HIPCC} ${HIPCCFLAGS} -c $< -o $@
 
 %.o: %.cc
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	${CXX} ${CXXFLAGS} -c $< -o $@
 
 %.o: %.f
-	$(FC) $(FCFLAGS) -c $< -o $@
+	${FC} ${FCFLAGS} -c $< -o $@
 
 %.o: %.f90
-	$(FC) $(FCFLAGS) -c $< -o $@
+	${FC} ${FCFLAGS} -c $< -o $@
 
 %.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	${NVCC} ${NVCCFLAGS} -c $< -o $@
 
 #-------------------------------------------------------------------------------
 # Preprocess source
 
 # test/%.i depend on testsweeper; for simplicity just add it here.
 %.i: %.cc
-	$(CXX) $(CXXFLAGS) -I./testsweeper -E $< -o $@
+	${CXX} ${CXXFLAGS} -I./testsweeper -E $< -o $@
 
 #-------------------------------------------------------------------------------
 # Precompile header to check for errors
 
 # test/%.gch depend on testsweeper; for simplicity just add it here.
 %.gch: %.hh
-	$(CXX) $(CXXFLAGS) -I./testsweeper -c $< -o $@
+	${CXX} ${CXXFLAGS} -I./testsweeper -c $< -o $@
 
--include $(dep)
+-include ${dep}
 
 #-------------------------------------------------------------------------------
 # Extra dependencies to force TestSweeper, BLAS++, LAPACK++ to be compiled before SLATE.
 
-$(libslate_obj):      | $(libblaspp) $(liblapackpp)
-$(libmatgen_obj):     | $(libblaspp) $(liblapackpp)
-$(tester_obj):        | $(libblaspp) $(liblapackpp)
-$(unit_test_obj):     | $(libblaspp) $(liblapackpp)
-$(unit_obj):          | $(libblaspp) $(liblapackpp)
-$(lapack_api_obj):    | $(libblaspp) $(liblapackpp)
-$(scalapack_api_obj): | $(libblaspp) $(liblapackpp)
+${libslate_obj}:      | ${libblaspp} ${liblapackpp}
+${libmatgen_obj}:     | ${libblaspp} ${liblapackpp}
+${tester_obj}:        | ${libblaspp} ${liblapackpp}
+${unit_test_obj}:     | ${libblaspp} ${liblapackpp}
+${unit_obj}:          | ${libblaspp} ${liblapackpp}
+${lapack_api_obj}:    | ${libblaspp} ${liblapackpp}
+${scalapack_api_obj}: | ${libblaspp} ${liblapackpp}
 
 #-------------------------------------------------------------------------------
 # debugging
 echo:
 	@echo "---------- Options"
-	@echo "mpi           = '$(mpi)'"
-	@echo "blas          = '$(blas)'"
-	@echo "blas_int      = '$(blas_int)'"
-	@echo "blas_threaded = '$(blas_threaded)'"
-	@echo "blas_fortran  = '$(blas_fortran)'"
-	@echo "mkl_blacs     = '$(mkl_blacs)'"
-	@echo "openmp        = '$(openmp)'"
-	@echo "static        = '$(static)'"
+	@echo "mpi           = '${mpi}'"
+	@echo "blas          = '${blas}'"
+	@echo "blas_int      = '${blas_int}'"
+	@echo "blas_threaded = '${blas_threaded}'"
+	@echo "blas_fortran  = '${blas_fortran}'"
+	@echo "mkl_blacs     = '${mkl_blacs}'"
+	@echo "openmp        = '${openmp}'"
+	@echo "static        = '${static}'"
 	@echo "gpu_backend   = '${gpu_backend}'"
 	@echo "prefix        = '${prefix}'"
 	@echo "abs_prefix    = '${abs_prefix}'"
@@ -1396,109 +1404,109 @@ echo:
 	@echo "SCALAPACK_LIBRARIES = '${SCALAPACK_LIBRARIES}'"
 	@echo
 	@echo "---------- Internal variables"
-	@echo "ostype        = '$(ostype)'"
-	@echo "macos         = '$(macos)'"
-	@echo "id            = '$(id)'"
-	@echo "last_id       = '$(last_id)'"
+	@echo "ostype        = '${ostype}'"
+	@echo "macos         = '${macos}'"
+	@echo "id            = '${id}'"
+	@echo "last_id       = '${last_id}'"
 	@echo
 	@echo "---------- Dependencies"
-	@echo "libblaspp     = $(libblaspp)"
-	@echo "liblapackpp   = $(liblapackpp)"
-	@echo "testsweeper   = $(testsweeper)"
+	@echo "libblaspp     = ${libblaspp}"
+	@echo "liblapackpp   = ${liblapackpp}"
+	@echo "testsweeper   = ${testsweeper}"
 	@echo
 	@echo "---------- Libraries"
-	@echo "libslate_a    = $(libslate_a)"
-	@echo "libslate_so   = $(libslate_so)"
-	@echo "libslate      = $(libslate)"
+	@echo "libslate_a    = ${libslate_a}"
+	@echo "libslate_so   = ${libslate_so}"
+	@echo "libslate      = ${libslate}"
 	@echo "pkg           = ${pkg}"
 	@echo
-	@echo "libmatgen_a   = $(libmatgen_a)"
-	@echo "libmatgen_so  = $(libmatgen_so)"
-	@echo "libmatgen     = $(libmatgen)"
+	@echo "libmatgen_a   = ${libmatgen_a}"
+	@echo "libmatgen_so  = ${libmatgen_so}"
+	@echo "libmatgen     = ${libmatgen}"
 	@echo
 	@echo "---------- Files"
-	@echo "libslate_src  = $(libslate_src)"
+	@echo "libslate_src  = ${libslate_src}"
 	@echo
-	@echo "libslate_obj  = $(libslate_obj)"
+	@echo "libslate_obj  = ${libslate_obj}"
 	@echo
-	@echo "libmatgen_src = $(libmatgen_src)"
+	@echo "libmatgen_src = ${libmatgen_src}"
 	@echo
-	@echo "libmatgen_obj = $(libmatgen_obj)"
+	@echo "libmatgen_obj = ${libmatgen_obj}"
 	@echo
-	@echo "tester_src    = $(tester_src)"
+	@echo "tester_src    = ${tester_src}"
 	@echo
-	@echo "tester_obj    = $(tester_obj)"
+	@echo "tester_obj    = ${tester_obj}"
 	@echo
-	@echo "tester        = $(tester)"
+	@echo "tester        = ${tester}"
 	@echo
-	@echo "unit_src      = $(unit_src)"
+	@echo "unit_src      = ${unit_src}"
 	@echo
-	@echo "unit_obj      = $(unit_obj)"
+	@echo "unit_obj      = ${unit_obj}"
 	@echo
-	@echo "unit_test_obj = $(unit_test_obj)"
+	@echo "unit_test_obj = ${unit_test_obj}"
 	@echo
-	@echo "unit_test     = $(unit_test)"
+	@echo "unit_test     = ${unit_test}"
 	@echo
-	@echo "dep           = $(dep)"
+	@echo "dep           = ${dep}"
 	@echo
 	@echo "---------- C++ compiler"
-	@echo "CXX           = $(CXX)"
-	@echo "CXXFLAGS      = $(CXXFLAGS)"
-	@echo "CXXFLAGS_clean= $(CXXFLAGS_clean)"
-	@echo "CPPFLAGS      = $(CPPFLAGS)"
-	@echo "CPPFLAGS_clean= $(CPPFLAGS_clean)"
+	@echo "CXX           = ${CXX}"
+	@echo "CXXFLAGS      = ${CXXFLAGS}"
+	@echo "CXXFLAGS_clean= ${CXXFLAGS_clean}"
+	@echo "CPPFLAGS      = ${CPPFLAGS}"
+	@echo "CPPFLAGS_clean= ${CPPFLAGS_clean}"
 	@echo
 	@echo "---------- CUDA options"
-	@echo "cuda          = '$(cuda)'"
-	@echo "cuda_arch     = $(cuda_arch)"
-	@echo "cuda_arch_    = $(cuda_arch_)"
-	@echo "NVCC          = $(NVCC)"
-	@echo "NVCC_which    = $(NVCC_which)"
-	@echo "CUDA_PATH     = $(CUDA_PATH)"
-	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
-	@echo "sms           = $(sms)"
-	@echo "nv_sm         = $(nv_sm)"
-	@echo "nv_compute    = $(nv_compute)"
-	@echo "nwords        = $(nwords)"
-	@echo "nwords_1      = $(nwords_1)"
-	@echo "nv_compute_last = $(nv_compute_last)"
+	@echo "cuda          = '${cuda}'"
+	@echo "cuda_arch     = ${cuda_arch}"
+	@echo "cuda_arch_    = ${cuda_arch_}"
+	@echo "NVCC          = ${NVCC}"
+	@echo "NVCC_which    = ${NVCC_which}"
+	@echo "CUDA_PATH     = ${CUDA_PATH}"
+	@echo "NVCCFLAGS     = ${NVCCFLAGS}"
+	@echo "sms           = ${sms}"
+	@echo "nv_sm         = ${nv_sm}"
+	@echo "nv_compute    = ${nv_compute}"
+	@echo "nwords        = ${nwords}"
+	@echo "nwords_1      = ${nwords_1}"
+	@echo "nv_compute_last = ${nv_compute_last}"
 	@echo
 	@echo "---------- HIP options"
-	@echo "hip           = '$(hip)'"
-	@echo "hip_arch      = '$(hip_arch)'"
-	@echo "hip_arch_     = '$(hip_arch_)'"
-	@echo "gfx           = $(gfx)"
-	@echo "HIPCC         = $(HIPCC)"
-	@echo "HIPCC_which   = $(HIPCC_which)"
-	@echo "ROCM_PATH     = $(ROCM_PATH)"
-	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
-	@echo "offload_arch  = $(offload_arch)"
+	@echo "hip           = '${hip}'"
+	@echo "hip_arch      = '${hip_arch}'"
+	@echo "hip_arch_     = '${hip_arch_}'"
+	@echo "gfx           = ${gfx}"
+	@echo "HIPCC         = ${HIPCC}"
+	@echo "HIPCC_which   = ${HIPCC_which}"
+	@echo "ROCM_PATH     = ${ROCM_PATH}"
+	@echo "HIPCCFLAGS    = ${HIPCCFLAGS}"
+	@echo "offload_arch  = ${offload_arch}"
 	@echo "hipify        = ${hipify}"
 	@echo "cuda_src      = ${cuda_src}"
 	@echo "cuda_hdr      = ${cuda_hdr}"
 	@echo "hip_src       = ${hip_src}"
 	@echo "hip_hdr       = ${hip_hdr}"
-	@echo "md5_files     = $(md5_files)"
+	@echo "md5_files     = ${md5_files}"
 	@echo
 	@echo "---------- SYCL options"
-	@echo "sycl          = '$(sycl)'"
+	@echo "sycl          = '${sycl}'"
 	@echo
 	@echo "---------- OMP target-offload kernel options"
 	@echo "omptarget     = '${omptarget}'"
 	@echo "omptarget_src = ${omptarget_src}"
 	@echo
 	@echo "---------- Fortran compiler"
-	@echo "FC            = $(FC)"
-	@echo "FCFLAGS       = $(FCFLAGS)"
-	@echo "have_fortran  = $(have_fortran)"
+	@echo "FC            = ${FC}"
+	@echo "FCFLAGS       = ${FCFLAGS}"
+	@echo "have_fortran  = ${have_fortran}"
 	@echo
 	@echo "---------- Link flags"
-	@echo "LD            = $(LD)"
-	@echo "LDFLAGS       = $(LDFLAGS)"
-	@echo "LIBS          = $(LIBS)"
+	@echo "LD            = ${LD}"
+	@echo "LDFLAGS       = ${LDFLAGS}"
+	@echo "LIBS          = ${LIBS}"
 	@echo
-	@echo "TEST_LDFLAGS  = $(TEST_LDFLAGS)"
-	@echo "TEST_LIBS     = $(TEST_LIBS)"
+	@echo "TEST_LDFLAGS  = ${TEST_LDFLAGS}"
+	@echo "TEST_LIBS     = ${TEST_LIBS}"
 	@echo
-	@echo "UNIT_LDFLAGS  = $(UNIT_LDFLAGS)"
-	@echo "UNIT_LIBS     = $(UNIT_LIBS)"
+	@echo "UNIT_LDFLAGS  = ${UNIT_LDFLAGS}"
+	@echo "UNIT_LIBS     = ${UNIT_LIBS}"

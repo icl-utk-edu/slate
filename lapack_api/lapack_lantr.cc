@@ -64,9 +64,14 @@ blas::real_type<scalar_t> slate_lantr(const char* normstr, const char* uplostr, 
 
     int64_t Am = m;
     int64_t An = n;
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Diag diag = blas::char2diag(diagstr[0]);
+
+    Norm norm{};
+    Uplo uplo{};
+    Diag diag{};
+    from_string( std::string( 1, normstr[0] ), &norm );
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+    from_string( std::string( 1, diagstr[0] ), &diag );
+
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;

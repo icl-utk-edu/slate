@@ -325,7 +325,7 @@ else ifeq ($(blas),libsci)
     # no LIBS to add
     SCALAPACK_LIBRARIES ?=
 else
-    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas, libsci.)
+    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas, libsci)
 endif
 
 # If not set by user or above, set default.

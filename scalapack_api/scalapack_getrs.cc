@@ -101,8 +101,10 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
         {slate::Option::Target, target}
     };
 
+    Op trans{};
+    from_string( std::string( 1, transstr[0] ), &trans );
+
     // Matrix sizes
-    blas::Op trans = blas::char2op(transstr[0]);
     int64_t Am = n;
     int64_t An = n;
     int64_t Bm = n;

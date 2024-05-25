@@ -224,7 +224,7 @@ void test_potri_work(Params& params, bool run)
 
             // Cchk_data has been setup as an identity matrix; Cchk_data = C_chk - inv(A)*A
             // A should have real diagonal. potrf and potri ignore the img part on the diagonal
-            scalapack_phemm("Left", uplo2str(uplo), n, n, -one,
+            scalapack_phemm("Left", to_c_string( uplo ), n, n, -one,
                             &A_data[0], 1, 1, A_desc,
                             &Aref_data[0], 1, 1, Aref_desc, one,
                             &Cchk_data[0], 1, 1, Cchk_desc);
@@ -239,7 +239,7 @@ void test_potri_work(Params& params, bool run)
                                 "One", n, n, &Cchk_data[0], 1, 1, Cchk_desc, &worknorm[0]);
 
             real_t A_inv_norm = scalapack_planhe(
-                                    "One", uplo2str(A.uplo()),
+                                    "One", to_c_string( A.uplo() ),
                                     n, &A_data[0], 1, 1, A_desc, &worknorm[0]);
 
             double residual = C_norm / (A_norm * n * A_inv_norm);

@@ -59,7 +59,9 @@ void slate_potrf(const char* uplostr, const int n, scalar_t* a, const int lda, i
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+    Uplo uplo{};
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;

@@ -59,8 +59,11 @@ extern "C" void pzher2k_(const char* uplo, const char* trans, int* n, int* k, st
 template< typename scalar_t >
 void slate_pher2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, blas::real_type<scalar_t> beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op trans = blas::char2op(transstr[0]);
+    Uplo uplo{};
+    Op trans{};
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+    from_string( std::string( 1, transstr[0] ), &trans );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

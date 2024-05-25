@@ -91,7 +91,9 @@ extern "C" void pzgecon_(const char* normstr, int* n, std::complex<double>* a, i
 template< typename scalar_t >
 void slate_pgecon(const char* normstr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t> anorm, blas::real_type<scalar_t>* rcond, scalar_t* work, int lwork, void* irwork, int lirwork, int* info)
 {
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
+    Norm norm{};
+    from_string( std::string( 1, normstr[0] ), &norm );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

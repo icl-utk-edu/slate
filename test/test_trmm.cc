@@ -225,7 +225,7 @@ void test_trmm_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ptrmm(side2str(side), uplo2str(uplo), op2str(transA), diag2str(diag),
+            scalapack_ptrmm(to_c_string( side ), to_c_string( uplo ), to_c_string( transA ), to_c_string( diag ),
                             m, n, alpha,
                             &A_data[0], 1, 1, A_desc,
                             &Bref_data[0], 1, 1, Bref_desc);

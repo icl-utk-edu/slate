@@ -116,8 +116,11 @@ extern "C" void slate_pzgemm(const char* transa, const char* transb, int* m, int
 template< typename scalar_t >
 void slate_pgemm(const char* transastr, const char* transbstr, int m, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    blas::Op transA = blas::char2op(transastr[0]);
-    blas::Op transB = blas::char2op(transbstr[0]);
+    Op transA{};
+    Op transB{};
+    from_string( std::string( 1, transastr[0] ), &transA );
+    from_string( std::string( 1, transbstr[0] ), &transB );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

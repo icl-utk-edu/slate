@@ -94,7 +94,9 @@ extern "C" void pzpotri_(const char* uplo, int* n, std::complex<double>* a, int*
 template< typename scalar_t >
 void slate_ppotri(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info)
 {
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+    Uplo uplo{};
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

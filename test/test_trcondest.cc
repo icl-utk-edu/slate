@@ -182,7 +182,7 @@ void test_trcondest_work(Params& params, bool run)
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
             Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit( &ictxt, grid_order2str( grid_order ), p, q );
+            Cblacs_gridinit( &ictxt, to_c_string( grid_order ), p, q );
             Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
             slate_assert( p == p_ );
             slate_assert( q == q_ );
@@ -229,7 +229,7 @@ void test_trcondest_work(Params& params, bool run)
             scalar_t dummy_trcon;
             slate::Uplo uplo = slate::Uplo::Upper;
             slate::Diag diag = slate::Diag::NonUnit;
-            scalapack_ptrcon( norm2str(norm), uplo2str(uplo), diag2str(diag), n,
+            scalapack_ptrcon( to_c_string( norm ), to_c_string( uplo ), to_c_string( diag ), n,
                               &Aref_data[0], ione, ione, Aref_desc,
                               &scl_rcond, &dummy_trcon, lwork_trcon, &idummy, liwork,
                               info_ref_trcon);
@@ -241,7 +241,7 @@ void test_trcondest_work(Params& params, bool run)
             std::vector<blas_int> iwork( liwork );
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ptrcon( norm2str(norm), uplo2str(uplo), diag2str(diag), n,
+            scalapack_ptrcon( to_c_string( norm ), to_c_string( uplo ), to_c_string( diag ), n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &scl_rcond, &work_trcon[0], lwork, &iwork[0], liwork,
                               info_ref_trcon);

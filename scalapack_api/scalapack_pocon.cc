@@ -91,7 +91,9 @@ extern "C" void pzpocon_(const char* uplostr, int* n, std::complex<double>* a, i
 template< typename scalar_t >
 void slate_ppocon(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t> anorm, blas::real_type<scalar_t>* rcond, scalar_t* work, int lwork, void* irwork, int lirwork, int* info)
 {
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+    Uplo uplo{};
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

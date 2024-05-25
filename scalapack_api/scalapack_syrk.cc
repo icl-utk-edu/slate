@@ -96,8 +96,11 @@ extern "C" void pzsyrk_(const char* uplo, const char* trans, int* n, int* k, std
 template< typename scalar_t >
 void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Op transA = blas::char2op(transstr[0]);
+    Uplo uplo{};
+    Op transA{};
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+    from_string( std::string( 1, transstr[0] ), &transA );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

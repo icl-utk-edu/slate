@@ -59,7 +59,9 @@ blas::real_type<scalar_t> slate_lange(const char* normstr, int m, int n, scalar_
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
+    Norm norm{};
+    from_string( std::string( 1, normstr[0] ), &norm );
+
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;

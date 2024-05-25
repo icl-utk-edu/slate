@@ -97,8 +97,11 @@ extern "C" void pzheev_(const char* jobzstr, const char* uplostr, int* n, std::c
 template< typename scalar_t >
 void slate_pheev(const char* jobzstr, const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* w, scalar_t* z, int iz, int jz, int* descz, scalar_t* work, int lwork, blas::real_type<scalar_t>* rwork, int lrwork, int* info)
 {
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    lapack::Job jobz = lapack::char2job(jobzstr[0]);
+    Uplo uplo{};
+    Job jobz{};
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+    from_string( std::string( 1, jobzstr[0] ), &jobz );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

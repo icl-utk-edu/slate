@@ -91,9 +91,13 @@ extern "C" void pztrcon_(const char* normstr, const char* uplostr, const char* d
 template< typename scalar_t >
 void slate_ptrcon(const char* normstr, const char* uplostr, const char* diagstr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* rcond, scalar_t* work, int lwork, void* irwork, int lirwork, int* info)
 {
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Diag diag = blas::char2diag(diagstr[0]);
+    Norm norm{};
+    Uplo uplo{};
+    Diag diag{};
+    from_string( std::string( 1, normstr[0] ), &norm );
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+    from_string( std::string( 1, diagstr[0] ), &diag );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

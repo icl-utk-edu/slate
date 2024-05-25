@@ -77,8 +77,10 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     static int64_t panel_threads = slate_lapack_set_panelthreads();
     static int64_t inner_blocking = slate_lapack_set_ib();
 
+    Op trans{};
+    from_string( std::string( 1, transstr[0] ), &trans );
+
     // sizes
-    blas::Op trans = blas::char2op(transstr[0]);
     // A is m-by-n, BX is max(m, n)-by-nrhs.
     // If op == NoTrans, op(A) is m-by-n, B is m-by-nrhs
     // otherwise,        op(A) is n-by-m, B is n-by-nrhs.

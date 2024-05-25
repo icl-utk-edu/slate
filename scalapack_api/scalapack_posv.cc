@@ -94,7 +94,9 @@ extern "C" void pzposv_(const char* uplo, int* n, int* nrhs, std::complex<double
 template< typename scalar_t >
 void slate_pposv(const char* uplostr, int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, int* info)
 {
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+    Uplo uplo{};
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

@@ -91,7 +91,9 @@ extern "C" double pzlange_(const char* norm, int* m, int* n, std::complex<double
 template< typename scalar_t >
 blas::real_type<scalar_t> slate_plange(const char* normstr, int m, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work)
 {
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
+    Norm norm{};
+    from_string( std::string( 1, normstr[0] ), &norm );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

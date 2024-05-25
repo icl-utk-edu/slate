@@ -119,8 +119,11 @@ extern "C" void slate_pzsymm(const char* side, const char* uplo, int* m, int* n,
 template< typename scalar_t >
 void slate_psymm(const char* sidestr, const char* uplostr, int m, int n, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    blas::Side side = blas::char2side(sidestr[0]);
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
+    Side side{};
+    Uplo uplo{};
+    from_string( std::string( 1, sidestr[0] ), &side );
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

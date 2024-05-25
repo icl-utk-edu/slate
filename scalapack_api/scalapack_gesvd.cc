@@ -97,8 +97,11 @@ extern "C" void pzgesvd(const char* jobustr, const char* jobvtstr, int* m, int* 
 template< typename scalar_t >
 void slate_pgesvd(const char* jobustr, const char* jobvtstr, int m, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* s, scalar_t* u, int iu, int ju, int* descu, scalar_t* vt, int ivt, int jvt, int* descvt, scalar_t* work, int lwork, blas::real_type<scalar_t>* rwork, int* info)
 {
-    lapack::Job jobu = lapack::char2job(jobustr[0]);
-    lapack::Job jobvt = lapack::char2job(jobvtstr[0]);
+    Job jobu{};
+    Job jobvt{};
+    from_string( std::string( 1, jobustr[0] ), &jobu );
+    from_string( std::string( 1, jobvtstr[0] ), &jobvt );
+
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     static int64_t lookahead = slate_scalapack_set_lookahead();

@@ -66,7 +66,7 @@ inline void slate_steqr2(
     float* work,
     blas_int* info)
 {
-    char compz_ = job_comp2char( compz );
+    char compz_ = to_char_comp( compz );
     slate_ssteqr2(&compz_, n,
             d, e,
             z, ldz, nr,
@@ -80,7 +80,7 @@ inline void slate_steqr2(
     double* work,
     blas_int* info)
 {
-    char compz_ = job_comp2char( compz );
+    char compz_ = to_char_comp( compz );
     slate_dsteqr2(&compz_, n,
             d, e,
             z, ldz, nr,
@@ -94,7 +94,7 @@ inline void slate_steqr2(
     float* work,
     blas_int* info)
 {
-    char compz_ = job_comp2char( compz );
+    char compz_ = to_char_comp( compz );
     slate_csteqr2(&compz_, n,
             d, e,
             z, ldz, nr,
@@ -108,7 +108,7 @@ inline void slate_steqr2(
     double* work,
     blas_int* info)
 {
-    char compz_ = job_comp2char( compz );
+    char compz_ = to_char_comp( compz );
     slate_zsteqr2(&compz_, n,
             d, e,
             z, ldz, nr,

@@ -93,11 +93,15 @@ void slate_trcon(const char* normstr, const char* uplostr, const char* diagstr, 
     int64_t p = 1;
     int64_t q = 1;
     static slate::Target target = slate_lapack_set_target();
-    blas::Uplo uplo = blas::char2uplo(uplostr[0]);
-    blas::Diag diag = blas::char2diag(diagstr[0]);
+
+    Uplo uplo{};
+    Diag diag{};
+    Norm norm{};
+    from_string( std::string( 1, uplostr[0] ), &uplo );
+    from_string( std::string( 1, diagstr[0] ), &diag );
+    from_string( std::string( 1, normstr[0] ), &norm );
 
     // sizes
-    lapack::Norm norm = lapack::char2norm(normstr[0]);
     static int64_t nb = slate_lapack_set_nb(target);
 
     // create SLATE matrix from the LAPACK data

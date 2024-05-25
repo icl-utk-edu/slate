@@ -138,7 +138,7 @@ void test_set_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_plaset( uplo2str(uplo), m, n, alpha, beta,
+            scalapack_plaset( to_c_string( uplo ), m, n, alpha, beta,
                               &Aref_data[0], 1, 1, A_desc );
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

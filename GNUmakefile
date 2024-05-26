@@ -141,12 +141,45 @@ ifeq (${origin LD},default)
     LD = ${CXX}
 endif
 
+# Use abi-compliance-checker to compare the ABI (application binary
+# interface) of 2 releases. Changing the ABI does not necessarily change
+# the API (application programming interface). Rearranging a struct or
+# changing a by-value argument from int64 to int doesn't change the
+# API--no source code changes are required, just a recompile.
+#
+# if structs or routines are changed or removed:
+#     bump major version and reset minor, revision = 0;
+# else if structs or routines are added:
+#     bump minor version and reset revision = 0;
+# else (e.g., bug fixes):
+#     bump revision
+#
+# soversion is major ABI version.
+abi_version = 1.0.0
+soversion = ${word 1, ${subst ., ,${abi_version}}}
+
+#-------------------------------------------------------------------------------
+ldflags_shared = -shared
+
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
 ostype := ${shell echo $${OSTYPE}}
 ifneq (,${findstring darwin, ${ostype}})
     # MacOS is darwin
     macos = 1
+    # MacOS needs shared library's path set, and shared library version.
+    ldflags_shared += -install_name @rpath/${notdir $@} \
+                      -current_version ${abi_version} \
+                      -compatibility_version ${soversion}
+    so = dylib
+    so2 = .dylib
+    # on macOS, .dylib comes after version: libfoo.4.dylib
+else
+    # Linux needs shared library's soname.
+    ldflags_shared += -Wl,-soname,${notdir ${lib_soname}}
+    so = so
+    so1 = .so
+    # on Linux, .so comes before version: libfoo.so.4
 endif
 
 # Check if Fortran compiler exists.
@@ -169,7 +202,7 @@ ifneq (${static},1)
     FCFLAGS    += -fPIC
     NVCCFLAGS  += --compiler-options '-fPIC'
     HIPCCFLAGS += -fPIC
-    lib_ext = so
+    lib_ext = ${so}
 else
     lib_ext = a
 endif
@@ -187,7 +220,7 @@ ifeq (${openmp},1)
         LDFLAGS  += -fopenmp
     endif
 else
-    libslate_src += src/stubs/openmp_stubs.cc
+    slate_src += src/stubs/openmp_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -205,7 +238,7 @@ else ifeq (${mpi},spectrum)
     LIBS  += -lmpi_ibm
 else
     FLAGS += -DSLATE_NO_MPI
-    libslate_src += src/stubs/mpi_stubs.cc
+    slate_src += src/stubs/mpi_stubs.cc
     fortran_api = 0
 endif
 
@@ -405,18 +438,10 @@ ifeq (${hip},1)
 endif
 
 #-------------------------------------------------------------------------------
-# MacOS needs shared library's path set
-ifeq (${macos},1)
-    install_name = -install_name @rpath/${notdir $@}
-else
-    install_name =
-endif
-
-#-------------------------------------------------------------------------------
 # Files
 
 # types and classes
-libslate_src += \
+slate_src += \
         src/auxiliary/Debug.cc \
         src/auxiliary/Trace.cc \
         src/core/Memory.cc \
@@ -426,14 +451,14 @@ libslate_src += \
         # End. Add alphabetically.
 
 # internal
-libslate_src += \
+slate_src += \
         src/internal/internal_comm.cc \
         src/internal/internal_util.cc \
         # End. Add alphabetically.
 
 # Most unit testers don't need the whole library, only the above subset.
 ifneq (${only_unit},1)
-    libslate_src += \
+    slate_src += \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
         src/internal/internal_gbnorm.cc \
@@ -537,19 +562,19 @@ omptarget_src := \
         # End. Add alphabetically.
 
 ifeq (${cuda},1)
-    libslate_src += ${cuda_src}
+    slate_src += ${cuda_src}
 else ifeq (${hip},1)
-    libslate_src += ${hip_src}
+    slate_src += ${hip_src}
 else
     # Used for both OpenMP offload (${omptarget} == 1) and as stubs for
     # CPU-only build.
-    libslate_src += ${omptarget_src}
+    slate_src += ${omptarget_src}
 endif
 
 #-------------------------------------------------------------------------------
 # driver
 ifneq (${only_unit},1)
-    libslate_src += \
+    slate_src += \
         src/add.cc \
         src/bdsqr.cc \
         src/cholqr.cc \
@@ -648,7 +673,7 @@ ifneq (${only_unit},1)
 endif
 
 ifneq (${have_fortran},)
-    libslate_src += \
+    slate_src += \
         src/ssteqr2.f \
         src/dsteqr2.f \
         src/csteqr2.f \
@@ -662,7 +687,7 @@ endif
 
 # C API
 ifeq (${c_api},1)
-    libslate_src += \
+    slate_src += \
         src/c_api/matrix.cc \
         src/c_api/util.cc \
         src/c_api/wrappers.cc \
@@ -672,18 +697,10 @@ endif
 
 # Fortran module
 ifeq (${fortran_api},1)
-    libslate_src += \
+    slate_src += \
         src/fortran/slate_module.f90 \
         # End. Add alphabetically.
 endif
-
-# matrix generator
-libmatgen_src += \
-        matgen/generate_matrix_ge.cc \
-        matgen/generate_matrix_he_and_tz.cc \
-        matgen/generate_matrix_utils.cc \
-        matgen/random.cc \
-        # End. Add alphabetically.
 
 # main tester
 tester_src += \
@@ -808,15 +825,17 @@ endif
 unit_test_obj = \
         unit_test/unit_test.o
 
-libslate_obj  = ${addsuffix .o, ${basename ${libslate_src}}}
-libmatgen_obj = ${addsuffix .o, ${basename ${libmatgen_src}}}
-tester_obj    = ${addsuffix .o, ${basename ${tester_src}}}
-unit_obj      = ${addsuffix .o, ${basename ${unit_src}}}
-dep           = ${addsuffix .d, ${basename ${libslate_src} ${libmatgen_src} \
-                                           ${tester_src} ${unit_src} ${unit_test_obj}}}
+slate_obj  = ${addsuffix .o, ${basename ${slate_src}}}
+tester_obj = ${addsuffix .o, ${basename ${tester_src}}}
+unit_obj   = ${addsuffix .o, ${basename ${unit_src}}}
+dep        = ${addsuffix .d, ${basename ${slate_src} \
+                                        ${tester_src} ${unit_src} \
+                                        ${unit_test_obj}}}
 
 tester    = test/tester
 unit_test = ${basename ${unit_src}}
+
+pkg = lib/pkgconfig/slate.pc
 
 # For `tester --debug`, lldb may need test.o compiled with -O0 (after -O3)
 # to see variable `i`.
@@ -863,21 +882,21 @@ ${tester_obj}:    CXXFLAGS += -I./testsweeper
 ${unit_obj}:      CXXFLAGS += -I./testsweeper
 ${unit_test_obj}: CXXFLAGS += -I./testsweeper
 
-TEST_LDFLAGS += -L./lib -Wl,-rpath,${abspath ./lib}
+TEST_LDFLAGS  = ${LDFLAGS} -L./lib -Wl,-rpath,${abspath ./lib}
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,${abspath ./testsweeper}
 TEST_LDFLAGS += -Wl,-rpath,${abspath ./blaspp/lib}
 TEST_LDFLAGS += -Wl,-rpath,${abspath ./lapackpp/lib}
-TEST_LIBS    += -lslate -lslate_matgen -ltestsweeper
+TEST_LIBS     = -lslate -lslate_matgen -ltestsweeper ${LIBS}
 ifneq (${SCALAPACK_LIBRARIES},none)
     TEST_LIBS += ${SCALAPACK_LIBRARIES}
     CXXFLAGS  += -DSLATE_HAVE_SCALAPACK
 endif
 
-UNIT_LDFLAGS += -L./lib -Wl,-rpath,${abspath ./lib}
+UNIT_LDFLAGS  = ${LDFLAGS} -L./lib -Wl,-rpath,${abspath ./lib}
 UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,${abspath ./testsweeper}
 UNIT_LDFLAGS += -Wl,-rpath,${abspath ./blaspp/lib}
 UNIT_LDFLAGS += -Wl,-rpath,${abspath ./lapackpp/lib}
-UNIT_LIBS    += -lslate -ltestsweeper
+UNIT_LIBS     = -lslate -ltestsweeper ${LIBS}
 
 #-------------------------------------------------------------------------------
 # Rules
@@ -888,11 +907,9 @@ UNIT_LIBS    += -lslate -ltestsweeper
 
 all: lib unit_test hooks
 
-pkg = lib/pkgconfig/slate.pc
-
 ifneq (${only_unit},1)
-    all: tester lapack_api
-    install: lapack_api
+    all: tester lapack_api matgen
+    install: lapack_api matgen
     ifneq (${SCALAPACK_LIBRARIES},none)
         all: scalapack_api
         install: scalapack_api
@@ -909,14 +926,14 @@ install: lib ${pkg}
 	mkdir -p ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/pkgconfig
 	cp include/slate/*.hh          ${DESTDIR}${abs_prefix}/include/slate/
 	cp include/slate/internal/*.hh ${DESTDIR}${abs_prefix}/include/slate/internal/
-	cp lib/lib*                    ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}
+	cp -av lib/lib*                ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/
 	cp ${pkg}                      ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/pkgconfig/
 	if [ ${c_api} -eq 1 ]; then \
 		mkdir -p ${DESTDIR}${abs_prefix}/include/slate/c_api; \
-		cp include/slate/c_api/*.h  ${DESTDIR}${abs_prefix}/include/slate/c_api; \
+		cp include/slate/c_api/*.h ${DESTDIR}${abs_prefix}/include/slate/c_api; \
 	fi
 	if [ ${fortran_api} -eq 1 ]; then \
-		cp slate.mod                ${DESTDIR}${abs_prefix}/include/; \
+		cp slate.mod               ${DESTDIR}${abs_prefix}/include/; \
 	fi
 
 uninstall:
@@ -982,52 +999,83 @@ testsweeper: ${testsweeper}
 
 #-------------------------------------------------------------------------------
 # BLAS++ library
-libblaspp_src = ${wildcard blaspp/include/*.h \
-                           blaspp/include/*.hh \
-                           blaspp/src/*.cc}
+blaspp_src = ${wildcard blaspp/include/blas/*.h \
+                        blaspp/include/blas/*.hh \
+                        blaspp/src/*.cc}
 
-libblaspp = blaspp/lib/libblaspp.${lib_ext}
+blaspp = blaspp/lib/blaspp.${lib_ext}
 
 # dependency on testsweeper serializes compiles
-${libblaspp}: ${libblaspp_src} | ${testsweeper}
+${blaspp}: ${blaspp_src} | ${testsweeper}
 	cd blaspp && ${MAKE} lib
 
-blaspp: ${libblaspp}
+blaspp: ${blaspp}
 
 #-------------------------------------------------------------------------------
 # LAPACK++ library
-liblapackpp_src = ${wildcard lapackpp/include/*.h \
-                             lapackpp/include/*.hh \
-                             lapackpp/src/*.cc}
+lapackpp_src = ${wildcard lapackpp/include/lapack/*.h \
+                          lapackpp/include/lapack/*.hh \
+                          lapackpp/src/*.cc}
 
-liblapackpp = lapackpp/lib/liblapackpp.${lib_ext}
+lapackpp = lapackpp/lib/lapackpp.${lib_ext}
 
 # dependency on testsweeper, BLAS++ serializes compiles
-${liblapackpp}: ${liblapackpp_src} | ${testsweeper} ${libblaspp}
+${lapackpp}: ${lapackpp_src} | ${testsweeper} ${blaspp}
 	cd lapackpp && ${MAKE} lib
 
-lapackpp: ${liblapackpp}
+lapackpp: ${lapackpp}
 
 #-------------------------------------------------------------------------------
-# libslate library
-libslate_a  = lib/libslate.a
-libslate_so = lib/libslate.so
-libslate    = lib/libslate.${lib_ext}
-
-${libslate_a}: ${libslate_obj}
+# Generic rule for shared libraries.
+# For libfoo.so version 4.5.6, this creates libfoo.so.4.5.6 and symlinks
+# libfoo.so.4 -> libfoo.so.4.5.6
+# libfoo.so   -> libfoo.so.4
+#
+# Needs [private] variables set (shown with example values):
+# LDFLAGS     = -L/path/to/lib
+# LIBS        = -lmylib
+# lib_obj     = src/foo.o src/bar.o
+# lib_so_abi  = libfoo.so.4.5.6
+# lib_soname  = libfoo.so.4
+# abi_version = 4.5.6
+# soversion   = 4
+%.${lib_ext}:
 	mkdir -p lib
-	-rm $@
-	ar cr $@ ${libslate_obj}
-	ranlib $@
+	${LD} ${LDFLAGS} ${ldflags_shared} ${LIBS} ${lib_obj} -o ${lib_so_abi}
+	ln -fs ${notdir ${lib_so_abi}} ${lib_soname}
+	ln -fs ${notdir ${lib_soname}} $@
 
-${libslate_so}: ${libslate_obj}
+# Generic rule for static libraries, creates libfoo.a.
+# The library should depend only on its objects.
+%.a:
 	mkdir -p lib
-	${LD} ${LDFLAGS} \
-		${libslate_obj} \
-		${LIBS} \
-		-shared ${install_name} -o $@
+	${RM} $@
+	${AR} cr $@ $^
+	${RANLIB} $@
 
-src: ${libslate}
+#-------------------------------------------------------------------------------
+# SLATE library
+# so     is like libfoo.so       or libfoo.dylib
+# so_abi is like libfoo.so.4.5.6 or libfoo.4.5.6.dylib
+# soname is like libfoo.so.4     or libfoo.4.dylib
+slate_name   = lib/libslate
+slate_a      = ${slate_name}.a
+slate_so     = ${slate_name}.${so}
+slate        = ${slate_name}.${lib_ext}
+slate_so_abi = ${slate_name}${so1}.${abi_version}${so2}
+slate_soname = ${slate_name}${so1}.${soversion}${so2}
+
+${slate_so}: ${slate_obj}
+${slate_so}: private lib_obj    = ${slate_obj}
+${slate_so}: private lib_so_abi = ${slate_so_abi}
+${slate_so}: private lib_soname = ${slate_soname}
+
+${slate_a}: ${slate_obj}
+
+src: ${slate}
+
+src/clean:
+	${RM} ${slate_a} ${slate_so} ${slate_so_abi} ${slate_soname} ${slate_obj}
 
 #-------------------------------------------------------------------------------
 # headers
@@ -1049,28 +1097,38 @@ include/clean:
 	${RM} include/*/*.gch test/*.gch
 
 #-------------------------------------------------------------------------------
-# libslate_matgen library
-libmatgen_a  = lib/libslate_matgen.a
-libmatgen_so = lib/libslate_matgen.so
-libmatgen    = lib/libslate_matgen.${lib_ext}
+# matgen library
+matgen_name   = lib/libslate_matgen
+matgen_a      = ${matgen_name}.a
+matgen_so     = ${matgen_name}.${so}
+matgen        = ${matgen_name}.${lib_ext}
+matgen_so_abi = ${matgen_name}${so1}.${abi_version}${so2}
+matgen_soname = ${matgen_name}${so1}.${soversion}${so2}
 
-MATGEN_LDFLAGS += -L./lib
-MATGEN_LIBS    += -lslate
+matgen_src += \
+        matgen/generate_matrix_ge.cc \
+        matgen/generate_matrix_he_and_tz.cc \
+        matgen/generate_matrix_utils.cc \
+        matgen/random.cc \
+        # End. Add alphabetically.
 
-${libmatgen_a}: ${libmatgen_obj}
-	mkdir -p lib
-	-rm $@
-	ar cr $@ ${libmatgen_obj}
-	ranlib $@
+matgen_obj = ${addsuffix .o, ${basename ${matgen_src}}}
+dep       += ${addsuffix .d, ${basename ${matgen_src}}}
 
-${libmatgen_so}: ${libmatgen_obj} ${libslate_so}
-	mkdir -p lib
-	${LD} ${MATGEN_LDFLAGS} ${LDFLAGS} \
-		${libmatgen_obj} \
-		${MATGEN_LIBS} ${LIBS} \
-		-shared ${install_name} -o $@
+# See generic rule for shared libraries.
+${matgen_so}: ${matgen_obj} ${slate_so}
+${matgen_so}: private LDFLAGS += -L./lib
+${matgen_so}: private LIBS    := -lslate ${LIBS}
+${matgen_so}: private lib_obj    = ${matgen_obj}
+${matgen_so}: private lib_so_abi = ${matgen_so_abi}
+${matgen_so}: private lib_soname = ${matgen_soname}
 
-matgen: ${libmatgen}
+${matgen_a}: ${matgen_obj}
+
+matgen: ${matgen}
+
+matgen/clean:
+	${RM} ${matgen_name}* ${matgen_obj}
 
 #-------------------------------------------------------------------------------
 # main tester
@@ -1081,10 +1139,8 @@ tester: ${tester}
 test/clean:
 	rm -f ${tester} ${tester_obj}
 
-${tester}: ${tester_obj} ${libslate} ${libmatgen} ${testsweeper}
-	${LD} ${TEST_LDFLAGS} ${LDFLAGS} ${tester_obj} \
-		${TEST_LIBS} ${LIBS} \
-		-o $@
+${tester}: ${tester_obj} ${slate} ${matgen} ${testsweeper}
+	${LD} ${TEST_LDFLAGS} ${TEST_LIBS} ${tester_obj} -o $@
 
 test/check: check
 unit_test/check: check
@@ -1100,16 +1156,17 @@ unit_test: ${unit_test}
 unit_test/clean:
 	rm -f ${unit_test} ${unit_obj} ${unit_test_obj}
 
-${unit_test}: %: %.o ${unit_test_obj} ${libslate}
-	${LD} ${UNIT_LDFLAGS} ${LDFLAGS} $< \
-		${unit_test_obj} ${UNIT_LIBS} ${LIBS}  \
-		-o $@
+${unit_test}: %: %.o ${unit_test_obj} ${slate}
+	${LD} ${UNIT_LDFLAGS} ${UNIT_LIBS} $< ${unit_test_obj} -o $@
 
 #-------------------------------------------------------------------------------
 # scalapack_api library
-scalapack_api_a  = lib/libslate_scalapack_api.a
-scalapack_api_so = lib/libslate_scalapack_api.so
-scalapack_api    = lib/libslate_scalapack_api.${lib_ext}
+scalapack_api_name   = lib/libslate_scalapack_api
+scalapack_api_a      = ${scalapack_api_name}.a
+scalapack_api_so     = ${scalapack_api_name}.${so}
+scalapack_api        = ${scalapack_api_name}.${lib_ext}
+scalapack_api_so_abi = ${scalapack_api_name}${so1}.${abi_version}${so2}
+scalapack_api_soname = ${scalapack_api_name}${so1}.${soversion}${so2}
 
 scalapack_api_src += \
         scalapack_api/scalapack_gecon.cc \
@@ -1143,37 +1200,37 @@ scalapack_api_src += \
         # End. Add alphabetically.
 
 scalapack_api_obj = ${addsuffix .o, ${basename ${scalapack_api_src}}}
+dep              += ${addsuffix .d, ${basename ${scalapack_api_src}}}
 
-dep += ${addsuffix .d, ${basename ${scalapack_api_src}}}
+# See generic rule for shared libraries.
+${scalapack_api_so}: ${scalapack_api_obj} ${slate_so}
+${scalapack_api_so}: private LDFLAGS += -L./lib
+${scalapack_api_so}: private LIBS    := -lslate ${SCALAPACK_LIBRARIES} ${LIBS}
+${scalapack_api_so}: private lib_obj    = ${scalapack_api_obj}
+${scalapack_api_so}: private lib_so_abi = ${scalapack_api_so_abi}
+${scalapack_api_so}: private lib_soname = ${scalapack_api_soname}
 
-SCALAPACK_API_LDFLAGS += -L./lib
-SCALAPACK_API_LIBS    += -lslate ${SCALAPACK_LIBRARIES}
+ifeq (${SCALAPACK_LIBRARIES},none)
+    ${scalapack_api_so_abi}:
+		@echo "Error: building $@ requires ScaLAPACK library, but currently SCALAPACK_LIBRARIES=${SCALAPACK_LIBRARIES}."
+		false
+endif
+
+${scalapack_api_a}: ${scalapack_api_obj}
 
 scalapack_api: ${scalapack_api}
 
 scalapack_api/clean:
-	rm -f ${scalapack_api} ${scalapack_api_obj}
-
-${scalapack_api_a}: ${scalapack_api_obj} ${libslate}
-	-rm $@
-	ar cr $@ ${scalapack_api_obj}
-	ranlib $@
-
-ifneq (${SCALAPACK_LIBRARIES},none)
-    ${scalapack_api_so}: ${scalapack_api_obj} ${libslate}
-		${LD} ${SCALAPACK_API_LDFLAGS} ${LDFLAGS} ${scalapack_api_obj} \
-			${SCALAPACK_API_LIBS} ${LIBS} -shared ${install_name} -o $@
-else
-    ${scalapack_api_so}:
-		@echo "Error: building $@ requires ScaLAPACK library, currently set to ${SCALAPACK_LIBRARIES}."
-		false
-endif
+	rm -f ${scalapack_api_name}* ${scalapack_api_obj}
 
 #-------------------------------------------------------------------------------
 # lapack_api library
-lapack_api_a  = lib/libslate_lapack_api.a
-lapack_api_so = lib/libslate_lapack_api.so
-lapack_api    = lib/libslate_lapack_api.${lib_ext}
+lapack_api_name   = lib/libslate_lapack_api
+lapack_api_a      = ${lapack_api_name}.a
+lapack_api_so     = ${lapack_api_name}.${so}
+lapack_api        = ${lapack_api_name}.${lib_ext}
+lapack_api_so_abi = ${lapack_api_name}${so1}.${abi_version}${so2}
+lapack_api_soname = ${lapack_api_name}${so1}.${soversion}${so2}
 
 lapack_api_src += \
         lapack_api/lapack_gecon.cc \
@@ -1207,25 +1264,22 @@ lapack_api_src += \
         # End. Add alphabetically.
 
 lapack_api_obj = ${addsuffix .o, ${basename ${lapack_api_src}}}
+dep           += ${addsuffix .d, ${basename ${lapack_api_src}}}
 
-dep += ${addsuffix .d, ${basename ${lapack_api_src}}}
+# See generic rule for shared libraries.
+${lapack_api_so}: ${lapack_api_obj} ${slate_so}
+${lapack_api_so}: private LDFLAGS += -L./lib
+${lapack_api_so}: private LIBS    := -lslate ${LIBS}
+${lapack_api_so}: private lib_obj    = ${lapack_api_obj}
+${lapack_api_so}: private lib_so_abi = ${lapack_api_so_abi}
+${lapack_api_so}: private lib_soname = ${lapack_api_soname}
 
-LAPACK_API_LDFLAGS += -L./lib
-LAPACK_API_LIBS    += -lslate
+${lapack_api_a}: ${lapack_api_obj}
 
 lapack_api: ${lapack_api}
 
 lapack_api/clean:
-	rm -f ${lapack_api} ${lapack_api_obj}
-
-${lapack_api_a}: ${lapack_api_obj} ${libslate}
-	-rm $@
-	ar cr $@ ${lapack_api_obj}
-	ranlib $@
-
-${lapack_api_so}: ${lapack_api_obj} ${libslate}
-	${LD} ${LAPACK_API_LDFLAGS} ${LDFLAGS} ${lapack_api_obj} \
-		${LAPACK_API_LIBS} ${LIBS} -shared ${install_name} -o $@
+	rm -f ${lapack_api_name}* ${lapack_api_obj}
 
 #-------------------------------------------------------------------------------
 # HIP sources converted from CUDA sources.
@@ -1307,11 +1361,10 @@ ${pkg}:
 #-------------------------------------------------------------------------------
 # general rules
 
-lib: ${libslate} ${libmatgen}
+lib: ${slate} ${matgen}
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
-	rm -f ${libslate_a} ${libslate_so} ${libslate_obj} ${dep} \
-			${libmatgen_a} ${libmatgen_so} ${libmatgen_obj}
+	rm -f lib/lib* ${dep}
 	rm -f trace_*.svg
 
 distclean: clean
@@ -1376,13 +1429,13 @@ hooks: ${hooks}
 #-------------------------------------------------------------------------------
 # Extra dependencies to force TestSweeper, BLAS++, LAPACK++ to be compiled before SLATE.
 
-${libslate_obj}:      | ${libblaspp} ${liblapackpp}
-${libmatgen_obj}:     | ${libblaspp} ${liblapackpp}
-${tester_obj}:        | ${libblaspp} ${liblapackpp}
-${unit_test_obj}:     | ${libblaspp} ${liblapackpp}
-${unit_obj}:          | ${libblaspp} ${liblapackpp}
-${lapack_api_obj}:    | ${libblaspp} ${liblapackpp}
-${scalapack_api_obj}: | ${libblaspp} ${liblapackpp}
+${slate_obj}:         | ${blaspp} ${lapackpp}
+${matgen_obj}:        | ${blaspp} ${lapackpp}
+${tester_obj}:        | ${blaspp} ${lapackpp}
+${unit_test_obj}:     | ${blaspp} ${lapackpp}
+${unit_obj}:          | ${blaspp} ${lapackpp}
+${lapack_api_obj}:    | ${blaspp} ${lapackpp}
+${scalapack_api_obj}: | ${blaspp} ${lapackpp}
 
 #-------------------------------------------------------------------------------
 # debugging
@@ -1408,30 +1461,49 @@ echo:
 	@echo "macos         = '${macos}'"
 	@echo "id            = '${id}'"
 	@echo "last_id       = '${last_id}'"
+	@echo "abi_version   = '${abi_version}'"
+	@echo "soversion     = '${soversion}'"
 	@echo
 	@echo "---------- Dependencies"
-	@echo "libblaspp     = ${libblaspp}"
-	@echo "liblapackpp   = ${liblapackpp}"
+	@echo "blaspp        = ${blaspp}"
+	@echo "lapackpp      = ${lapackpp}"
 	@echo "testsweeper   = ${testsweeper}"
 	@echo
 	@echo "---------- Libraries"
-	@echo "libslate_a    = ${libslate_a}"
-	@echo "libslate_so   = ${libslate_so}"
-	@echo "libslate      = ${libslate}"
+	@echo "slate_a       = ${slate_a}"
+	@echo "slate_so      = ${slate_so}"
+	@echo "slate         = ${slate}"
+	@echo "slate_so_abi  = ${slate_so_abi}"
+	@echo "slate_soname  = ${slate_soname}"
+	@echo
 	@echo "pkg           = ${pkg}"
 	@echo
-	@echo "libmatgen_a   = ${libmatgen_a}"
-	@echo "libmatgen_so  = ${libmatgen_so}"
-	@echo "libmatgen     = ${libmatgen}"
+	@echo "matgen_a      = ${matgen_a}"
+	@echo "matgen_so     = ${matgen_so}"
+	@echo "matgen        = ${matgen}"
+	@echo "matgen_so_abi = ${matgen_so_abi}"
+	@echo "matgen_soname = ${matgen_soname}"
+	@echo
+	@echo "scalapack_api_a      = ${scalapack_api_a}"
+	@echo "scalapack_api_so     = ${scalapack_api_so}"
+	@echo "scalapack_api        = ${scalapack_api}"
+	@echo "scalapack_api_so_abi = ${scalapack_api_so_abi}"
+	@echo "scalapack_api_soname = ${scalapack_api_soname}"
+	@echo
+	@echo "lapack_api_a      = ${lapack_api_a}"
+	@echo "lapack_api_so     = ${lapack_api_so}"
+	@echo "lapack_api        = ${lapack_api}"
+	@echo "lapack_api_so_abi = ${lapack_api_so_abi}"
+	@echo "lapack_api_soname = ${lapack_api_soname}"
 	@echo
 	@echo "---------- Files"
-	@echo "libslate_src  = ${libslate_src}"
+	@echo "slate_src     = ${slate_src}"
 	@echo
-	@echo "libslate_obj  = ${libslate_obj}"
+	@echo "slate_obj     = ${slate_obj}"
 	@echo
-	@echo "libmatgen_src = ${libmatgen_src}"
+	@echo "matgen_src    = ${matgen_src}"
 	@echo
-	@echo "libmatgen_obj = ${libmatgen_obj}"
+	@echo "matgen_obj    = ${matgen_obj}"
 	@echo
 	@echo "tester_src    = ${tester_src}"
 	@echo
@@ -1504,6 +1576,7 @@ echo:
 	@echo "LD            = ${LD}"
 	@echo "LDFLAGS       = ${LDFLAGS}"
 	@echo "LIBS          = ${LIBS}"
+	@echo "ldflags_shared = ${ldflags_shared}"
 	@echo
 	@echo "TEST_LDFLAGS  = ${TEST_LDFLAGS}"
 	@echo "TEST_LIBS     = ${TEST_LIBS}"

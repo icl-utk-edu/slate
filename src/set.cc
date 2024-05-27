@@ -49,17 +49,23 @@ void set(
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
-/// @param[in] A
-///         The m-by-n matrix A.
+/// @param[in] offdiag_value
+///     Value to set off-diagonal elements to.
+///
+/// @param[in] diag_value
+///     Value to set diagonal elements to.
+///
+/// @param[in,out] A
+///     The m-by-n matrix A.
 ///
 /// @param[in] opts
-///         Additional options, as map of name = value pairs. Possible options:
-///         - Option::Target:
-///           Implementation to target. Possible values:
-///           - HostTask:  OpenMP tasks on CPU host [default].
-///           - HostNest:  nested OpenMP parallel for loop on CPU host.
-///           - HostBatch: batched BLAS on CPU host.
-///           - Devices:   batched BLAS on GPU device.
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup set
 ///
@@ -161,17 +167,23 @@ void set(
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
-/// @param[in] A
-///         The m-by-n matrix A.
+/// @param[in] offdiag_value
+///     Value to set off-diagonal elements to.
+///
+/// @param[in] diag_value
+///     Value to set diagonal elements to.
+///
+/// @param[in,out] A
+///     The m-by-n matrix A.
 ///
 /// @param[in] opts
-///         Additional options, as map of name = value pairs. Possible options:
-///         - Option::Target:
-///           Implementation to target. Possible values:
-///           - HostTask:  OpenMP tasks on CPU host [default].
-///           - HostNest:  nested OpenMP parallel for loop on CPU host.
-///           - HostBatch: batched BLAS on CPU host.
-///           - Devices:   batched BLAS on GPU device.
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup set
 ///

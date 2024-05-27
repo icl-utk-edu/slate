@@ -4,6 +4,7 @@ import argparse
 import subprocess
 import io
 import time
+import sys
 
 timer = time.time()
 
@@ -30,10 +31,26 @@ parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 
 opts = parser.parse_args()
 
+# ------------------------------------------------------------------------------
+# When stdout is redirected to file instead of TTY console,
+# and  stderr is still going to a TTY console,
+# print extra summary messages to stderr.
+output_redirected = sys.stderr.isatty() and not sys.stdout.isatty()
+
+# ------------------------------------------------------------------------------
+# if output is redirected, prints to both stderr and stdout;
+# otherwise prints to just stdout.
+def print_tee( *args ):
+    global output_redirected
+    print( *args )
+    if (output_redirected):
+        print( *args, file=sys.stderr )
+# end
+
 #-------------------------------------------------------------------------------
 def run_test( cmd ):
-    print( '-' * 80 )
-    print( ' '.join( cmd ) )
+    print_tee( '-' * 80 )
+    print_tee( ' '.join( cmd ) )
     p = subprocess.Popen( cmd, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT )
     p_out = io.TextIOWrapper( p.stdout, encoding='utf-8' )
@@ -46,9 +63,9 @@ def run_test( cmd ):
     err = p.wait()
 
     if (err != 0):
-        print( 'FAILED, exit code', err )
+        print_tee( 'FAILED, exit code', err )
     else:
-        print( 'passed' )
+        print_tee( 'passed' )
 
     print( output )
     return err
@@ -118,16 +135,17 @@ failed_tests = []
 
 types = opts.type.split()
 for test in tests:
+    t = time.time()
     cmd = runner + test.split() + types
     err = run_test( cmd )
+    t = time.time() - t
+    print_tee( 'Elapsed %02d:%05.2f mm:ss' % (t // 60, t % 60) )
     if (err):
         failed_tests.append( test )
 # end
 
 timer = time.time() - timer
-mins  = timer // 60
-secs  = timer %  60
-print( 'Elapsed %02d:%02d' % (mins, secs) )
+print_tee( 'Total Elapsed %02d:%05.2f mm:ss' % (timer // 60, timer % 60) )
 
 # print summary of failures
 nfailed = len( failed_tests )

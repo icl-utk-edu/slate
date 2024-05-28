@@ -275,9 +275,9 @@ void print_vector(
 
     // Set defaults
     const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintWidth,     params.print_width() },
         { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintVerbose,   params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
     };
 
@@ -295,18 +295,7 @@ void print_vector(
     std::vector<scalar_t>& x,
     Params& params)
 {
-    if (params.verbose() == 0)
-        return;
-
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, x, opts );
+    print_vector( label, x.size(), &x[0], 1, params );
 }
 
 #endif // SLATE_PRINT_MATRIX_HH

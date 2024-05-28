@@ -1173,19 +1173,36 @@ void print(
 
     int width     = get_option<int>( opts, Option::PrintWidth,     10 );
     int precision = get_option<int>( opts, Option::PrintPrecision,  4 );
+    int verbose   = get_option<int>( opts, Option::PrintVerbose,    4 );
+    int edgeitems = get_option<int>( opts, Option::PrintEdgeItems, 16 );
 
     width = std::max(width, precision + 6);
 
-    char buf[ 80 ];
-    std::string msg;
+    printf( "%% %s: vector, n=%lld\n", label, llong( n ) );
 
-    int64_t ix = (incx > 0 ? 0 : (-n + 1)*incx);
-    for (int64_t i = 0; i < n; ++i) {
-        snprintf_value( buf, sizeof(buf), width, precision, x[ix] );
-        msg += buf;
-        ix += incx;
+    if (verbose > 1) {
+        char buf[ 80 ];
+        std::string msg;
+
+        int64_t n1 = n, n2 = n;
+        if (verbose == 2) {
+            n1 = edgeitems;
+            n2 = n - edgeitems;
+        }
+
+        int64_t ix = 0;
+        for (int64_t i = 0; i < n; ++i) {
+            if (i == n1 && i < n2) {
+                msg += " ... ";
+                ix += incx*(n2 - n1);
+                i = n2;
+            }
+            snprintf_value( buf, sizeof(buf), width, precision, x[ix] );
+            msg += buf;
+            ix += incx;
+        }
+        printf( "%s = [ %s ]';\n", label, msg.c_str() );
     }
-    printf( "%s = [ %s ]';\n", label, msg.c_str() );
 }
 
 //------------------------------------------------------------------------------

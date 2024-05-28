@@ -225,11 +225,6 @@ public:
     testsweeper::ParamInt    debug_rank;
     std::string              routine;
 
-    //----- test matrix parameters
-    MatrixParams matrix;
-    MatrixParams matrixB;
-    MatrixParams matrixC;
-
     //----- routine parameters, enums
     testsweeper::ParamEnum< testsweeper::DataType > datatype;
     testsweeper::ParamEnum< slate::Origin >         origin;
@@ -246,6 +241,11 @@ public:
 
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::GridOrder >      dev_order;
+
+    // test matrix parameters
+    MatrixParams matrix;
+    MatrixParams matrixB;
+    MatrixParams matrixC;
 
     // BLAS & LAPACK options
     // The order here matches the order in most LAPACK functions, e.g.,

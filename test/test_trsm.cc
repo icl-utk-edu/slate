@@ -103,11 +103,15 @@ void test_trsm_work(Params& params, bool run)
     slate::generate_matrix( params.matrix, A );
     slate::generate_matrix( params.matrixB, B );
 
-    // Cholesky factor of A to get a well conditioned triangular matrix.
-    // Even when we replace the diagonal with unit diagonal,
-    // it seems to still be well conditioned.
-    auto AH = slate::HermitianMatrix<scalar_t>( A );
-    slate::potrf( AH, opts );
+    // For non-unit diagonal, the diagonally dominant matrix is
+    // well conditioned; no need for Cholesky.
+    if (diag == slate::Diag::Unit) {
+        // Cholesky factor of A to get a well conditioned triangular matrix.
+        // Even when we replace the diagonal with a unit diagonal,
+        // it seems to still be well conditioned.
+        auto AH = slate::HermitianMatrix<scalar_t>( A );
+        slate::potrf( AH, opts );
+    }
 
     // If reference run is required, record norms to be used in the check/ref.
     if (check || ref) {

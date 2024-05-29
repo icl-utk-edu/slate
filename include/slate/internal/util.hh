@@ -174,7 +174,7 @@ private:
 ///     The total number processes over which the distributed
 ///     matrix is distributed.
 ///
-/// Corresponds to ScaLAPACK's indxg2l.
+/// Corresponds to ScaLAPACK's indxl2g.
 ///
 inline int64_t local2global(
     int64_t local,
@@ -202,7 +202,7 @@ inline int64_t local2global(
 ///     The total number processes over which the distributed
 ///     matrix is distributed.
 ///
-/// Corresponds to ScaLAPACK's indxl2g.
+/// Corresponds to ScaLAPACK's indxg2l.
 /// Dummy arguments iproc, isrcproc are excluded.
 ///
 inline int64_t global2local(

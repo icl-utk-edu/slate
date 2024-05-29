@@ -77,7 +77,7 @@ void bdsqr(
         slate_mpi_call(
             MPI_Comm_size(U.mpiComm(), &mpi_size));
         myrow = U.mpiRank();
-        nru  = numberLocalRowOrCol(m, mb, myrow, izero, mpi_size);
+        nru  = num_local_rows_cols( m, mb, myrow, izero, mpi_size );
         ldu = max( 1, nru );
         u1d.resize(ldu*min_mn);
         U1d = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -91,7 +91,7 @@ void bdsqr(
         slate_mpi_call(
             MPI_Comm_size(VT.mpiComm(), &mpi_size));
         mycol = VT.mpiRank();
-        ncvt = numberLocalRowOrCol(n, nb, mycol, izero, mpi_size);
+        ncvt = num_local_rows_cols( n, nb, mycol, izero, mpi_size );
         ldvt = max( 1, min_mn );
         vt1d.resize(ldvt*ncvt);
         VT1d = slate::Matrix<scalar_t>::fromScaLAPACK(

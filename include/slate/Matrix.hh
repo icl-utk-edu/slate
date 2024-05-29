@@ -500,7 +500,7 @@ Matrix<scalar_t>::Matrix(
         int64_t jb = this->tileNb(j);
         int64_t jj_local = jj;
         if (is_scalapack) {
-            jj_local = indexGlobal2Local(jj, nb, q);
+            jj_local = global2local( jj, nb, q );
         }
 
         int64_t ii = 0;
@@ -509,7 +509,7 @@ Matrix<scalar_t>::Matrix(
             if (this->tileIsLocal(i, j)) {
                 int64_t ii_local = ii;
                 if (is_scalapack) {
-                    ii_local = indexGlobal2Local(ii, mb, p);
+                    ii_local = global2local( ii, mb, p );
                 }
 
                 this->tileInsert( i, j, HostNum,
@@ -545,14 +545,14 @@ Matrix<scalar_t>::Matrix(
     int64_t jj = 0;
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t jb = this->tileNb(j);
-        int64_t jj_local = indexGlobal2Local(jj, nb, q);
+        int64_t jj_local = global2local( jj, nb, q );
         int64_t ii = 0;
         for (int64_t i = 0; i < this->mt(); ++i) {
             int64_t ib = this->tileMb(i);
             if (this->tileIsLocal(i, j)) {
-                int64_t ii_local = indexGlobal2Local(ii, mb, p);
+                int64_t ii_local = global2local( ii, mb, p );
                 int dev = this->tileDevice(i, j);
-                int64_t jj_dev = indexGlobal2Local(jj_local, nb, num_devices);
+                int64_t jj_dev = global2local( jj_local, nb, num_devices );
                 this->tileInsert(i, j, dev,
                                  &Aarray[ dev ][ ii_local + jj_dev*lda ], lda);
             }

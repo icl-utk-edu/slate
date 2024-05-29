@@ -61,7 +61,7 @@ void steqr2(
         n = Z.n();
         nb = Z.tileNb(0);
         myrow = Z.mpiRank();
-        nrc = numberLocalRowOrCol(n, nb, myrow, izero, mpi_size);
+        nrc = num_local_rows_cols( n, nb, myrow, izero, mpi_size );
         ldc = max( 1, nrc );
         Q.resize(nrc*n);
         Z1d = slate::Matrix<scalar_t>::fromScaLAPACK(

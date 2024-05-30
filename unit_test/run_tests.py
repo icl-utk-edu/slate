@@ -32,6 +32,18 @@ import io
 import select
 import time
 
+#-------------------------------------------------------------------------------
+# Adapted from https://stackoverflow.com/a/2059494/1655607
+class setenv:
+    def __init__( self, **env ):
+        self._old = dict( os.environ )
+        os.environ.update( env )
+
+    def restore( self ):
+        os.environ.clear()
+        os.environ.update( self._old )
+# end
+
 # ------------------------------------------------------------------------------
 # command line arguments
 parser = argparse.ArgumentParser()
@@ -92,9 +104,10 @@ def print_tee( *args ):
 # cmd is a string: tester
 def run_test( cmd ):
     # QR and LQ testers are really slow if GPU devices are present.
+    old_env = None
     if (cmd in ('test_qr', 'test_lq')):
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
-        os.environ['ROCR_VISIBLE_DEVICES'] = ''
+        old_env = setenv( CUDA_VISIBLE_DEVICES='',
+                          ROCR_VISIBLE_DEVICES='' )
 
     print( '-' * 80 )
     cmd = opts.test +' ./' + cmd
@@ -141,6 +154,11 @@ def run_test( cmd ):
         print_tee( failure_reason, ': exit code', err )
     else:
         print_tee( 'pass' )
+
+    # Restore environment.
+    if (old_env):
+        old_env.restore()
+
     return (err, output)
 # end
 

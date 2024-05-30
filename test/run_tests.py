@@ -597,10 +597,13 @@ if (opts.geev):
 
 # svd
 if (opts.svd):
+    # jobvt currently ignored
     if ('n' in jobu):
         cmds += [[ 'svd', gen + dtype + la + mn + ' --jobu n --jobvt n' + ge_matrix ]]
-    if ('v' in jobu):
+    if ('v' in jobu or 's' in jobu):
         cmds += [[ 'svd', gen + dtype + la + mn + ' --jobu v --jobvt v' + ge_matrix ]]
+    if ('a' in jobu):
+        cmds += [[ 'svd', gen + dtype + la + mn + ' --jobu a --jobvt a' + ge_matrix ]]
 
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt

@@ -20,6 +20,12 @@ project(
     LANGUAGES CXX Fortran
 )
 
+# See notes in GNUmakefile about using abi-compliance-checker.
+# soversion is major ABI version.
+set( abi_version 1.0.0 )
+string( REPLACE "." ";" abi_list "${abi_version}" )
+list( GET abi_list 0 soversion )
+
 include( CheckCXXCompilerFlag )
 
 # When built as a sub-project, add a namespace to make targets unique,
@@ -180,7 +186,7 @@ if (c_api)
 endif()
 
 file(
-    GLOB libslate_src
+    GLOB slate_src
     CONFIGURE_DEPENDS  # glob at build time
     src/*.cc
     src/*.f
@@ -190,11 +196,11 @@ file(
     src/work/*.cc
     ${c_api_src}
 )
-message( DEBUG "libslate_src = ${libslate_src}" )
+message( DEBUG "slate_src = ${slate_src}" )
 
 add_library(
     slate
-    ${libslate_src}
+    ${slate_src}
 )
 
 #--------------------
@@ -270,12 +276,19 @@ endif()
 # target_compile_features( slate PUBLIC cuda_std_11 ) doesn't seem to work:
 # CUDA nvcc gets -std=c++17, which requires CUDA >= 11.0.
 target_compile_features( slate PUBLIC cxx_std_17 )
+target_compile_features( slate_matgen PUBLIC cxx_std_17 )
+target_compile_features( slate_lapack_api PUBLIC cxx_std_17 )
 set_target_properties(
-    slate PROPERTIES
+    slate
+    slate_matgen
+    slate_lapack_api
+    PROPERTIES
     CUDA_STANDARD 11
     CXX_STANDARD_REQUIRED true  # prohibit < c++17
     CXX_EXTENSIONS false        # prohibit gnu++17
     WINDOWS_EXPORT_ALL_SYMBOLS ON
+    VERSION   "${abi_version}"
+    SOVERSION "${soversion}"
 )
 
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)
@@ -509,14 +522,14 @@ if (gpu_backend MATCHES "^(auto|cuda)$")
 
         enable_language( CUDA )
         file(
-            GLOB libslate_cuda_src
+            GLOB slate_cuda_src
             CONFIGURE_DEPENDS  # glob at build time
             src/cuda/*.cu
         )
         target_sources(
             slate
             PRIVATE
-            ${libslate_cuda_src}
+            ${slate_cuda_src}
         )
 
         message( STATUS "${blue}Building CUDA support${plain}" )
@@ -557,12 +570,12 @@ if (HIP_FOUND)
     # First, get the HIP source's base files (which are CUDA sources, needing
     # to be hipified)
     file(
-        GLOB libslate_hip_src_cuda
+        GLOB slate_hip_src_cuda
         CONFIGURE_DEPENDS  # glob at build time
         src/cuda/*.cu
         src/cuda/*.cuh
     )
-    message( DEBUG "libslate_hip_src_cuda ${libslate_hip_src_cuda}" )
+    message( DEBUG "slate_hip_src_cuda ${slate_hip_src_cuda}" )
 
     # Make the object directory
     file( MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src/hip" )
@@ -595,7 +608,7 @@ if (HIP_FOUND)
     message( DEBUG "Ddefs_ = '${Ddefs_}'" )
 
     # Iterate over CUDA files
-    foreach (src_cu ${libslate_hip_src_cuda})
+    foreach (src_cu ${slate_hip_src_cuda})
         # Get name without directory, and replace extension.
         get_filename_component( name "${src_cu}" NAME )
         set( src_cu_relative  "src/cuda/${name}" )
@@ -684,14 +697,14 @@ endif()
 # Files for OpenMP offload or CPU-only builds.
 if (NOT "${gpu_backend}" MATCHES "^(cuda|hip)$")
     file(
-        GLOB libslate_omptarget_src
+        GLOB slate_omptarget_src
         CONFIGURE_DEPENDS  # glob at build time
         src/omptarget/*.cc
     )
     target_sources(
         slate
         PRIVATE
-        ${libslate_omptarget_src}
+        ${slate_omptarget_src}
     )
 endif()
 

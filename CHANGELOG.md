@@ -1,3 +1,22 @@
+2024.05.31
+  - Add shared library version (ABI version 1.0.0)
+  - Update enum parameters to have `to_string`, `from_string`;
+    deprecate `<enum>2str`, `str2<enum>`
+  - Changed methods to enums; renamed some values and deprecated old values
+  - Added "all vectors" case to SVD
+  - Fixed SVD for slightly tall case (m > n but not m >> n)
+  - Removed some deprecated functions
+  - Deprecated tile life
+  - Moved Tile routines to slate::tile namespace
+  - Added `slate_matgen` matrix generation library, factored out from testers
+  - Added `slate::set` variant that takes lambda
+  - Updated LAPACK API and ScaLAPACK API
+  - Fixed C and Fortran API. Added examples and CI tests for C and Fortran
+  - Improved handling of non-uniform tile sizes on GPUs
+  - Improved GPU-to-GPU communication
+  - Added info error check to Cholesky (posv, potrf)
+  - Added internal timers to testers; use `tester --timer-level 2`
+
 2023.11.05
   - Fix variable block sizes
   - Fix tau in LQ tester

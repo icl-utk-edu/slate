@@ -122,7 +122,7 @@ std::string output_fail( AssertError const& ex )
 std::string output_skip( SkipException const& ex )
 {
     return std::string( ansi_magenta ) + "skipped: " + ansi_normal
-            + ansi_gray + ex.what() + ansi_normal + "\n";
+            + ansi_gray + ex.what() + ansi_normal;
 }
 
 //------------------------------------------------------------------------------

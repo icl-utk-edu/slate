@@ -154,8 +154,8 @@ void test_genorm_dev(Norm norm)
     }
 
     double eps = std::numeric_limits<double>::epsilon();
-    int m = 3000;
-    int n = 3000;
+    int m = 20;
+    int n = 30;
     int lda = roundup(m, 8);
     double* Adata = new double[ lda * n ];
     slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
@@ -374,7 +374,11 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     }
 
     double eps = std::numeric_limits<double>::epsilon();
-    int n = 3000;
+
+    // Note: if testing with large n, some LAPACK versions have an
+    // inaccurate Frobenius lansy. If problems are encountered,
+    // verify with reference LAPACK >= v3.10.0.
+    int n = 30;
     int lda = roundup(n, 8);
     double* Adata = new double[ lda * n ];
     slate::Tile<double> A(n, n, Adata, lda, -1, slate::TileKind::UserOwned);

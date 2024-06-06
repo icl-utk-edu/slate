@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
     runs-on: ${{ matrix.device }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Configure
         run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.device}}
       - name: Build

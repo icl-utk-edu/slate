@@ -1,0 +1,26 @@
+name: Spack
+
+# Controls when the workflow will run
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  slate_spack:
+    timeout-minutes: 360
+    strategy:
+      matrix:
+        device: [gpu_nvidia, gpu_amd, cpu]
+      fail-fast: false
+    runs-on: ${{ matrix.device }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Dependencies
+        run: .github/workflows/spack.sh deps ${{matrix.device}}
+      - name: Build SLATE
+        run: .github/workflows/spack.sh build ${{matrix.device}}
+      - name: Pre-install Test
+        run: .github/workflows/spack.sh test ${{matrix.device}}
+      - name: Post-install Test
+        run: .github/workflows/spack.sh smoke ${{matrix.device}}

@@ -1,0 +1,39 @@
+packages:
+  all:
+    target: ['x86_64']
+  cuda:
+    buildable: false
+    externals:
+    - spec: cuda@CUDAVER
+      prefix: /usr/local/cuda-CUDAVER/
+  hip:
+    buildable: false
+    externals:
+    - spec: hip@ROCMVER
+      prefix: /opt/rocm-ROCMVER/
+  rocblas:
+    buildable: false
+    externals:
+    - spec: rocblas@ROCMVER
+      prefix: /opt/rocm-ROCMVER/rocblas/
+  llvm-amdgpu:
+    buildable: false
+    externals:
+    - spec: llvm-amdgpu@ROCMVER
+      prefix: /opt/rocm-ROCMVER
+  comgr:
+    buildable: false
+    externals:
+    - spec: comgr@ROCMVER
+      prefix: /opt/rocm-ROCMVER
+  rocsolver:
+    buildable: false
+    externals:
+    - spec: rocsolver@ROCMVER
+      prefix: /opt/rocm-ROCMVER/rocsolver
+  hsa-rocr-dev:
+    buildable: false
+    externals:
+    - spec: hsa-rocr-dev@ROCMVER
+      prefix: /opt/rocm-ROCMVER/hsa/
+

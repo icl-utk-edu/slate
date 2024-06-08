@@ -648,7 +648,8 @@ ifneq (${only_unit},1)
         src/stedc_solve.cc \
         src/stedc_sort.cc \
         src/stedc_z_vector.cc \
-        src/steqr2.cc \
+        src/steqr.cc \
+        src/steqr_impl.cc \
         src/sterf.cc \
         src/svd.cc \
         src/symm.cc \
@@ -673,19 +674,6 @@ ifneq (${only_unit},1)
         src/work/work_trsm.cc \
         src/work/work_trsmA.cc \
         # End. Add alphabetically.
-endif
-
-ifneq (${have_fortran},)
-    slate_src += \
-        src/ssteqr2.f \
-        src/dsteqr2.f \
-        src/csteqr2.f \
-        src/zsteqr2.f \
-        # End. Add alphabetically, by base name after precision.
-else
-    ${error ERROR: Fortran compiler FC='${FC}' not found. Set FC to a \
-            Fortran compiler (mpif90, gfortran, ifort, xlf, ftn, ...}. \
-            We hope to eventually remove this requirement.)
 endif
 
 # C API
@@ -748,7 +736,7 @@ tester_src += \
         test/test_stedc_secular.cc \
         test/test_stedc_sort.cc \
         test/test_stedc_z_vector.cc \
-        test/test_steqr2.cc \
+        test/test_steqr.cc \
         test/test_sterf.cc \
         test/test_svd.cc \
         test/test_symm.cc \

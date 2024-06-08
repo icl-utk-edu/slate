@@ -146,7 +146,7 @@ void heev(
         Timer t_stev;
         if (method == MethodEig::QR) {
             // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
-            steqr2( Job::Vec, Lambda, E, Z );
+            steqr( Job::Vec, Lambda, E, Z );
         }
         else {
             // Divide and conquer to get eigvals and eigvecs of tridiagonal.

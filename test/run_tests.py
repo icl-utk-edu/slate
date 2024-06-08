@@ -576,7 +576,7 @@ if (opts.syev):
 
     # sterf doesn't take origin, target, nb, uplo
     [ 'sterf',  grid + check + ref + tol + repeat + dtype + n ],
-    [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
+    [ 'steqr',  grid + check + ref + tol + repeat + dtype + n + ' --jobz n,v' ],
     ]
 
 # generalized symmetric/Hermitian eigenvalues

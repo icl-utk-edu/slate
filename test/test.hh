@@ -412,7 +412,7 @@ void test_trcondest (Params& params, bool run);
 // symmetric/Hermitian eigenvalues
 void test_heev   (Params& params, bool run);
 void test_sterf  (Params& params, bool run);
-void test_steqr2 (Params& params, bool run);
+void test_steqr  (Params& params, bool run);
 void test_stedc  (Params& params, bool run);
 
 void test_stedc_deflate  (Params& params, bool run);

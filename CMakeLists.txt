@@ -185,7 +185,6 @@ file(
     GLOB slate_src
     CONFIGURE_DEPENDS  # glob at build time
     src/*.cc
-    src/*.f
     src/auxiliary/*.cc
     src/core/*.cc
     src/internal/*.cc

@@ -260,6 +260,7 @@ void test_heev_work(Params& params, bool run)
             copy( A, Aref );
         }
 
+        print_vector( "Lambda_out", Lambda, params );
         print_matrix( "A_out", A, params );
         print_matrix( "Z_out", Z, params ); // Relevant when slate::eig_vals takes Z
     }

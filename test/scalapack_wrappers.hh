@@ -5251,6 +5251,120 @@ void lasrt(
     *info = int64_t( info_ );
 }
 
+//==============================================================================
+// Fortran prototypes
+#define scalapack_ssteqr2 BLAS_FORTRAN_NAME( ssteqr2, SSTEQR2 )
+#define scalapack_dsteqr2 BLAS_FORTRAN_NAME( dsteqr2, DSTEQR2 )
+#define scalapack_csteqr2 BLAS_FORTRAN_NAME( csteqr2, CSTEQR2 )
+#define scalapack_zsteqr2 BLAS_FORTRAN_NAME( zsteqr2, ZSTEQR2 )
+
+extern "C" {
+
+void scalapack_ssteqr2(
+    char const* compz, blas_int const* n,
+    float* D,
+    float* E,
+    float* Z, blas_int const* ldz, blas_int const* nrows,
+    float* work,
+    blas_int* info );
+
+void scalapack_dsteqr2(
+    char const* compz, blas_int const* n,
+    double* D,
+    double* E,
+    double* Z, blas_int const* ldz, blas_int const* nrows,
+    double* work,
+    blas_int* info );
+
+void scalapack_csteqr2(
+    char const* compz, blas_int const* n,
+    float* D,
+    float* E,
+    std::complex<float>* Z, blas_int const* ldz, blas_int const* nrows,
+    float* work,
+    blas_int* info );
+
+void scalapack_zsteqr2(
+    char const* compz, blas_int const* n,
+    double* D,
+    double* E,
+    std::complex<double>* Z, blas_int const* ldz, blas_int const* nrows,
+    double* work,
+    blas_int* info );
+
+} // extern C
+
+//------------------------------------------------------------------------------
+// Low-level overloaded wrappers
+inline void steqr2(
+    char const* compz, blas_int const* n,
+    float* D,
+    float* E,
+    float* Z, blas_int const* ldz, blas_int const* nrows,
+    float* work,
+    blas_int* info )
+{
+    scalapack_ssteqr2(
+        compz, n, D, E, Z, ldz, nrows, work, info );
+}
+
+inline void steqr2(
+    char const* compz, blas_int const* n,
+    double* D,
+    double* E,
+    double* Z, blas_int const* ldz, blas_int const* nrows,
+    double* work,
+    blas_int* info )
+{
+    scalapack_dsteqr2(
+        compz, n, D, E, Z, ldz, nrows, work, info );
+}
+
+inline void steqr2(
+    char const* compz, blas_int const* n,
+    float* D,
+    float* E,
+    std::complex<float>* Z, blas_int const* ldz, blas_int const* nrows,
+    float* work,
+    blas_int* info )
+{
+    scalapack_csteqr2(
+        compz, n, D, E, Z, ldz, nrows, work, info );
+}
+
+inline void steqr2(
+    char const* compz, blas_int const* n,
+    double* D,
+    double* E,
+    std::complex<double>* Z, blas_int const* ldz, blas_int const* nrows,
+    double* work,
+    blas_int* info )
+{
+    scalapack_zsteqr2(
+        compz, n, D, E, Z, ldz, nrows, work, info );
+}
+
+//------------------------------------------------------------------------------
+// Templated wrapper
+template <typename scalar_t>
+void steqr2(
+    lapack::Job compz, int64_t n,
+    blas::real_type<scalar_t>* D,
+    blas::real_type<scalar_t>* E,
+    scalar_t* Z, int64_t ldz, int64_t nrows,
+    blas::real_type<scalar_t>* work,
+    int64_t* info )
+{
+    char compz_ = to_char_comp( compz );
+    blas_int n_      = to_blas_int( n );
+    blas_int ldz_    = to_blas_int( ldz );
+    blas_int nrows_  = to_blas_int( nrows );
+    blas_int info_   = 0;
+    steqr2(
+        &compz_, &n_, D, E, Z, &ldz_, &nrows_, work, &info_ );
+    *info = info_;
+}
+
 } // namespace scalapack
 
 #endif // SLATE_SCALAPACK_WRAPPERS_HH

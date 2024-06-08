@@ -243,7 +243,7 @@ std::vector< testsweeper::routines_t > routines = {
     // symmetric/Hermitian eigenvalues
     { "heev",               test_heev,         Section::heev },
     { "sterf",              test_sterf,        Section::heev },
-    { "steqr2",             test_steqr2,       Section::heev },
+    { "steqr",              test_steqr,        Section::heev },
     { "",                   nullptr,           Section::newline },
 
     { "stedc",              test_stedc,          Section::heev },

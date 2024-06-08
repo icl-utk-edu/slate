@@ -18,7 +18,7 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_steqr2_work(Params& params, bool run)
+void test_steqr_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -52,14 +52,15 @@ void test_steqr2_work(Params& params, bool run)
         return;
 
     // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    int mpi_size, mpi_rank, myrow, mycol;
+    MPI_Comm_size( MPI_COMM_WORLD, &mpi_size );
+    MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // Matrix Z: figure out local size.
     int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
+    int64_t lldZ  = max( 1, mlocZ ); // local leading dimension of Z
     std::vector<scalar_t> Z_data(1);
 
     // Initialize the diagonal and subdiagonal
@@ -84,20 +85,39 @@ void test_steqr2_work(Params& params, bool run)
     }
 
     slate::Matrix<scalar_t> Z; // Matrix of the eigenvectors
-    if (origin != slate::Origin::ScaLAPACK) {
-        if (wantz) {
+    if (wantz) {
+        if (origin != slate::Origin::ScaLAPACK) {
             Z = slate::Matrix<scalar_t>(
                     n, n, nb, p, q, MPI_COMM_WORLD);
             Z.insertLocalTiles(origin2target(origin));
         }
-    }
-    else {
-        if (wantz) {
+        else {
             Z_data.resize(lldZ*nlocZ);
             Z = slate::Matrix<scalar_t>::fromScaLAPACK(
                     n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
         }
+        // note slate::steqr sets Z = Identity, unlike ScaLAPACK steqr2.
     }
+
+    // Check low-level lwork query.
+    std::vector<real_t> work( 1 );
+    int64_t nrows = num_local_rows_cols( n, nb, mpi_rank, mpi_size );
+    int64_t ldz = max( 1, nrows );
+    int64_t lwork;
+    // Unless p-by-q is mpi_size-by-1, Z is the wrong size here,
+    // but we're just testing lwork query.
+    int64_t info;
+    // Eigenvalues only.
+    info = slate::steqr( n, &D[0], &E[0], &Z_data[0], 1, 0, &work[0], -1 );
+    lwork = int64_t( work[ 0 ] );
+    slate_assert( info == 0 );
+    slate_assert( lwork == 1 );
+    // Eigenvectors.
+    info = slate::steqr( n, &D[0], &E[0], &Z_data[0], ldz, nrows, &work[0], -1 );
+    lwork = int64_t( work[ 0 ] );
+    slate_assert( info == 0 );
+    slate_assert( lwork == max( 1, 2*n - 2 ) || (nrows == 0 && lwork == 1) );
+
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
@@ -106,8 +126,7 @@ void test_steqr2_work(Params& params, bool run)
     //==================================================
     // Run SLATE test.
     //==================================================
-    //slate::sterf(D, E);
-    steqr2(jobz, D, E, Z);
+    steqr( jobz, D, E, Z );
 
     params.time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -125,29 +144,42 @@ void test_steqr2_work(Params& params, bool run)
         //==================================================
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
+        // Set Zref = Identity, distributed on 1D mpi_size-by-1 grid.
+        std::vector<scalar_t> Zref_data( ldz*n );
+        auto Zref = slate::Matrix<scalar_t>::fromScaLAPACK(
+            n, n, &Zref_data[0], ldz, nb, mpi_size, 1, MPI_COMM_WORLD );
+        set( zero, one, Zref );
+
+        lwork = max( 1, 2*n - 2 );
+        work.resize( lwork );
+
         //==================================================
-        // Run LAPACK reference routine.
+        // Run ScaLAPACK reference routine.
         //==================================================
         time = barrier_get_wtime(MPI_COMM_WORLD);
 
-        lapack::sterf(n, &Dref[0], &Eref[0]);
+        scalapack::steqr2(
+            jobz, n, &Dref[0], &Eref[0], &Zref_data[0], ldz, nrows,
+            &work[0], &info );
+        assert( info == 0 );
 
         params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (mpi_rank == 0) {
             print_vector( "Dref_out", Dref, params );
         }
+        print_matrix( "Zref_out", Zref, params );
 
         // Relative forward error: || D - Dref || / || Dref ||.
-        real_t err = blas::nrm2(Dref.size(), &Dref[0], 1);
-        blas::axpy(D.size(), -1.0, &D[0], 1, &Dref[0], 1);
-        params.error() = blas::nrm2(Dref.size(), &Dref[0], 1) / err;
+        real_t Dnorm = blas::nrm2( n, &Dref[0], 1 );
+        blas::axpy( n, -1.0, &D[0], 1, &Dref[0], 1 );
+        params.error() = blas::nrm2( n, &Dref[0], 1 ) / Dnorm;
         params.okay() = (params.error() <= tol);
 
         //==================================================
-        // Test results by checking the orthogonality of Q
+        // Test results by checking the orthogonality of Z
         //
-        //     || Q^H Q - I ||_f
+        //     || Z^H Z - I ||_f
         //     ----------------- < tol * epsilon
         //           n
         //
@@ -163,23 +195,23 @@ void test_steqr2_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_steqr2(Params& params, bool run)
+void test_steqr(Params& params, bool run)
 {
     switch (params.datatype()) {
         case testsweeper::DataType::Single:
-            test_steqr2_work<float> (params, run);
+            test_steqr_work<float>( params, run );
             break;
 
         case testsweeper::DataType::Double:
-            test_steqr2_work<double> (params, run);
+            test_steqr_work<double>( params, run );
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_steqr2_work<std::complex<float>> (params, run);
+            test_steqr_work<std::complex<float>>( params, run );
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_steqr2_work<std::complex<double>> (params, run);
+            test_steqr_work<std::complex<double>>( params, run );
             break;
 
         default:

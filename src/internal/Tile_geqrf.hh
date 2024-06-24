@@ -85,10 +85,10 @@ void geqrf(
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
     const real_t r_one  = 1.0;
-    const real_t safe_min = std::numeric_limits<real_t>::epsilon();
+    // LAPACK eps = 0.5 epsilon from C++
+    const real_t safe_min = std::numeric_limits<real_t>::min()
+                          / (0.5 * std::numeric_limits<real_t>::epsilon());
     const real_t rsafe_min = r_one / safe_min;
-
-    int knt;
 
     Tile<scalar_t>& diag_tile = tiles.at(0);
     int64_t diag_len = std::min( diag_tile.mb(), diag_tile.nb() );
@@ -161,10 +161,10 @@ void geqrf(
             else {
                 real_t beta =
                     -std::copysign( std::hypot( alphr, alphi, xnorm ), alphr );
-                knt = 0;
+                int cnt = 0;
                 if (std::abs( beta ) < safe_min) {
-                    if (knt < 20 && std::abs( beta ) < safe_min) {
-                        knt += 1;
+                    do {
+                        cnt += 1;
                         // scale input vector accordingly
                         for (int64_t idx = thread_rank;
                              idx < int64_t(tiles.size());
@@ -187,7 +187,8 @@ void geqrf(
 
                         beta = beta*rsafe_min;
                         alpha = alpha*rsafe_min;
-                    }
+                    } while (cnt < 20 && std::abs( beta ) < safe_min);
+
                     //-------------------
                     // thread local norm
                     // with scaled vector
@@ -232,7 +233,7 @@ void geqrf(
                 betas.at(j) = beta;
                 taus.at(j) = tau;
 
-                for (int64_t i = 0; i < knt; ++i) {
+                for (int64_t i = 0; i < cnt; ++i) {
                     beta = beta*safe_min;
                 }
                 //----------------------------------

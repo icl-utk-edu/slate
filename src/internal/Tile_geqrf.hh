@@ -158,7 +158,7 @@ void geqrf(
             }
             else {
                 real_t beta =
-                    -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
+                    -std::copysign( std::hypot( alphr, alphi, xnorm ), alphr );
                 knt = 0;
                 if (std::abs(beta) < safemin) {
                     if (knt < 20 && std::abs(beta) < safemin) {
@@ -217,7 +217,8 @@ void geqrf(
                     thread_barrier.wait(thread_size);
                     alphr = real(alpha);
                     alphi = imag(alpha);
-                    beta = -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
+                    beta = -std::copysign( std::hypot( alphr, alphi, xnorm ),
+                                           alphr );
                 }
 
                 // todo: Use overflow-safe division (see CLADIV/ZLADIV)

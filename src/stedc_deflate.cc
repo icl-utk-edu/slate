@@ -313,7 +313,7 @@ void stedc_deflate(
             //         [ -s  c ]
             real_t s = -z[ js1 ];
             real_t c =  z[ js2 ];
-            real_t tau = lapack::lapy2( c, s );  // == sqrt( c*c + s*s )
+            real_t tau = std::hypot( c, s );  // == sqrt( c*c + s*s )
             s /= tau;
             c /= tau;
             // Check off-diagonal element after applying G on both sides:

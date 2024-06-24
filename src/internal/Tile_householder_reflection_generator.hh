@@ -129,7 +129,7 @@ void householder_reflection_generator(
         thread_barrier.wait(thread_size);
 
         real_t beta =
-            -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
+            -std::copysign( std::hypot( alphr, alphi, xnorm ), alphr );
 
         scalar_t scal_alpha = one / (alpha-beta);
         scalar_t tau = blas::make_scalar<scalar_t>(

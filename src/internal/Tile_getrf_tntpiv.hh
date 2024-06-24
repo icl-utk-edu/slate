@@ -208,8 +208,8 @@ void getrf_tntpiv_local(
                 auto tile = tiles[ idx ];
 
                 // column scaling
-                real_t sfmin = std::numeric_limits<real_t>::min();
-                if (cabs1( aux_pivot[ 0 ][ j ].value() ) >= sfmin) {
+                real_t safe_min = std::numeric_limits<real_t>::min();
+                if (cabs1( aux_pivot[ 0 ][ j ].value() ) >= safe_min) {
                     // todo: make it a tile operation
                     if (idx == 0) {
                         // diagonal tile

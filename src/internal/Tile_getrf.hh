@@ -331,8 +331,8 @@ void getrf(
                 auto i_index = tile_indices[idx];
 
                 // column scaling
-                real_t sfmin = std::numeric_limits<real_t>::min();
-                if (cabs1(pivot[j].value()) >= sfmin) {
+                real_t safe_min = std::numeric_limits<real_t>::min();
+                if (cabs1( pivot[ j ].value() ) >= safe_min) {
                     // todo: make it a tile operation
                     if (i_index == 0) {
                         // diagonal tile

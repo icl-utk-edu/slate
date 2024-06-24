@@ -137,8 +137,8 @@ void norm1est(
     using blas::real;
     using blas::imag;
     const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
-    real_t safmin = std::numeric_limits< real_t >::min();
-    SLATE_UNUSED(safmin);
+    real_t safe_min = std::numeric_limits< real_t >::min();
+    SLATE_UNUSED( safe_min );
 
     const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
@@ -202,7 +202,7 @@ void norm1est(
                         // for complex number
                         if constexpr (blas::is_complex<scalar_t>::value) {
                             real_t absx1 = std::abs( Xi_data[ii] );
-                            if (absx1 > safmin) {
+                            if (absx1 > safe_min) {
                                 scalar_t Xi_ii = blas::MakeScalarTraits<scalar_t>::make(
                                         real( Xi_data[ii] ) / absx1,
                                         imag( Xi_data[ii] ) / absx1 );
@@ -301,7 +301,7 @@ void norm1est(
                         auto Xi_data = Xi.data();
                         for (int64_t ii = 0; ii < X.tileMb(i); ++ii) {
                             real_t absx1 = std::abs( Xi_data[ii] );
-                            if (absx1 > safmin) {
+                            if (absx1 > safe_min) {
                                 scalar_t Xi_ii = blas::MakeScalarTraits<scalar_t>::make( real( Xi_data[ii] ) / absx1,
                                         imag( Xi_data[ii] ) / absx1);
                                 Xi_data[ii] = Xi_ii;

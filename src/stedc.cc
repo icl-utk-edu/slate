@@ -62,7 +62,7 @@ void stedc(
         throw std::domain_error( "Input matrix contains Inf or NaN" );
 
     // Scale if necessary.
-    // todo: steqr scales only if Anorm > sfmax or Anorm < sfmin,
+    // todo: steqr scales only if Anorm > safe_max or Anorm < safe_min,
     // but stedc always scales. Is that right?
     lapack::lascl( MatrixType::General, 0, 0, Anorm, one, n,   1, &D[0], n   );
     lapack::lascl( MatrixType::General, 0, 0, Anorm, one, n-1, 1, &E[0], n-1 );

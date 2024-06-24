@@ -544,7 +544,7 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::sub(
 /// This version returns a general Matrix that:
 /// - if uplo = Lower, is strictly below the diagonal, or
 /// - if uplo = Upper, is strictly above the diagonal.
-/// @see TrapezoidMatrix sub(int64_t i1, int64_t i2, int64_T j2)
+/// @see TrapezoidMatrix sub( int64_t i1, int64_t i2, int64_t j2 )
 ///
 /// @param[in] i1
 ///     Starting block row index. 0 <= i1 < mt.

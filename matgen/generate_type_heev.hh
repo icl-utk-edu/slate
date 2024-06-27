@@ -148,6 +148,47 @@ void generate_heev(
     }
 }
 
+//------------------------------------------------------------------------------
+/// Generates matrix using Hermitian eigenvalue decomposition, $A = U Sigma U^H$.
+///
+/// Internal function, called from generate_matrix().
+/// This variant fills in a general square matrix, then copies the upper
+/// or lower part to Hermitian/symmetric matrix A, which is passed as a
+/// BaseTrapezoidMatrix.
+///
+/// @ingroup generate_matrix
+template <typename scalar_t>
+void generate_heev(
+    MatgenParams& params,
+    TestMatrixDist dist, bool rand_sign,
+    blas::real_type<scalar_t> cond,
+    blas::real_type<scalar_t> condD,
+    blas::real_type<scalar_t> sigma_max,
+    slate::BaseTrapezoidMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    int64_t seed,
+    slate::Options const& opts )
+{
+    // Allocate general matrix for generate_heev( ..., Matrix, ... ) above.
+    // unmqr applies to general matrix.
+    // Maybe could rewrite using her2k as in hetrd update.
+    int64_t n = A.n();
+    auto tileMb = A.tileMbFunc();
+    auto tileNb = A.tileNbFunc();
+    auto tileRank = A.tileRankFunc();
+    auto tileDevice = A.tileDeviceFunc();
+    Matrix<scalar_t> B_ge( n, n, tileMb, tileNb, tileRank, tileDevice,
+                           A.mpiComm() );
+    B_ge.insertLocalTiles();
+    generate_heev( params, dist, rand_sign, cond, condD, sigma_max,
+                   B_ge, Sigma, seed, opts );
+
+    // Cast both to Hermitian matrix to copy.
+    HermitianMatrix A_he( A );
+    HermitianMatrix B_he( A.uplo(), B_ge );
+    slate::copy( B_he, A_he );
+}
+
 } // namespace slate
 
 #endif // SLATE_GENERATE_TYPE_HEEV_HH

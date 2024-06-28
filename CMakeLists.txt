@@ -53,7 +53,6 @@ endif()
 option( BUILD_SHARED_LIBS "Build shared libraries" true )
 option( build_tests "Build test suite" "${slate_is_project}" )
 option( color "Use ANSI color output" true )
-option( use_openmp "Use OpenMP, if available" true )
 option( c_api "Build C API" false )
 # todo: option( fortran_api "Build Fortran API. Requires C API." false )
 
@@ -121,7 +120,6 @@ BUILD_SHARED_LIBS      = ${BUILD_SHARED_LIBS}
 build_tests            = ${build_tests}
 color                  = ${color}
 gpu_backend            = ${gpu_backend}
-use_openmp             = ${use_openmp}
 c_api                  = ${c_api}
 fortran_api            = ${fortran_api}
 slate_is_project       = ${slate_is_project}
@@ -300,23 +298,13 @@ endif()
 # OpenMP support.
 # Needed before BLAS++.
 message( "" )
-message( "---------------------------------------- OpenMP: use_openmp = ${use_openmp}" )
-set( slate_use_openmp false )  # output in slateConfig.cmake.in
-if (NOT use_openmp)
-    message( STATUS "User has requested to NOT use OpenMP" )
+message( "---------------------------------------- OpenMP" )
+find_package( OpenMP )
+if (OpenMP_CXX_FOUND)
+    target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
+    set( slate_use_openmp true )  # historical; output in slateConfig.cmake.in
 else()
-    find_package( OpenMP )
-    if (OpenMP_CXX_FOUND)
-        target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
-        set( slate_use_openmp true )
-    else()
-        message( STATUS "No OpenMP support in SLATE" )
-        target_sources(
-            slate
-            PRIVATE
-            src/stubs/openmp_stubs.cc
-        )
-    endif()
+    message( FATAL_ERROR "OpenMP is required" )
 endif()
 
 #-------------------------------------------------------------------------------

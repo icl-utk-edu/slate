@@ -220,7 +220,7 @@ ifeq (${openmp},1)
         LDFLAGS  += -fopenmp
     endif
 else
-    slate_src += src/stubs/openmp_stubs.cc
+    ${error ERROR: unsupported `openmp=${openmp}`. OpenMP is required.}
 endif
 
 #-------------------------------------------------------------------------------

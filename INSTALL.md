@@ -30,7 +30,8 @@ which includes BLAS++ and LAPACK++.
 
 Configure and compile the SLATE library and its tester,
 then install the headers and library. This will also compile
-BLAS++, LAPACK++, and TestSweeper.
+BLAS++, LAPACK++, and TestSweeper. SLATE requires MPI and an
+OpenMP C++17 compiler.
 
 **Option 1: Makefile**
 
@@ -243,10 +244,6 @@ options include:
         or other valid HIP architecture, separated by space.
         See https://llvm.org/docs/AMDGPUUsage.html
 
-    openmp
-        SLATE will compile with OpenMP by default. To compile without
-        OpenMP, set `openmp = 0`.
-
     c_api
         Whether to build C API. Python is required. One of:
         1                   build C API
@@ -319,11 +316,6 @@ options include:
         For other architectures, CMAKE_CUDA_ARCHITECTURES **should be defined**.
         For example, `-DCMAKE_CUDA_ARCHITECTURES=70` should be added for
         the Volta architecture.
-
-    use_openmp
-        Whether to use OpenMP, if available. One of:
-        yes (default)
-        no
 
     build_tests
         Whether to build test suite (test/tester).

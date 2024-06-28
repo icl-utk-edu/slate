@@ -1006,7 +1006,7 @@ blaspp_src = ${wildcard blaspp/include/blas/*.h \
                         blaspp/include/blas/*.hh \
                         blaspp/src/*.cc}
 
-blaspp = blaspp/lib/blaspp.${lib_ext}
+blaspp = blaspp/lib/libblaspp.${lib_ext}
 
 # dependency on testsweeper serializes compiles
 ${blaspp}: ${blaspp_src} | ${testsweeper}
@@ -1020,7 +1020,7 @@ lapackpp_src = ${wildcard lapackpp/include/lapack/*.h \
                           lapackpp/include/lapack/*.hh \
                           lapackpp/src/*.cc}
 
-lapackpp = lapackpp/lib/lapackpp.${lib_ext}
+lapackpp = lapackpp/lib/liblapackpp.${lib_ext}
 
 # dependency on testsweeper, BLAS++ serializes compiles
 ${lapackpp}: ${lapackpp_src} | ${testsweeper} ${blaspp}

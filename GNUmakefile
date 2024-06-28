@@ -228,6 +228,9 @@ endif
 ifneq (,${filter mpi%,${CXX}})
     # CXX = mpicxx, mpic++, ...
     # Generic MPI via compiler wrapper. No flags to set.
+    ifneq (${mpi},)
+        ${warning `CXX=${CXX}` MPI compiler overrides `mpi=${mpi}`}
+    endif
 else ifeq (${mpi},cray)
     # Cray MPI via compiler wrapper. No flags to set.
 else ifeq (${mpi},1)
@@ -237,9 +240,9 @@ else ifeq (${mpi},spectrum)
     # IBM Spectrum MPI
     LIBS  += -lmpi_ibm
 else
-    FLAGS += -DSLATE_NO_MPI
-    slate_src += src/stubs/mpi_stubs.cc
-    fortran_api = 0
+    ${error ERROR: unknown `mpi=${mpi}`. MPI is required. \
+            Either set CXX to an MPI compiler named `mpi...`, such as `mpicxx`, \
+            or set mpi to one of 1, cray, or spectrum}
 endif
 
 #-------------------------------------------------------------------------------

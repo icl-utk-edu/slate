@@ -129,7 +129,6 @@ std::string output_skip( SkipException const& ex )
 /// Root node prints string str from all MPI ranks.
 void printf_gather(int root, MPI_Comm comm, const std::string& str)
 {
-#ifndef SLATE_NO_MPI
     int mpi_rank, mpi_size;
     MPI_Comm_rank(comm, &mpi_rank);
     MPI_Comm_size(comm, &mpi_size);
@@ -156,7 +155,6 @@ void printf_gather(int root, MPI_Comm comm, const std::string& str)
         MPI_Send(&bufsize,    1,       MPI_INT,  0, 0, comm);
         MPI_Send(str.c_str(), bufsize, MPI_CHAR, 0, 0, comm);
     }
-#endif
 }
 
 //------------------------------------------------------------------------------
@@ -218,7 +216,6 @@ void run_test(test_function* func, const char* name)
 /// Rank 0 prints output from all ranks.
 void run_test(test_function* func, const char* name, MPI_Comm comm)
 {
-#ifndef SLATE_NO_MPI
     int mpi_rank, mpi_size;
     MPI_Comm_rank(comm, &mpi_rank);
     MPI_Comm_size(comm, &mpi_size);
@@ -261,9 +258,6 @@ void run_test(test_function* func, const char* name, MPI_Comm comm)
     MPI_Barrier(comm);
     if (mpi_size > 1 && mpi_rank == 0)
         printf( "\n" );
-#else
-    run_test(func, name);
-#endif // SLATE_NO_MPI
 }
 
 //------------------------------------------------------------------------------
@@ -306,7 +300,6 @@ int unit_test_main()
 /// @retval -1 if any failed.
 int unit_test_main(MPI_Comm comm)
 {
-#ifndef SLATE_NO_MPI
     double time = omp_get_wtime();
     test::run_tests();
     time = omp_get_wtime() - time;
@@ -348,7 +341,4 @@ int unit_test_main(MPI_Comm comm)
         }
         return -1;
     }
-#else
-    return unit_test_main();
-#endif  // SLATE_NO_MPI
 }

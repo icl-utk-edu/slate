@@ -53,7 +53,6 @@ endif()
 option( BUILD_SHARED_LIBS "Build shared libraries" true )
 option( build_tests "Build test suite" "${slate_is_project}" )
 option( color "Use ANSI color output" true )
-option( use_mpi "Use MPI, if available" true )
 option( use_openmp "Use OpenMP, if available" true )
 option( c_api "Build C API" false )
 # todo: option( fortran_api "Build Fortran API. Requires C API." false )
@@ -122,7 +121,6 @@ BUILD_SHARED_LIBS      = ${BUILD_SHARED_LIBS}
 build_tests            = ${build_tests}
 color                  = ${color}
 gpu_backend            = ${gpu_backend}
-use_mpi                = ${use_mpi}
 use_openmp             = ${use_openmp}
 c_api                  = ${c_api}
 fortran_api            = ${fortran_api}
@@ -325,20 +323,15 @@ endif()
 # MPI support.
 # CXX means MPI C API being usable from C++, not the MPI-2 C++ API.
 message( "" )
-message( "---------------------------------------- MPI: use_mpi = ${use_mpi}" )
-set( slate_use_mpi false )  # output in slateConfig.cmake.in
-if (NOT use_mpi)
-    message( STATUS "User has requested to NOT use MPI" )
-else()
-    set( MPI_DETERMINE_LIBRARY_VERSION true )
-    find_package( MPI COMPONENTS CXX )
-endif()
+message( "---------------------------------------- MPI" )
+set( MPI_DETERMINE_LIBRARY_VERSION true )
+find_package( MPI COMPONENTS CXX )
 if (MPI_FOUND)
     get_target_property( mpi_lib MPI::MPI_CXX INTERFACE_LINK_LIBRARIES )
     message( STATUS "Found MPI: ${mpi_lib}" )
 
     target_link_libraries( slate PUBLIC MPI::MPI_CXX )
-    set( slate_use_mpi true )
+    set( slate_use_mpi true )  # historical; output in slateConfig.cmake.in
 
     # Remove Open MPI flags that are incompatible with nvcc (-fexceptions).
     get_target_property( mpi_cxx_defines MPI::MPI_CXX INTERFACE_COMPILE_OPTIONS )
@@ -348,13 +341,7 @@ if (MPI_FOUND)
     set_target_properties( MPI::MPI_CXX PROPERTIES INTERFACE_COMPILE_OPTIONS
                            "${mpi_cxx_defines}" )
 else()
-    message( STATUS "No MPI support in SLATE" )
-    target_sources(
-        slate
-        PRIVATE
-        src/stubs/mpi_stubs.cc
-    )
-    target_compile_definitions( slate PUBLIC "-DSLATE_NO_MPI" )
+    message( FATAL_ERROR "MPI is required" )
 endif()
 
 #-------------------------------------------------------------------------------

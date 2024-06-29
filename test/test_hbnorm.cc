@@ -122,22 +122,22 @@ void test_hbnorm_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int64_t info;
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info);
+            scalapack::descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info );
             slate_assert(info == 0);
 
             // allocate work space
             int64_t ldw = nb*ceildiv( ceildiv( nlocA, nb ),
                                       std::lcm( p, q ) / p );
             int64_t lwork = 2*mlocA + nlocA + ldw;
-            std::vector<real_t> worklanhe( lwork );
+            std::vector<real_t> work( lwork );
 
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            real_t A_norm_ref = scalapack_planhe(
-                                    to_c_string( norm ), to_c_string( A.uplo() ),
-                                    n, &A_data[0], 1, 1, A_desc, &worklanhe[0]);
+            real_t A_norm_ref = scalapack::lanhe(
+                                    norm, A.uplo(),
+                                    n, &A_data[0], 1, 1, A_desc, &work[0] );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             //A_norm_ref = lapack::lanhe(

@@ -152,7 +152,7 @@ void test_copy_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_placpy( to_c_string( uplo ), m, n,
+            scalapack::lacpy( uplo, m, n,
                               &Aref_data[0], 1, 1, A_desc,
                               &Bref_data[0], 1, 1, B_desc );
 

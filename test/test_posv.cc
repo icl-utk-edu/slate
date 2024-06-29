@@ -357,13 +357,13 @@ void test_posv_work(Params& params, bool run)
             if (check) {
                 // restore Bref_data
                 Bref_data = B_orig;
-                //scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
+                //scalapack::descinit( Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info );
                 //slate_assert(info == 0);
             }
 
             if (params.routine == "potrs") {
                 // Factor matrix A.
-                scalapack_ppotrf( to_c_string( uplo ), n,
+                scalapack::potrf( uplo, n,
                                   &Aref_data[0], 1, 1, Aref_desc, &info );
                 slate_assert(info == 0);
             }
@@ -373,16 +373,16 @@ void test_posv_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (params.routine == "potrf") {
-                scalapack_ppotrf( to_c_string( uplo ), n,
+                scalapack::potrf( uplo, n,
                                   &Aref_data[0], 1, 1, Aref_desc, &info );
             }
             else if (params.routine == "potrs") {
-                scalapack_ppotrs( to_c_string( uplo ), n, nrhs,
+                scalapack::potrs( uplo, n, nrhs,
                                   &Aref_data[0], 1, 1, Aref_desc,
                                   &Bref_data[0], 1, 1, Bref_desc, &info );
             }
             else {
-                scalapack_pposv( to_c_string( uplo ), n, nrhs,
+                scalapack::posv( uplo, n, nrhs,
                                  &Aref_data[0], 1, 1, Aref_desc,
                                  &Bref_data[0], 1, 1, Bref_desc, &info );
             }

@@ -201,7 +201,7 @@ void test_scale_row_col_work( Params& params, bool run )
                 colcnd = 0.0;
 
             char equed_out;
-            scalapack_plaqge( m, n, &Aref_data[0], 1, 1, A_desc,
+            scalapack::laqge( m, n, &Aref_data[0], 1, 1, A_desc,
                               Rlocal.data(), Clocal.data(),
                               rowcnd, colcnd, A_max, &equed_out );
 

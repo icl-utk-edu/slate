@@ -217,34 +217,37 @@ void test_tbsm_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int64_t info;
-            scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
-            scalapack_descinit(B_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
+            scalapack::descinit( B_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info );
             slate_assert(info == 0);
 
-            scalapack_descinit(Bref_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
+            scalapack::descinit( Bref_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info );
             slate_assert(info == 0);
 
-            std::vector<real_t> worklantr(std::max(mlocA, nlocA));
-            std::vector<real_t> worklange(std::max(mlocB, nlocB));
+            // For both lantr of A and lange of B.
+            std::vector<real_t> work( blas::max( mlocA, nlocA, mlocB, nlocB ) );
 
             // get norms of the original data
-            real_t A_norm = scalapack_plantr(to_c_string( norm ), to_c_string( uplo ), to_c_string( diag ), Am, An, &A_data[0], 1, 1, A_desc, &worklantr[0]);
-            real_t B_orig_norm = scalapack_plange(to_c_string( norm ), Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0]);
+            real_t A_norm = scalapack::lantr(
+                norm, uplo, diag, Am, An, &A_data[0], 1, 1, A_desc, &work[0] );
+            real_t B_orig_norm = scalapack::lange(
+                norm, Bm, Bn, &B_data[0], 1, 1, B_desc, &work[0] );
 
             auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
                         Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
             print_matrix("Bref", Bref, params);
+
             //==================================================
             // Run ScaLAPACK reference routine.
             // Note this is on a FULL matrix, so ignore reference performance!
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ptrsm(to_c_string( side ), to_c_string( uplo ), to_c_string( transA ), to_c_string( diag ),
-                            m, n, alpha,
-                            &A_data[0], 1, 1, A_desc,
-                            &Bref_data[0], 1, 1, Bref_desc);
+            scalapack::trsm( side, uplo, transA, diag,
+                             m, n, alpha,
+                             &A_data[0], 1, 1, A_desc,
+                             &Bref_data[0], 1, 1, Bref_desc );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             print_matrix( "Bref_out", Bref, params );
@@ -253,7 +256,8 @@ void test_tbsm_work(Params& params, bool run)
             blas::axpy(Bref_data.size(), -1.0, &B_data[0], 1, &Bref_data[0], 1);
 
             // norm(Bref_data - B_data)
-            real_t B_diff_norm = scalapack_plange(to_c_string( norm ), Bm, Bn, &Bref_data[0], 1, 1, Bref_desc, &worklange[0]);
+            real_t B_diff_norm = scalapack::lange(
+                norm, Bm, Bn, &Bref_data[0], 1, 1, Bref_desc, &work[0] );
 
             print_matrix("Bdiff", Bref, params);
 

@@ -141,7 +141,7 @@ void test_stedc_z_vector_work( Params& params, bool run )
             slate_assert( mycol == mycol_ );
 
             int64_t info;
-            scalapack_descinit( Q_desc, n, n, nb, nb, 0, 0, ictxt, lldQ, &info );
+            scalapack::descinit( Q_desc, n, n, nb, nb, 0, 0, ictxt, lldQ, &info );
             slate_assert( info == 0 );
 
             // plaedz work size is undocumented; guess n.
@@ -153,7 +153,7 @@ void test_stedc_z_vector_work( Params& params, bool run )
             //==================================================
             time = barrier_get_wtime( MPI_COMM_WORLD );
 
-            scalapack_plaedz( n, n1, 1,
+            scalapack::laedz( n, n1, 1,
                               &Qref_data[0], 1, 1, lldQ, Q_desc,
                               &zref[0], &work[0] );
 

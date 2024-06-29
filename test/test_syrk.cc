@@ -209,9 +209,9 @@ void test_syrk_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime( MPI_COMM_WORLD );
-            scalapack_psyrk(to_c_string( uplo ), to_c_string( transA ), n, k, alpha,
-                            &A_data[0], 1, 1, A_desc, beta,
-                            &Cref_data[0], 1, 1, Cref_desc);
+            scalapack::syrk( uplo, transA, n, k,
+                             alpha, &A_data[0], 1, 1, A_desc,
+                             beta,  &Cref_data[0], 1, 1, Cref_desc );
             time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
             // get differences C = C - Cref

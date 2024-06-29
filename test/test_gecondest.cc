@@ -222,7 +222,7 @@ void test_gecondest_work(Params& params, bool run)
             // ScaLAPACK descriptor for the reference matrix
             int64_t info;
             blas_int Aref_desc[9];
-            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
             // ScaLAPACK data for pivots.
@@ -231,8 +231,8 @@ void test_gecondest_work(Params& params, bool run)
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-            scalapack_pgetrf(
-                n, n, &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info);
+            scalapack::getrf(
+                n, n, &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info );
             slate_assert( info == 0 );
 
             // query for workspace size for pgecon
@@ -240,7 +240,7 @@ void test_gecondest_work(Params& params, bool run)
             int64_t liwork = -1;
             scalar_t dummy;
             blas_int idummy;
-            scalapack_pgecon( to_c_string( norm ), n,
+            scalapack::gecon( norm, n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
                               &dummy, lwork, &idummy, liwork, &info );
@@ -255,7 +255,7 @@ void test_gecondest_work(Params& params, bool run)
             // todo: ScaLAPCK pzgecon has a seg fault
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgecon( to_c_string( norm ), n,
+            scalapack::gecon( norm, n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
                               &work[0], lwork, &iwork[0], liwork, &info );

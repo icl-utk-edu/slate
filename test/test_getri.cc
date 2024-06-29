@@ -23,6 +23,7 @@ template <typename scalar_t>
 void test_getri_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using slate::Uplo, slate::Op, slate::Norm;
 
     // Constants
     const scalar_t zero = 0.0;
@@ -224,13 +225,13 @@ void test_getri_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
-            scalapack_descinit( Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
+            scalapack::descinit( Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert( info == 0 );
 
-            scalapack_descinit( Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
+            scalapack::descinit( Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert( info == 0 );
 
             if (origin != slate::Origin::ScaLAPACK) {
@@ -246,19 +247,22 @@ void test_getri_work(Params& params, bool run)
             }
 
             // For check make Cchk_data a identity matrix to check the result of multiplying A and A_inv
-            scalapack_plaset("All", n, n, zero, one, &Cchk_data[0], 1, 1, Cchk_desc);
+            scalapack::laset( Uplo::General, n, n, zero, one,
+                              &Cchk_data[0], 1, 1, Cchk_desc );
 
             // Cchk_data has been setup as an identity matrix; C_chk = C_chk - inv(A)*A
-            scalapack_pgemm("notrans", "notrans", n, n, n, -one,
-                            &A_data[0], 1, 1, A_desc,
-                            &Aref_data[0], 1, 1, Aref_desc, one,
-                            &Cchk_data[0], 1, 1, Cchk_desc);
+            scalapack::gemm( Op::NoTrans, Op::NoTrans, n, n, n,
+                             -one, &A_data[0], 1, 1, A_desc,
+                                   &Aref_data[0], 1, 1, Aref_desc,
+                             one,  &Cchk_data[0], 1, 1, Cchk_desc );
 
             // Norm of Cchk_data ( = I - inv(A) * A )
-            std::vector<real_t> worklange(n);
-            real_t C_norm = scalapack_plange("One", n, n, &Cchk_data[0], 1, 1, Cchk_desc, &worklange[0]);
+            std::vector<real_t> work( n );
+            real_t C_norm = scalapack::lange(
+                Norm::One, n, n, &Cchk_data[0], 1, 1, Cchk_desc, &work[0] );
 
-            real_t A_inv_norm = scalapack_plange("One", n, n, &A_data[0], 1, 1, A_desc, &worklange[0]);
+            real_t A_inv_norm = scalapack::lange(
+                Norm::One, n, n, &A_data[0], 1, 1, A_desc, &work[0] );
 
             double residual = C_norm / (A_norm * n * A_inv_norm);
             params.error() = residual;

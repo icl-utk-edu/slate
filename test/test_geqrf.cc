@@ -236,7 +236,7 @@ void test_geqrf_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int64_t info;
-            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
             // tau vector for ScaLAPACK
@@ -255,8 +255,8 @@ void test_geqrf_work(Params& params, bool run)
 
             // query for workspace size
             scalar_t dummy;
-            scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                             &dummy, -1, &info);
+            scalapack::geqrf( m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                              &dummy, -1, &info );
             slate_assert( info == 0 );
             lwork = int64_t( real( dummy ) );
             work.resize(lwork);
@@ -265,8 +265,8 @@ void test_geqrf_work(Params& params, bool run)
             // Run ScaLAPACK reference test.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                             work.data(), lwork, &info);
+            scalapack::geqrf( m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                              work.data(), lwork, &info );
             slate_assert( info == 0 );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -294,18 +294,18 @@ void test_geqrf_work(Params& params, bool run)
                 slate::copy(scala_R, scala_R1);
 
                 // Apply Q to R-factor
-                scalapack_punmqr(to_c_string( blas::Side::Left ), to_c_string( slate::Op::NoTrans ), m, n, n,
-                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                                 &scala_QR_data[0], 1, 1, Aref_desc,
-                                 &dummy, -1, &info);
+                scalapack::unmqr( slate::Side::Left, slate::Op::NoTrans, m, n, n,
+                                  &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                  &scala_QR_data[0], 1, 1, Aref_desc,
+                                  &dummy, -1, &info );
                 slate_assert( info == 0 );
                 lwork = int64_t( real( dummy ) );
                 work.resize(lwork);
 
-                scalapack_punmqr(to_c_string( blas::Side::Left ), to_c_string( slate::Op::NoTrans ), m, n, n,
-                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                                 &scala_QR_data[0], 1, 1, Aref_desc,
-                                 work.data(), lwork, &info);
+                scalapack::unmqr( slate::Side::Left, slate::Op::NoTrans, m, n, n,
+                                  &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                  &scala_QR_data[0], 1, 1, Aref_desc,
+                                  work.data(), lwork, &info );
                 slate_assert( info == 0 );
 
                 print_matrix("QR", scala_QR, params);

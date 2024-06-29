@@ -244,10 +244,10 @@ void test_gemm_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_pgemm(to_c_string( transA ), to_c_string( transB ), m, n, k, alpha,
-                            &A_data[0], 1, 1, A_desc,
-                            &B_data[0], 1, 1, B_desc, beta,
-                            &Cref_data[0], 1, 1, Cref_desc);
+            scalapack::gemm( transA, transB, m, n, k,
+                             alpha, &A_data[0], 1, 1, A_desc,
+                                    &B_data[0], 1, 1, B_desc,
+                             beta,  &Cref_data[0], 1, 1, Cref_desc );
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

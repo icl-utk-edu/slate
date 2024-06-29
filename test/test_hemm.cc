@@ -248,10 +248,10 @@ void test_hemm_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_phemm(to_c_string( side ), to_c_string( uplo ), m, n, alpha,
-                            &A_data[0], 1, 1, A_desc,
-                            &B_data[0], 1, 1, B_desc, beta,
-                            &Cref_data[0], 1, 1, Cref_desc);
+            scalapack::hemm( side, uplo, m, n,
+                             alpha, &A_data[0], 1, 1, A_desc,
+                                    &B_data[0], 1, 1, B_desc,
+                             beta,  &Cref_data[0], 1, 1, Cref_desc );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             // get differences C = C - Cref

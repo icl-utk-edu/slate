@@ -195,13 +195,13 @@ void test_potri_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int64_t info;
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
-            scalapack_descinit(Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
             // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
@@ -225,27 +225,27 @@ void test_potri_work(Params& params, bool run)
             // multiplying A and A_inv.
             // Cchk_data starts with the same size/dimensions as A_data.
             std::vector<scalar_t> Cchk_data( A_data.size() );
-            scalapack_plaset("All", n, n, zero, one, &Cchk_data[0], 1, 1, Cchk_desc);
+            scalapack::laset( Uplo::General, n, n, zero, one,
+                              &Cchk_data[0], 1, 1, Cchk_desc );
 
             // Cchk_data has been setup as an identity matrix; Cchk_data = C_chk - inv(A)*A
             // A should have real diagonal. potrf and potri ignore the img part on the diagonal
-            scalapack_phemm("Left", to_c_string( uplo ), n, n, -one,
-                            &A_data[0], 1, 1, A_desc,
-                            &Aref_data[0], 1, 1, Aref_desc, one,
-                            &Cchk_data[0], 1, 1, Cchk_desc);
+            scalapack::hemm( Side::Left, uplo, n, n,
+                             -one, &A_data[0], 1, 1, A_desc,
+                                   &Aref_data[0], 1, 1, Aref_desc,
+                             one,  &Cchk_data[0], 1, 1, Cchk_desc );
 
             // Norm of Cchk_data ( = I - inv(A) * A )
             // allocate work space for lange and lanhe
             int64_t ldw = nb*ceildiv( ceildiv( nlocA, nb ),
                                       std::lcm( p, q ) / p );
             int64_t lwork = std::max(n, 2*mlocA + nlocA + ldw);
-            std::vector<real_t> worknorm(lwork);
-            real_t C_norm = scalapack_plange(
-                                "One", n, n, &Cchk_data[0], 1, 1, Cchk_desc, &worknorm[0]);
+            std::vector<real_t> work( lwork );
+            real_t C_norm = scalapack::lange(
+                Norm::One, n, n, &Cchk_data[0], 1, 1, Cchk_desc, &work[0] );
 
-            real_t A_inv_norm = scalapack_planhe(
-                                    "One", to_c_string( A.uplo() ),
-                                    n, &A_data[0], 1, 1, A_desc, &worknorm[0]);
+            real_t A_inv_norm = scalapack::lanhe(
+                Norm::One, A.uplo(), n, &A_data[0], 1, 1, A_desc, &work[0] );
 
             double residual = C_norm / (A_norm * n * A_inv_norm);
             params.error() = residual;

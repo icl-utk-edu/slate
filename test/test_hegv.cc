@@ -25,6 +25,7 @@ void test_hegv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
+    using lapack::Range;
 
     // Constants
     const scalar_t zero = 0.0, one = 1.0;
@@ -369,18 +370,18 @@ void test_hegv_work(Params& params, bool run)
 
             int64_t info;
             blas_int A_desc[9];
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
             blas_int B_desc[9];
-            scalapack_descinit(B_desc, n, n, nb, nb, 0, 0, ictxt, mlocB, &info);
+            scalapack::descinit( B_desc, n, n, nb, nb, 0, 0, ictxt, mlocB, &info );
             slate_assert(info == 0);
 
             blas_int Z_desc[9];
-            scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
+            scalapack::descinit( Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info );
             slate_assert(info == 0);
 
-            const char* range = "A";
+            Range range = Range::All;
             int64_t vl=0, vu=0, il=0, iu=0;
             real_t abstol=0;
             int64_t nfound=0, nzfound=0;
@@ -399,16 +400,16 @@ void test_hegv_work(Params& params, bool run)
             std::vector<blas_int> ifail(n);
             std::vector<blas_int> iclustr(2*p*q);
             std::vector<real_t> gap(p*q);
-            scalapack_phegvx(itype, to_c_string( jobz ), range, to_c_string( uplo ), n,
-                             &Aref_data[0], 1, 1, A_desc,
-                             &Bref_data[0], 1, 1, B_desc,
-                             vl, vu, il, iu, abstol, &nfound, &nzfound,
-                             &Lambda_ref[0], orfac,
-                             &Zref_data[0], 1, 1, Z_desc,
-                             &work[0], lwork,
-                             &rwork[0], lrwork,
-                             &iwork[0], liwork,
-                             &ifail[0], &iclustr[0], &gap[0], &info_tst);
+            scalapack::hegvx( itype, jobz, range, uplo, n,
+                              &Aref_data[0], 1, 1, A_desc,
+                              &Bref_data[0], 1, 1, B_desc,
+                              vl, vu, il, iu, abstol, &nfound, &nzfound,
+                              &Lambda_ref[0], orfac,
+                              &Zref_data[0], 1, 1, Z_desc,
+                              &work[0], lwork,
+                              &rwork[0], lrwork,
+                              &iwork[0], liwork,
+                              &ifail[0], &iclustr[0], &gap[0], &info_tst );
 
             // resize workspace based on query for workspace sizes
             slate_assert(info_tst == 0);
@@ -427,16 +428,16 @@ void test_hegv_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(mpi_comm);
 
-            scalapack_phegvx(itype, to_c_string( jobz ), range, to_c_string( uplo ), n,
-                             &Aref_data[0], 1, 1, A_desc,
-                             &Bref_data[0], 1, 1, B_desc,
-                             vl, vu, il, iu, abstol, &nfound, &nzfound,
-                             &Lambda_ref[0], orfac,
-                             &Zref_data[0], 1, 1, Z_desc,
-                             &work[0], lwork,
-                             &rwork[0], lrwork,
-                             &iwork[0], liwork,
-                             &ifail[0], &iclustr[0], &gap[0], &info_tst);
+            scalapack::hegvx( itype, jobz, range, uplo, n,
+                              &Aref_data[0], 1, 1, A_desc,
+                              &Bref_data[0], 1, 1, B_desc,
+                              vl, vu, il, iu, abstol, &nfound, &nzfound,
+                              &Lambda_ref[0], orfac,
+                              &Zref_data[0], 1, 1, Z_desc,
+                              &work[0], lwork,
+                              &rwork[0], lrwork,
+                              &iwork[0], liwork,
+                              &ifail[0], &iclustr[0], &gap[0], &info_tst );
 
             slate_assert(info_tst == 0);
             time = barrier_get_wtime(mpi_comm) - time;

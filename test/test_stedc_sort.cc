@@ -22,6 +22,7 @@ template <typename scalar_t>
 void test_stedc_sort_work( Params& params, bool run )
 {
     using real_t = blas::real_type<scalar_t>;
+    using scalapack::SortOrder;
 
     // Constants
     const scalar_t one  = 1.0;
@@ -159,7 +160,7 @@ void test_stedc_sort_work( Params& params, bool run )
             Cblacs_gridinfo( ictxt, &p_, &q_, &myrow_, &mycol_ );
 
             int64_t info;
-            scalapack_descinit( Zref_desc, n, n, nb, nb, 0, 0, ictxt, lldZ, &info );
+            scalapack::descinit( Zref_desc, n, n, nb, nb, 0, 0, ictxt, lldZ, &info );
             slate_assert( info == 0 );
 
             // Undocumented: liwork needs max( n, 2*nb + 2*q )
@@ -173,7 +174,7 @@ void test_stedc_sort_work( Params& params, bool run )
             //==================================================
             time = barrier_get_wtime( MPI_COMM_WORLD );
 
-            scalapack_plasrt( "i", n, &Dref[0],
+            scalapack::lasrt( SortOrder::Increasing, n, &Dref[0],
                               &Zref_data[0], 1, 1, Zref_desc,
                               &work[0], lwork, &iwork[0], liwork, &info );
             slate_assert( info == 0 );

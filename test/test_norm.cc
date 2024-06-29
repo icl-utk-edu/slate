@@ -68,25 +68,25 @@ auto scalapack_norm_dispatch(
 
     real_t A_norm = 0;
     if (std::is_same< matrix_type, Matrix<scalar_t> >::value) {
-        A_norm = scalapack_plange(
-            to_c_string( norm ),
-            m, n, A_data, 1, 1, A_desc, work );
+        A_norm = scalapack::lange(
+            norm, m, n,
+            A_data, 1, 1, A_desc, work );
     }
     else if (std::is_same< matrix_type, TriangularMatrix<scalar_t> >::value
              || std::is_same< matrix_type, TrapezoidMatrix<scalar_t> >::value ) {
-        A_norm = scalapack_plantr(
-            to_c_string( norm ), to_c_string( uplo ), to_c_string( diag ),
-            m, n, A_data, 1, 1, A_desc, work );
+        A_norm = scalapack::lantr(
+            norm, uplo, diag, m, n,
+            A_data, 1, 1, A_desc, work );
     }
     else if (std::is_same< matrix_type, SymmetricMatrix<scalar_t> >::value) {
-        A_norm = scalapack_plansy(
-            to_c_string( norm ), to_c_string( uplo ),
-            n, A_data, 1, 1, A_desc, work );
+        A_norm = scalapack::lansy(
+            norm, uplo, n,
+            A_data, 1, 1, A_desc, work );
     }
     else if (std::is_same< matrix_type, HermitianMatrix<scalar_t> >::value) {
-        A_norm = scalapack_planhe(
-            to_c_string( norm ), to_c_string( uplo ),
-            n, A_data, 1, 1, A_desc, work );
+        A_norm = scalapack::lanhe(
+            norm, uplo, n,
+            A_data, 1, 1, A_desc, work );
     }
     else {
         slate_error( "Unknown matrix type" );
@@ -596,9 +596,9 @@ void test_norm_work( Params& params, bool run )
                     slate_error( "Unsupported matrix type for col scope" );
                 }
                 for (int64_t j = 0; j < n; ++j) {
-                    A_norm_ref = scalapack_plange(
-                        to_c_string( norm ),
-                        m, 1, &Aref_data[0], 1, j+1, Aref_desc, &work[0] );
+                    A_norm_ref = scalapack::lange(
+                        norm, m, 1,
+                        &Aref_data[0], 1, j+1, Aref_desc, &work[0] );
                     error += std::abs( values[ j ] - A_norm_ref ) / A_norm_ref;
                 }
             }

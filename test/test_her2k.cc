@@ -237,10 +237,10 @@ void test_her2k_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pher2k(to_c_string( uplo ), to_c_string( trans ), n, k, alpha,
-                             &A_data[0], 1, 1, A_desc,
-                             &B_data[0], 1, 1, B_desc, beta,
-                             &Cref_data[0], 1, 1, Cref_desc);
+            scalapack::her2k( uplo, trans, n, k,
+                              alpha, &A_data[0], 1, 1, A_desc,
+                                     &B_data[0], 1, 1, B_desc,
+                              beta,  &Cref_data[0], 1, 1, Cref_desc );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             print_matrix( "Cref_out", Cref, params );

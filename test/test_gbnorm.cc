@@ -128,15 +128,14 @@ void test_gbnorm_work(Params& params, bool run)
             slate_assert(info == 0);
 
             // allocate work space
-            std::vector<real_t> worklange(std::max(mlocA, nlocA));
+            std::vector<real_t> work( max( mlocA, nlocA ) );
 
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
             real_t A_norm_ref = scalapack_plange(
-                                    to_c_string( norm ),
-                                    m, n, &A_data[0], 1, 1, A_desc, &worklange[0]);
+                norm, m, n, &A_data[0], 1, 1, A_desc, &work[0] );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             // difference between norms

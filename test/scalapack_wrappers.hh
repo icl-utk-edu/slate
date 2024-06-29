@@ -15,6 +15,7 @@
 #include <limits>
 
 #include <blas.hh>
+#include <lapack.hh>
 
 //==============================================================================
 // In general, the only arguments left as blas_int are integer arrays
@@ -30,7 +31,7 @@
 ///
 inline blas_int to_blas_int_( int64_t x, const char* x_str )
 {
-    if (sizeof(int64_t) > sizeof(blas_int)) {
+    if constexpr (sizeof(int64_t) > sizeof(blas_int)) {
         blas_error_if_msg( x > std::numeric_limits<blas_int>::max(), "%s", x_str );
     }
     return blas_int( x );
@@ -42,6 +43,30 @@ inline blas_int to_blas_int_( int64_t x, const char* x_str )
 /// If blas_int is 32-bit, throws if x > INT_MAX, so conversion would overflow.
 ///
 #define to_blas_int( x ) to_blas_int_( x, #x )
+
+//==============================================================================
+// Enums
+
+// SortOrder for plasrt.
+// Not defined in LAPACK++, which lacks lasrt since std::sort exists.
+enum class SortOrder : char {
+    Increasing = 'I',
+    Decreasing = 'D',
+};
+
+inline const char* to_c_string( SortOrder value )
+{
+    switch (value) {
+        case SortOrder::Increasing: return "i";
+        case SortOrder::Decreasing: return "d";
+    }
+    return "?";
+}
+
+inline std::string to_string( SortOrder value )
+{
+    return to_c_string( value );
+}
 
 //==============================================================================
 // Required CBLACS calls
@@ -213,16 +238,17 @@ inline double scalapack_plange(
 // Templated wrapper
 template <typename scalar_t>
 blas::real_type<scalar_t> scalapack_plange(
-    const char* norm, int64_t m, int64_t n,
+    lapack::Norm norm, int64_t m, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* work )
 {
+    const char* norm_ = to_c_string( norm );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
     blas_int ja_ = to_blas_int( ja );
     return scalapack_plange(
-        norm, &m_, &n_,
+        norm_, &m_, &n_,
         A, &ia_, &ja_, descA,
         work );
 }
@@ -328,13 +354,14 @@ inline void scalapack_pgeadd(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pgeadd(
-    const char* transA, int64_t m, int64_t n,
+    blas::Op transA, int64_t m, int64_t n,
     scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t beta,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     int64_t* info )
 {
+    const char* transA_ = to_c_string( transA );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
@@ -343,7 +370,7 @@ void scalapack_pgeadd(
     blas_int jb_ = to_blas_int( jb );
     blas_int info_ = 0;
     scalapack_pgeadd(
-        transA, &m_, &n_,
+        transA_, &m_, &n_,
         &alpha, A, &ia_, &ja_, descA,
         &beta,  B, &ib_, &jb_, descB,
         &info_ );
@@ -447,11 +474,13 @@ inline void scalapack_ptradd(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_ptradd(
-    const char* uplo, const char* transA, int64_t m, int64_t n,
+    blas::Uplo uplo, blas::Op transA, int64_t m, int64_t n,
     scalar_t alpha, scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t beta,  scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     int64_t* info )
 {
+    const char* uplo_   = to_c_string( uplo );
+    const char* transA_ = to_c_string( transA );
     blas_int m_  = to_blas_int( m  );
     blas_int n_  = to_blas_int( n  );
     blas_int ia_ = to_blas_int( ia );
@@ -460,7 +489,7 @@ void scalapack_ptradd(
     blas_int jb_ = to_blas_int( jb );
     blas_int info_ = 0;
     scalapack_ptradd(
-        uplo, transA, &m_, &n_,
+        uplo_, transA_, &m_, &n_,
         &alpha, A, &ia_, &ja_, descA,
         &beta,  B, &ib_, &jb_, descB, &info_ );
     *info = info_;
@@ -555,19 +584,20 @@ inline void scalapack_plascl(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_plascl(
-    const char* uplo,
+    blas::Uplo uplo,
     blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
     int64_t m, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     int64_t* info )
 {
+    const char* uplo_ = to_c_string( uplo );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
     blas_int ja_ = to_blas_int( ja );
     blas_int info_ = 0;
     scalapack_plascl(
-        uplo, &numer, &denom, &m_, &n_,
+        uplo_, &numer, &denom, &m_, &n_,
         A, &ia_, &ja_, descA,
         &info_ );
     *info = info_;
@@ -646,16 +676,17 @@ inline void scalapack_ppotrf(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_ppotrf(
-    const char* uplo, int64_t n,
+    blas::Uplo uplo, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     int64_t* info )
 {
+    const char* uplo_ = to_c_string( uplo );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
     blas_int ja_ = to_blas_int( ja );
     blas_int info_ = 0;
     scalapack_ppotrf(
-        uplo, &n_, A, &ia_, &ja_, descA, &info_ );
+        uplo_, &n_, A, &ia_, &ja_, descA, &info_ );
     *info = info_;
 }
 
@@ -752,11 +783,12 @@ inline void scalapack_ppotrs(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_ppotrs(
-    const char* uplo, int64_t n, int64_t nrhs,
+    blas::Uplo uplo, int64_t n, int64_t nrhs,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     int64_t* info )
 {
+    const char* uplo_ = to_c_string( uplo );
     blas_int n_    = to_blas_int( n );
     blas_int nrhs_ = to_blas_int( nrhs );
     blas_int ia_   = to_blas_int( ia );
@@ -765,7 +797,7 @@ void scalapack_ppotrs(
     blas_int jb_   = to_blas_int( jb );
     blas_int info_ = 0;
     scalapack_ppotrs(
-        uplo, &n_, &nrhs_,
+        uplo_, &n_, &nrhs_,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         &info_ );
@@ -865,11 +897,12 @@ inline void scalapack_pposv(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pposv(
-    const char* uplo, int64_t n, int64_t nrhs,
+    blas::Uplo uplo, int64_t n, int64_t nrhs,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     int64_t* info )
 {
+    const char* uplo_ = to_c_string( uplo );
     blas_int n_    = to_blas_int( n );
     blas_int nrhs_ = to_blas_int( nrhs );
     blas_int ia_   = to_blas_int( ia );
@@ -878,7 +911,7 @@ void scalapack_pposv(
     blas_int jb_   = to_blas_int( jb );
     blas_int info_ = 0;
     scalapack_pposv(
-        uplo, &n_, &nrhs_,
+        uplo_, &n_, &nrhs_,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         &info_ );
@@ -967,15 +1000,17 @@ inline double scalapack_plansy(
 // Templated wrapper
 template <typename scalar_t>
 double scalapack_plansy(
-    const char* norm, const char* uplo, int64_t n,
+    lapack::Norm norm, blas::Uplo uplo, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* work )
 {
+    const char* norm_ = to_c_string( norm );
+    const char* uplo_   = to_c_string( uplo );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
     blas_int ja_ = to_blas_int( ja );
     return scalapack_plansy(
-        norm, uplo, &n_,
+        norm_, uplo_, &n_,
         A, &ia_, &ja_, descA,
         work );
 }
@@ -1049,15 +1084,17 @@ inline double scalapack_planhe(
 // Templated wrapper
 template <typename scalar_t>
 double scalapack_planhe(
-    const char* norm, const char* uplo, int64_t n,
+    lapack::Norm norm, blas::Uplo uplo, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* work )
 {
+    const char* norm_ = to_c_string( norm );
+    const char* uplo_ = to_c_string( uplo );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
     blas_int ja_ = to_blas_int( ja );
     return scalapack_planhe(
-        norm, uplo, &n_,
+        norm_, uplo_, &n_,
         A, &ia_, &ja_, descA,
         work );
 }
@@ -1183,7 +1220,7 @@ inline void scalapack_pgemm(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pgemm(
-    const char* transA, const char* transB, int64_t m,
+    blas::Op transA, blas::Op transB, int64_t m,
     int64_t n, int64_t k,
     scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
@@ -1191,6 +1228,8 @@ void scalapack_pgemm(
     scalar_t beta,
     scalar_t* C, int64_t ic, int64_t jc, blas_int* descC )
 {
+    const char* transA_ = to_c_string( transA );
+    const char* transB_ = to_c_string( transB );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int k_  = to_blas_int( k );
@@ -1201,7 +1240,7 @@ void scalapack_pgemm(
     blas_int ic_ = to_blas_int( ic );
     blas_int jc_ = to_blas_int( jc );
     scalapack_pgemm(
-        transA, transB, &m_, &n_, &k_, &alpha,
+        transA_, transB_, &m_, &n_, &k_, &alpha,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         &beta,
@@ -1321,13 +1360,15 @@ inline void scalapack_psymm(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_psymm(
-    const char* side, const char* uplo, int64_t m, int64_t n,
+    blas::Side side, blas::Uplo uplo, int64_t m, int64_t n,
     scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     scalar_t beta,
     scalar_t* C, int64_t ic, int64_t jc, blas_int* descC )
 {
+    const char* side_ = to_c_string( side );
+    const char* uplo_ = to_c_string( uplo );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
@@ -1337,7 +1378,7 @@ void scalapack_psymm(
     blas_int ic_ = to_blas_int( ic );
     blas_int jc_ = to_blas_int( jc );
     scalapack_psymm(
-        side, uplo, &m_, &n_, &alpha,
+        side_, uplo_, &m_, &n_, &alpha,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         &beta,
@@ -1465,12 +1506,16 @@ inline void scalapack_ptrmm(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_ptrmm(
-    const char* side, const char* uplo, const char* transA, const char* diag,
+    blas::Side side, blas::Uplo uplo, blas::Op transA, blas::Diag diag,
     int64_t m, int64_t n,
     scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, const blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, const blas_int* descB )
 {
+    const char* side_   = to_c_string( side );
+    const char* uplo_   = to_c_string( uplo );
+    const char* transA_ = to_c_string( transA );
+    const char* diag_   = to_c_string( diag );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
@@ -1478,7 +1523,7 @@ void scalapack_ptrmm(
     blas_int ib_ = to_blas_int( ib );
     blas_int jb_ = to_blas_int( jb );
     scalapack_ptrmm(
-        side, uplo, transA, diag, &m_, &n_, &alpha,
+        side_, uplo_, transA_, diag_, &m_, &n_, &alpha,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB );
 }
@@ -1598,13 +1643,15 @@ inline void scalapack_psyr2k(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_psyr2k(
-    const char* uplo, const char* trans, int64_t n, int64_t k,
+    blas::Uplo uplo, blas::Op trans, int64_t n, int64_t k,
     scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     scalar_t beta,
     scalar_t* C, int64_t ic, int64_t jc, blas_int* descC )
 {
+    const char* uplo_  = to_c_string( uplo );
+    const char* trans_ = to_c_string( trans );
     blas_int n_  = to_blas_int( n );
     blas_int k_  = to_blas_int( k );
     blas_int ia_ = to_blas_int( ia );
@@ -1614,7 +1661,7 @@ void scalapack_psyr2k(
     blas_int ic_ = to_blas_int( ic );
     blas_int jc_ = to_blas_int( jc );
     scalapack_psyr2k(
-        uplo, trans, &n_, &k_, &alpha,
+        uplo_, trans_, &n_, &k_, &alpha,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         &beta,
@@ -1724,12 +1771,14 @@ inline void scalapack_psyrk(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_psyrk(
-    const char* uplo, const char* trans, int64_t n,
+    blas::Uplo uplo, blas::Op trans, int64_t n,
     int64_t k, scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t beta,
     scalar_t* C, int64_t ic, int64_t jc, blas_int* descC )
 {
+    const char* uplo_  = to_c_string( uplo );
+    const char* trans_ = to_c_string( trans );
     blas_int n_  = to_blas_int( n );
     blas_int k_  = to_blas_int( k );
     blas_int ia_ = to_blas_int( ia );
@@ -1737,7 +1786,7 @@ void scalapack_psyrk(
     blas_int ic_ = to_blas_int( ic );
     blas_int jc_ = to_blas_int( jc );
     scalapack_psyrk(
-        uplo, trans, &n_, &k_, &alpha,
+        uplo_, trans_, &n_, &k_, &alpha,
         A, &ia_, &ja_, descA,
         &beta,
         C, &ic_, &jc_, descC );
@@ -1863,12 +1912,16 @@ inline void scalapack_ptrsm(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_ptrsm(
-    const char* side, const char* uplo, const char* transA, const char* diag,
+    blas::Side side, blas::Uplo uplo, blas::Op transA, blas::Diag diag,
     int64_t m, int64_t n,
     scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, const blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, const blas_int* descB )
 {
+    const char* side_   = to_c_string( side );
+    const char* uplo_   = to_c_string( uplo );
+    const char* transA_ = to_c_string( transA );
+    const char* diag_   = to_c_string( diag );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
@@ -1876,7 +1929,7 @@ void scalapack_ptrsm(
     blas_int ib_ = to_blas_int( ib );
     blas_int jb_ = to_blas_int( jb );
     scalapack_ptrsm(
-        side, uplo, transA, diag, &m_, &n_, &alpha,
+        side_, uplo_, transA_, diag_, &m_, &n_, &alpha,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB );
 }
@@ -1970,19 +2023,22 @@ inline double scalapack_plantr(
 // Templated wrapper
 template <typename scalar_t>
 blas::real_type<scalar_t> scalapack_plantr(
-    const char* norm,
-    const char* uplo,
-    const char* diag, int64_t m,
+    lapack::Norm norm,
+    blas::Uplo uplo,
+    blas::Diag diag, int64_t m,
     int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* work )
 {
+    const char* norm_ = to_c_string( norm );
+    const char* uplo_ = to_c_string( uplo );
+    const char* diag_ = to_c_string( diag );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
     blas_int ja_ = to_blas_int( ja );
     return scalapack_plantr(
-        norm, uplo, diag, &m_, &n_,
+        norm_, uplo_, diag_, &m_, &n_,
         A, &ia_, &ja_, descA,
         work );
 }
@@ -2082,13 +2138,15 @@ inline void scalapack_phemm(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_phemm(
-    const char* side, const char* uplo, int64_t m,
+    blas::Side side, blas::Uplo uplo, int64_t m,
     int64_t n, scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     scalar_t beta,
     scalar_t* C, int64_t ic, int64_t jc, blas_int* descC )
 {
+    const char* side_ = to_c_string( side );
+    const char* uplo_ = to_c_string( uplo );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
@@ -2098,7 +2156,7 @@ void scalapack_phemm(
     blas_int ic_ = to_blas_int( ic );
     blas_int jc_ = to_blas_int( jc );
     scalapack_phemm(
-        side, uplo, &m_, &n_, &alpha,
+        side_, uplo_, &m_, &n_, &alpha,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         &beta,
@@ -2202,13 +2260,15 @@ inline void scalapack_pher2k(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pher2k(
-    const char* uplo, const char* trans, int64_t n,
+    blas::Uplo uplo, blas::Op trans, int64_t n,
     int64_t k, scalar_t alpha,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     blas::real_type<scalar_t> beta,
     scalar_t* C, int64_t ic, int64_t jc, blas_int* descC )
 {
+    const char* uplo_  = to_c_string( uplo );
+    const char* trans_ = to_c_string( trans );
     blas_int n_  = to_blas_int( n );
     blas_int k_  = to_blas_int( k );
     blas_int ia_ = to_blas_int( ia );
@@ -2218,7 +2278,7 @@ void scalapack_pher2k(
     blas_int ic_ = to_blas_int( ic );
     blas_int jc_ = to_blas_int( jc );
     scalapack_pher2k(
-        uplo, trans, &n_, &k_, &alpha,
+        uplo_, trans_, &n_, &k_, &alpha,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         &beta,
@@ -2306,12 +2366,14 @@ inline void scalapack_pherk(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pherk(
-    const char* uplo, const char* trans, int64_t n,
+    blas::Uplo uplo, blas::Op trans, int64_t n,
     int64_t k, blas::real_type<scalar_t> alpha,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t> beta,
     scalar_t* C, int64_t ic, int64_t jc, blas_int* descC )
 {
+    const char* uplo_  = to_c_string( uplo );
+    const char* trans_ = to_c_string( trans );
     blas_int n_  = to_blas_int( n );
     blas_int k_  = to_blas_int( k );
     blas_int ia_ = to_blas_int( ia );
@@ -2319,7 +2381,7 @@ void scalapack_pherk(
     blas_int ic_ = to_blas_int( ic );
     blas_int jc_ = to_blas_int( jc );
     scalapack_pherk(
-        uplo, trans, &n_, &k_,
+        uplo_, trans_, &n_, &k_,
         &alpha, A, &ia_, &ja_, descA,
         &beta,  C, &ic_, &jc_, descC );
 }
@@ -2527,12 +2589,13 @@ inline void scalapack_pgetrs(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pgetrs(
-    const char* trans, int64_t n, int64_t nrhs,
+    blas::Op trans, int64_t n, int64_t nrhs,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas_int* ipiv,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     int64_t* info )
 {
+    const char* trans_ = to_c_string( trans );
     blas_int n_    = to_blas_int( n );
     blas_int nrhs_ = to_blas_int( nrhs );
     blas_int ia_   = to_blas_int( ia );
@@ -2541,7 +2604,7 @@ void scalapack_pgetrs(
     blas_int jb_   = to_blas_int( jb );
     blas_int info_ = 0;
     scalapack_pgetrs(
-        trans, &n_, &nrhs_,
+        trans_, &n_, &nrhs_,
         A, &ia_, &ja_, descA,
         ipiv,
         B, &ib_, &jb_, descB,
@@ -3031,7 +3094,7 @@ inline void scalapack_punmqr(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_punmqr(
-    const char* side, const char* trans,
+    blas::Side side, blas::Op trans,
     int64_t m, int64_t n, int64_t k,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* tau,
@@ -3039,6 +3102,8 @@ void scalapack_punmqr(
     scalar_t* work, int64_t lwork,
     int64_t* info )
 {
+    const char* side_  = to_c_string( side );
+    const char* trans_ = to_c_string( trans );
     blas_int m_     = to_blas_int( m );
     blas_int n_     = to_blas_int( n );
     blas_int k_     = to_blas_int( k );
@@ -3049,7 +3114,7 @@ void scalapack_punmqr(
     blas_int lwork_ = to_blas_int( lwork );
     blas_int info_  = 0;
     scalapack_punmqr(
-        side, trans, &m_, &n_, &k_,
+        side_, trans_, &m_, &n_, &k_,
         A, &ia_, &ja_, descA,
         tau,
         C, &ic_, &jc_, descC,
@@ -3178,7 +3243,7 @@ inline void scalapack_punmlq(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_punmlq(
-    const char* side, const char* trans,
+    blas::Side side, blas::Op trans,
     int64_t m, int64_t n, int64_t k,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* tau,
@@ -3186,6 +3251,8 @@ void scalapack_punmlq(
     scalar_t* work, int64_t lwork,
     int64_t* info )
 {
+    const char* side_  = to_c_string( side );
+    const char* trans_ = to_c_string( trans );
     blas_int m_     = to_blas_int( m );
     blas_int n_     = to_blas_int( n );
     blas_int k_     = to_blas_int( k );
@@ -3196,7 +3263,7 @@ void scalapack_punmlq(
     blas_int lwork_ = to_blas_int( lwork );
     blas_int info_  = 0;
     scalapack_punmlq(
-        side, trans, &m_, &n_, &k_,
+        side_, trans_, &m_, &n_, &k_,
         A, &ia_, &ja_, descA,
         tau,
         C, &ic_, &jc_, descC,
@@ -3319,13 +3386,14 @@ inline void scalapack_pgels(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pgels(
-    const char* trans,
+    blas::Op trans,
     int64_t m, int64_t n, int64_t nrhs,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     scalar_t* work, int64_t lwork,
     int64_t* info )
 {
+    const char* trans_ = to_c_string( trans );
     blas_int m_     = to_blas_int( m );
     blas_int n_     = to_blas_int( n );
     blas_int nrhs_  = to_blas_int( nrhs );
@@ -3336,7 +3404,7 @@ void scalapack_pgels(
     blas_int lwork_ = to_blas_int( lwork );
     blas_int info_  = 0;
     scalapack_pgels(
-        trans, &m_, &n_, &nrhs_,
+        trans_, &m_, &n_, &nrhs_,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         work, &lwork_, &info_ );
@@ -3484,7 +3552,7 @@ inline void scalapack_pgesvd(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pgesvd(
-    const char* jobu, const char* jobvt,
+    lapack::Job jobu, lapack::Job jobvt,
     int64_t m, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* S,
@@ -3494,6 +3562,8 @@ void scalapack_pgesvd(
     blas::real_type<scalar_t>* rwork,
     int64_t* info )
 {
+    const char* jobu_  = to_c_string( jobu );
+    const char* jobvt_ = to_c_string( jobvt );
     blas_int m_     = to_blas_int( m );
     blas_int n_     = to_blas_int( n );
     blas_int ia_    = to_blas_int( ia );
@@ -3505,7 +3575,7 @@ void scalapack_pgesvd(
     blas_int lwork_ = to_blas_int( lwork );
     blas_int info_  = 0;
     scalapack_pgesvd(
-        jobu, jobvt, &m_, &n_,
+        jobu_, jobvt_, &m_, &n_,
         A, &ia_, &ja_, descA,
         S,
         U, &iu_, &ju_, descU,
@@ -3633,7 +3703,7 @@ inline void scalapack_pheev(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pheev(
-    const char* jobz, const char* uplo,
+    lapack::Job jobz, blas::Uplo uplo,
     int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* W,
@@ -3642,6 +3712,8 @@ void scalapack_pheev(
     blas::real_type<scalar_t>* rwork, int64_t lrwork,
     int64_t* info )
 {
+    const char* uplo_ = to_c_string( uplo );
+    const char* jobz_ = to_c_string( jobz );
     blas_int n_      = to_blas_int( n );
     blas_int ia_     = to_blas_int( ia );
     blas_int ja_     = to_blas_int( ja );
@@ -3651,7 +3723,7 @@ void scalapack_pheev(
     blas_int lrwork_ = to_blas_int( lrwork );
     blas_int info_   = 0;
     scalapack_pheev(
-        jobz, uplo, &n_,
+        jobz_, uplo_, &n_,
         A, &ia_, &ja_, descA,
         W,
         Z, &iz_, &jz_, descZ,
@@ -3716,13 +3788,14 @@ inline void scalapack_pstedc(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pstedc(
-    const char* jobz, int64_t n,
+    lapack::Job jobz, int64_t n,
     scalar_t* D, scalar_t* E,
     scalar_t* Z, int64_t iz, int64_t jz, blas_int* descZ,
     scalar_t* work, int64_t lwork,
     blas_int* iwork, int64_t liwork,
     int64_t* info )
 {
+    const char* jobz_ = to_c_string( jobz );
     blas_int n_      = to_blas_int( n );
     blas_int iz_     = to_blas_int( iz );
     blas_int jz_     = to_blas_int( jz );
@@ -3730,7 +3803,7 @@ void scalapack_pstedc(
     blas_int liwork_ = to_blas_int( liwork );
     blas_int info_   = 0;
     scalapack_pstedc(
-        jobz, &n_, D, E,
+        jobz_, &n_, D, E,
         Z, &iz_, &jz_, descZ,
         work, &lwork_, iwork, &liwork_, &info_ );
     *info = info_;
@@ -3843,7 +3916,7 @@ inline void scalapack_pheevd(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pheevd(
-    const char* jobz, const char* uplo,
+    lapack::Job jobz, blas::Uplo uplo,
     int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* W,
@@ -3853,6 +3926,8 @@ void scalapack_pheevd(
     blas_int* iwork, int64_t liwork,
     int64_t* info )
 {
+    const char* jobz_ = to_c_string( jobz );
+    const char* uplo_ = to_c_string( uplo );
     blas_int n_      = to_blas_int( n );
     blas_int ia_     = to_blas_int( ia );
     blas_int ja_     = to_blas_int( ja );
@@ -3863,7 +3938,7 @@ void scalapack_pheevd(
     blas_int liwork_ = to_blas_int( n );
     blas_int info_   = 0;
     scalapack_pheevd(
-        jobz, uplo, &n_,
+        jobz_, uplo_, &n_,
         A, &ia_, &ja_, descA, W,
         Z, &iz_, &jz_, descZ,
         work, &lwork_, rwork, &lrwork_, iwork, &liwork_, &info_ );
@@ -3947,16 +4022,17 @@ inline void scalapack_plaset(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_plaset(
-    const char* uplo, int64_t m, int64_t n,
+    blas::Uplo uplo, int64_t m, int64_t n,
     scalar_t offdiag, scalar_t diag,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA )
 {
+    const char* uplo_ = to_c_string( uplo );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
     blas_int ja_ = to_blas_int( ja );
     scalapack_plaset(
-        uplo, &m_, &n_, &offdiag, &diag,
+        uplo_, &m_, &n_, &offdiag, &diag,
         A, &ia_, &ja_, descA );
 }
 
@@ -4041,10 +4117,11 @@ inline void scalapack_placpy(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_placpy(
-    const char* uplo, int64_t m, int64_t n,
+    blas::Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB )
 {
+    const char* uplo_ = to_c_string( uplo );
     blas_int m_  = to_blas_int( m );
     blas_int n_  = to_blas_int( n );
     blas_int ia_ = to_blas_int( ia );
@@ -4052,7 +4129,7 @@ void scalapack_placpy(
     blas_int ib_ = to_blas_int( ib );
     blas_int jb_ = to_blas_int( jb );
     scalapack_placpy(
-        uplo, &m_, &n_,
+        uplo_, &m_, &n_,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB );
 }
@@ -4220,7 +4297,7 @@ inline void scalapack_phegvx(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_phegvx(
-    int64_t itype, const char* jobz, const char* range, const char* uplo,
+    int64_t itype, lapack::Job jobz, lapack::Range range, blas::Uplo uplo,
     int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
@@ -4237,6 +4314,9 @@ void scalapack_phegvx(
     blas_int* ifail, blas_int* iclustr, blas::real_type<scalar_t>* gap,
     int64_t* info )
 {
+    const char* jobz_  = to_c_string( jobz );
+    const char* range_ = to_c_string( range );
+    const char* uplo_  = to_c_string( uplo );
     blas_int itype_   = to_blas_int( itype );
     blas_int n_       = to_blas_int( n );
     blas_int ia_      = to_blas_int( ia );
@@ -4254,7 +4334,7 @@ void scalapack_phegvx(
     blas_int liwork_  = to_blas_int( liwork );
     blas_int info_    = 0;
     scalapack_phegvx(
-        &itype_, jobz, range, uplo, &n_,
+        &itype_, jobz_, range_, uplo_, &n_,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         &vl, &vu, &il_, &iu_, &abstol,
@@ -4366,12 +4446,13 @@ inline void scalapack_phegst(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_phegst(
-    int64_t itype, const char* uplo, int64_t n,
+    int64_t itype, blas::Uplo uplo, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
     double* scale,
     int64_t* info )
 {
+    const char* uplo_ = to_c_string( uplo );
     blas_int itype_ = to_blas_int( itype );
     blas_int n_     = to_blas_int( n );
     blas_int ia_    = to_blas_int( ia );
@@ -4380,7 +4461,7 @@ void scalapack_phegst(
     blas_int jb_    = to_blas_int( jb );
     blas_int info_  = 0;
     scalapack_phegst(
-        &itype_, uplo, &n_,
+        &itype_, uplo_, &n_,
         A, &ia_, &ja_, descA,
         B, &ib_, &jb_, descB,
         scale, &info_ );
@@ -4591,13 +4672,14 @@ inline void scalapack_pgecon(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_pgecon(
-    const char* norm, int64_t n,
+    lapack::Norm norm, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* Anorm, blas::real_type<scalar_t>* rcond,
     scalar_t* work, int64_t lwork,
     blas_int* iwork, int64_t liwork,
     int64_t* info )
 {
+    const char* norm_ = to_c_string( norm );
     blas_int n_      = to_blas_int( n );
     blas_int ia_     = to_blas_int( ia );
     blas_int ja_     = to_blas_int( ja );
@@ -4605,7 +4687,7 @@ void scalapack_pgecon(
     blas_int liwork_ = to_blas_int( liwork );
     blas_int info_   = 0;
     scalapack_pgecon(
-        norm, &n_, A, &ia_, &ja_, descA,
+        norm_, &n_, A, &ia_, &ja_, descA,
         Anorm, rcond, work, &lwork_, iwork, &liwork_, &info_ );
 }
 
@@ -4710,13 +4792,14 @@ inline void scalapack_ppocon(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_ppocon(
-    const char* uplo, int64_t n,
+    blas::Uplo uplo, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* Anorm, blas::real_type<scalar_t>* rcond,
     scalar_t* work, int64_t lwork,
     blas_int* iwork, int64_t liwork,
     int64_t* info )
 {
+    const char* uplo_ = to_c_string( uplo );
     blas_int n_      = to_blas_int( n );
     blas_int ia_     = to_blas_int( ia );
     blas_int ja_     = to_blas_int( ja );
@@ -4724,7 +4807,7 @@ void scalapack_ppocon(
     blas_int liwork_ = to_blas_int( liwork );
     blas_int info_   = 0;
     scalapack_ppocon(
-        uplo, &n_, A, &ia_, &ja_, descA,
+        uplo_, &n_, A, &ia_, &ja_, descA,
         Anorm, rcond, work, &lwork_, iwork, &liwork_, &info_ );
 }
 
@@ -4830,13 +4913,16 @@ inline void scalapack_ptrcon(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_ptrcon(
-    const char* norm, const char* uplo, const char* diag, int64_t n,
+    lapack::Norm norm, blas::Uplo uplo, blas::Diag diag, int64_t n,
     scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
     blas::real_type<scalar_t>* rcond,
     scalar_t* work, int64_t lwork,
     blas_int* iwork, int64_t liwork,
     int64_t info )
 {
+    const char* norm_ = to_c_string( norm );
+    const char* uplo_ = to_c_string( uplo );
+    const char* diag_ = to_c_string( diag );
     blas_int n_      = to_blas_int( n );
     blas_int ia_     = to_blas_int( ia );
     blas_int ja_     = to_blas_int( ja );
@@ -4844,7 +4930,7 @@ void scalapack_ptrcon(
     blas_int liwork_ = to_blas_int( liwork );
     blas_int info_   = 0;
     scalapack_ptrcon(
-        norm, uplo, diag, &n_, A, &ia_, &ja_, descA,
+        norm_, uplo_, diag_, &n_, A, &ia_, &ja_, descA,
         rcond, work, &lwork_, iwork, &liwork_, &info_ );
 }
 
@@ -5146,12 +5232,13 @@ inline void scalapack_plasrt(
 // Templated wrapper
 template <typename scalar_t>
 void scalapack_plasrt(
-    const char* id, int64_t n, scalar_t* D,
+    SortOrder sort, int64_t n, scalar_t* D,
     scalar_t* Q, int64_t iq, int64_t jq, blas_int* descQ,
     scalar_t* work, int64_t lwork,
     blas_int* iwork, int64_t liwork,
     int64_t* info )
 {
+    const char* sort_ = to_c_string( sort );
     blas_int n_      = to_blas_int( n );
     blas_int iq_     = to_blas_int( iq );
     blas_int jq_     = to_blas_int( jq );
@@ -5159,7 +5246,7 @@ void scalapack_plasrt(
     blas_int liwork_ = to_blas_int( liwork );
     blas_int info_   = 0;
     scalapack_plasrt(
-        id, &n_, D, Q, &iq_, &jq_, descQ,
+        sort_, &n_, D, Q, &iq_, &jq_, descQ,
         work, &lwork_, iwork, &liwork_, &info_ );
     *info = int64_t( info_ );
 }

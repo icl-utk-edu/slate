@@ -363,7 +363,7 @@ void test_posv_work(Params& params, bool run)
 
             if (params.routine == "potrs") {
                 // Factor matrix A.
-                scalapack_ppotrf( to_c_string( uplo ), n,
+                scalapack_ppotrf( uplo, n,
                                   &Aref_data[0], 1, 1, Aref_desc, &info );
                 slate_assert(info == 0);
             }
@@ -373,16 +373,16 @@ void test_posv_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (params.routine == "potrf") {
-                scalapack_ppotrf( to_c_string( uplo ), n,
+                scalapack_ppotrf( uplo, n,
                                   &Aref_data[0], 1, 1, Aref_desc, &info );
             }
             else if (params.routine == "potrs") {
-                scalapack_ppotrs( to_c_string( uplo ), n, nrhs,
+                scalapack_ppotrs( uplo, n, nrhs,
                                   &Aref_data[0], 1, 1, Aref_desc,
                                   &Bref_data[0], 1, 1, Bref_desc, &info );
             }
             else {
-                scalapack_pposv( to_c_string( uplo ), n, nrhs,
+                scalapack_pposv( uplo, n, nrhs,
                                  &Aref_data[0], 1, 1, Aref_desc,
                                  &Bref_data[0], 1, 1, Bref_desc, &info );
             }

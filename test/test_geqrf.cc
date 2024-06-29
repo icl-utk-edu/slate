@@ -294,18 +294,18 @@ void test_geqrf_work(Params& params, bool run)
                 slate::copy(scala_R, scala_R1);
 
                 // Apply Q to R-factor
-                scalapack_punmqr(to_c_string( blas::Side::Left ), to_c_string( slate::Op::NoTrans ), m, n, n,
-                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                                 &scala_QR_data[0], 1, 1, Aref_desc,
-                                 &dummy, -1, &info);
+                scalapack_punmqr( blas::Side::Left, slate::Op::NoTrans, m, n, n,
+                                  &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                  &scala_QR_data[0], 1, 1, Aref_desc,
+                                  &dummy, -1, &info );
                 slate_assert( info == 0 );
                 lwork = int64_t( real( dummy ) );
                 work.resize(lwork);
 
-                scalapack_punmqr(to_c_string( blas::Side::Left ), to_c_string( slate::Op::NoTrans ), m, n, n,
-                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                                 &scala_QR_data[0], 1, 1, Aref_desc,
-                                 work.data(), lwork, &info);
+                scalapack_punmqr( blas::Side::Left, slate::Op::NoTrans, m, n, n,
+                                  &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                  &scala_QR_data[0], 1, 1, Aref_desc,
+                                  work.data(), lwork, &info );
                 slate_assert( info == 0 );
 
                 print_matrix("QR", scala_QR, params);

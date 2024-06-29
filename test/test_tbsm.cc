@@ -230,8 +230,8 @@ void test_tbsm_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max(mlocB, nlocB));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plantr(to_c_string( norm ), to_c_string( uplo ), to_c_string( diag ), Am, An, &A_data[0], 1, 1, A_desc, &worklantr[0]);
-            real_t B_orig_norm = scalapack_plange(to_c_string( norm ), Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0]);
+            real_t A_norm = scalapack_plantr( norm, uplo, diag, Am, An, &A_data[0], 1, 1, A_desc, &worklantr[0] );
+            real_t B_orig_norm = scalapack_plange( norm, Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0] );
 
             auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
                         Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
@@ -241,10 +241,10 @@ void test_tbsm_work(Params& params, bool run)
             // Note this is on a FULL matrix, so ignore reference performance!
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ptrsm(to_c_string( side ), to_c_string( uplo ), to_c_string( transA ), to_c_string( diag ),
-                            m, n, alpha,
-                            &A_data[0], 1, 1, A_desc,
-                            &Bref_data[0], 1, 1, Bref_desc);
+            scalapack_ptrsm( side, uplo, transA, diag,
+                             m, n, alpha,
+                             &A_data[0], 1, 1, A_desc,
+                             &Bref_data[0], 1, 1, Bref_desc );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             print_matrix( "Bref_out", Bref, params );
@@ -253,7 +253,7 @@ void test_tbsm_work(Params& params, bool run)
             blas::axpy(Bref_data.size(), -1.0, &B_data[0], 1, &Bref_data[0], 1);
 
             // norm(Bref_data - B_data)
-            real_t B_diff_norm = scalapack_plange(to_c_string( norm ), Bm, Bn, &Bref_data[0], 1, 1, Bref_desc, &worklange[0]);
+            real_t B_diff_norm = scalapack_plange( norm, Bm, Bn, &Bref_data[0], 1, 1, Bref_desc, &worklange[0] );
 
             print_matrix("Bdiff", Bref, params);
 

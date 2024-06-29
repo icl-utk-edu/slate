@@ -240,7 +240,7 @@ void test_gecondest_work(Params& params, bool run)
             int64_t liwork = -1;
             scalar_t dummy;
             blas_int idummy;
-            scalapack_pgecon( to_c_string( norm ), n,
+            scalapack_pgecon( norm, n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
                               &dummy, lwork, &idummy, liwork, &info );
@@ -255,7 +255,7 @@ void test_gecondest_work(Params& params, bool run)
             // todo: ScaLAPCK pzgecon has a seg fault
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgecon( to_c_string( norm ), n,
+            scalapack_pgecon( norm, n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
                               &work[0], lwork, &iwork[0], liwork, &info );

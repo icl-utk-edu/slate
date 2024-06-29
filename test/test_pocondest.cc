@@ -222,8 +222,7 @@ void test_pocondest_work(Params& params, bool run)
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-            scalapack_ppotrf(
-                to_c_string( uplo ), n, &Aref_data[0], 1, 1, Aref_desc, &info);
+            scalapack_ppotrf( uplo, n, &Aref_data[0], 1, 1, Aref_desc, &info );
             slate_assert( info == 0 );
 
             // query for workspace size for ppocon
@@ -231,7 +230,7 @@ void test_pocondest_work(Params& params, bool run)
             int64_t liwork = -1;
             scalar_t dummy;
             blas_int idummy;
-            scalapack_ppocon( to_c_string( uplo ), n,
+            scalapack_ppocon( uplo, n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
                               &dummy, lwork, &idummy, liwork, &info );
@@ -246,7 +245,7 @@ void test_pocondest_work(Params& params, bool run)
             // todo: ScaLAPCK pzpocon has a seg fault
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ppocon( to_c_string( uplo ), n,
+            scalapack_ppocon( uplo, n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
                               &work[0], lwork, &iwork[0], liwork, &info );

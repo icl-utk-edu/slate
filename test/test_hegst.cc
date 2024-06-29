@@ -164,10 +164,10 @@ void test_hegst_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_phegst(itype, to_c_string( uplo ), n,
-                             Aref_data.data(), 1, 1, A_desc,
-                             B_data.data(),    1, 1, B_desc,
-                             &scale, &info);
+            scalapack_phegst( itype, uplo, n,
+                              Aref_data.data(), 1, 1, A_desc,
+                              B_data.data(),    1, 1, B_desc,
+                              &scale, &info );
             slate_assert(info == 0);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

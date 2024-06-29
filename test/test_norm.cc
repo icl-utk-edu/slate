@@ -198,28 +198,28 @@ void test_norm_work( Params& params, bool run )
                 if constexpr (std::is_same< matrix_type,
                                   Matrix<scalar_t> >::value) {
                     A_norm_ref = scalapack_plange(
-                        to_c_string( op_norm ),
-                        m, n, &A_data[0], 1, 1, A_desc, &work[0] );
+                        op_norm, m, n,
+                        &A_data[0], 1, 1, A_desc, &work[0] );
                 }
                 else if constexpr (std::is_same< matrix_type,
                                        TriangularMatrix<scalar_t> >::value
                                    || std::is_same< matrix_type,
                                           TrapezoidMatrix<scalar_t> >::value ) {
                     A_norm_ref = scalapack_plantr(
-                        to_c_string( norm ), to_c_string( A.uplo() ), to_c_string( diag ),
-                        m, n, &A_data[0], 1, 1, A_desc, &work[0] );
+                        norm, A.uplo(), diag, m, n,
+                        &A_data[0], 1, 1, A_desc, &work[0] );
                 }
                 else if constexpr (std::is_same< matrix_type,
                                        SymmetricMatrix<scalar_t> >::value) {
                     A_norm_ref = scalapack_plansy(
-                        to_c_string( norm ), to_c_string( A.uplo() ),
-                        n, &A_data[0], 1, 1, A_desc, &work[0] );
+                        norm, A.uplo(), n,
+                        &A_data[0], 1, 1, A_desc, &work[0] );
                 }
                 else if constexpr (std::is_same< matrix_type,
                                        HermitianMatrix<scalar_t> >::value) {
                     A_norm_ref = scalapack_planhe(
-                        to_c_string( norm ), to_c_string( A.uplo() ),
-                        n, &A_data[0], 1, 1, A_desc, &work[0] );
+                        norm, A.uplo(), n,
+                        &A_data[0], 1, 1, A_desc, &work[0] );
                 }
                 else {
                     slate_error( "Unknown matrix type" );
@@ -248,8 +248,8 @@ void test_norm_work( Params& params, bool run )
                 //assert( std::is_same< matrix_type, Matrix<scalar_t> >::value );
                 for (int64_t j = 0; j < n; ++j) {
                     A_norm_ref = scalapack_plange(
-                        to_c_string( norm ),
-                        m, 1, &A_data[0], 1, j+1, A_desc, &work[0] );
+                        norm, m, 1,
+                        &A_data[0], 1, j+1, A_desc, &work[0] );
                     error += std::abs( values[ j ] - A_norm_ref ) / A_norm_ref;
                 }
             }
@@ -346,14 +346,8 @@ void test_norm_work( Params& params, bool run )
                                     A_norm = slate::norm( norm, A, opts );
 
                                     A_norm_ref = scalapack_plange(
-                                        to_c_string( norm ), m, n,
-                                        &A_data[0], 1, 1, A_desc,
-                                        &work[0] );
-
-                                    A_norm_ref = scalapack_plantr(
-                                        to_c_string( norm ), to_c_string( A.uplo() ), to_c_string( diag ),
-                                        m, n, &A_data[0], 1, 1, A_desc,
-                                        &work[0] );
+                                        norm, m, n,
+                                        &A_data[0], 1, 1, A_desc, &work[0] );
 
                                     // difference between norms
                                     error = std::abs( A_norm - A_norm_ref ) / A_norm_ref;

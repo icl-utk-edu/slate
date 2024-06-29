@@ -24,6 +24,7 @@ template <typename scalar_t>
 void test_hesv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using slate::Norm, slate::Side, slate::Uplo;
 
     // Constants
     const scalar_t one = 1.0;
@@ -263,25 +264,24 @@ void test_hesv_work(Params& params, bool run)
             }
 
             // allocate work space
-            std::vector<real_t> worklangeA(std::max(mlocA, nlocA));
-            std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
+            std::vector<real_t> work( blas::max( mlocA, nlocA, mlocB, nlocB ) );
 
             // Norm of the orig matrix: || A ||
-            A_norm = scalapack_plange("1", n, n, &Aref_data[0], 1, 1, Aref_desc, &worklangeA[0]);
+            A_norm = scalapack_plange(
+                Norm::One, n, n, &Aref_data[0], 1, 1, Aref_desc, &work[0] );
             // norm of updated rhs matrix: || X ||
-            X_norm = scalapack_plange("1", n, nrhs, &B_data[0], 1, 1, B_desc, &worklangeB[0]);
+            X_norm = scalapack_plange(
+                Norm::One, n, nrhs, &B_data[0], 1, 1, B_desc, &work[0] );
 
             // Bref_data -= Aref*B_data
-            scalapack_phemm("Left", "Lower",
-                            n, nrhs,
-                            -one,
-                            &Aref_data[0], 1, 1, Aref_desc,
-                            &B_data[0], 1, 1, B_desc,
-                            one,
-                            &Bref_data[0], 1, 1, Bref_desc);
+            scalapack_phemm( Side::Left, Uplo::Lower, n, nrhs,
+                             -one, &Aref_data[0], 1, 1, Aref_desc,
+                                   &B_data[0],    1, 1, B_desc,
+                             one,  &Bref_data[0], 1, 1, Bref_desc );
 
             // || B - AX ||
-            real_t R_norm = scalapack_plange("1", n, nrhs, &Bref_data[0], 1, 1, Bref_desc, &worklangeB[0]);
+            real_t R_norm = scalapack_plange(
+                Norm::One, n, nrhs, &Bref_data[0], 1, 1, Bref_desc, &work[0] );
 
             double residual = R_norm / (n*A_norm*X_norm);
             params.error() = residual;

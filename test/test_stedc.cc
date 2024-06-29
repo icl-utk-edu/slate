@@ -24,6 +24,7 @@ void test_stedc_work( Params& params, bool run )
     using blas::real;
     using blas::imag;
     using blas::max;
+    using slate::Job;
 
     // Constants
     const scalar_t zero = 0.0;
@@ -246,7 +247,7 @@ void test_stedc_work( Params& params, bool run )
             scalar_t work_query;
             blas_int iwork_query;
             //printf( "call scalapack_pstedc query\n" );
-            scalapack_pstedc( "i", n, &Dref[0], &Eref[0],
+            scalapack_pstedc( Job::Vec, n, &Dref[0], &Eref[0],
                               &Zref_data[0], 1, 1, Zref_desc,
                               &work_query, -1, &iwork_query, -1, &info );
             //printf( "done scalapack_pstedc query, info=%d\n", info );
@@ -270,7 +271,7 @@ void test_stedc_work( Params& params, bool run )
             //print_vector( "Eref_in", Eref, params );
 
             //printf( "call scalapack_pstedc\n" );
-            scalapack_pstedc( "i", n, &Dref[0], &Eref[0],
+            scalapack_pstedc( Job::Vec, n, &Dref[0], &Eref[0],
                               &Zref_data[0], 1, 1, Zref_desc,
                               &work[0], lwork, &iwork[0], liwork, &info );
             //printf( "done scalapack_pstedc, info=%d\n", info );

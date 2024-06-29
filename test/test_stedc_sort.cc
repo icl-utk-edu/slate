@@ -173,7 +173,7 @@ void test_stedc_sort_work( Params& params, bool run )
             //==================================================
             time = barrier_get_wtime( MPI_COMM_WORLD );
 
-            scalapack_plasrt( "i", n, &Dref[0],
+            scalapack_plasrt( SortOrder::Increasing, n, &Dref[0],
                               &Zref_data[0], 1, 1, Zref_desc,
                               &work[0], lwork, &iwork[0], liwork, &info );
             slate_assert( info == 0 );

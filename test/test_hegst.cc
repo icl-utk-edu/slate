@@ -147,11 +147,11 @@ void test_hegst_work(Params& params, bool run)
 
             int64_t info;
             blas_int A_desc[9], B_desc[9];
-            scalapack_descinit(
-                A_desc, n, n, nb, nb, 0, 0, ictxt, mlocal, &info);
+            scalapack::descinit(
+                A_desc, n, n, nb, nb, 0, 0, ictxt, mlocal, &info );
             slate_assert(info == 0);
-            scalapack_descinit(
-                B_desc, n, n, nb, nb, 0, 0, ictxt, mlocal, &info);
+            scalapack::descinit(
+                B_desc, n, n, nb, nb, 0, 0, ictxt, mlocal, &info );
             slate_assert(info == 0);
             double scale;
 
@@ -164,10 +164,10 @@ void test_hegst_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_phegst(itype, to_c_string( uplo ), n,
-                             Aref_data.data(), 1, 1, A_desc,
-                             B_data.data(),    1, 1, B_desc,
-                             &scale, &info);
+            scalapack::hegst( itype, uplo, n,
+                              Aref_data.data(), 1, 1, A_desc,
+                              B_data.data(),    1, 1, B_desc,
+                              &scale, &info );
             slate_assert(info == 0);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

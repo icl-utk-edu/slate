@@ -192,7 +192,7 @@ void test_trcondest_work(Params& params, bool run)
             // ScaLAPACK descriptor for the reference matrix
             int64_t info;
             blas_int Aref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
             // tau vector for ScaLAPACK
@@ -212,13 +212,13 @@ void test_trcondest_work(Params& params, bool run)
 
             // query for workspace size for pgeqrf
             scalar_t dummy;
-            scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                             &dummy, -1, &info_ref);
+            scalapack::geqrf( m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                              &dummy, -1, &info_ref );
             lwork = int64_t( real( dummy ) );
             work.resize(lwork);
 
-            scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                             work.data(), lwork, &info_ref);
+            scalapack::geqrf( m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                              work.data(), lwork, &info_ref );
             slate_assert(info_ref == 0);
 
             // query for workspace size for ptrcon
@@ -229,10 +229,10 @@ void test_trcondest_work(Params& params, bool run)
             scalar_t dummy_trcon;
             slate::Uplo uplo = slate::Uplo::Upper;
             slate::Diag diag = slate::Diag::NonUnit;
-            scalapack_ptrcon( to_c_string( norm ), to_c_string( uplo ), to_c_string( diag ), n,
+            scalapack::trcon( norm, uplo, diag, n,
                               &Aref_data[0], ione, ione, Aref_desc,
                               &scl_rcond, &dummy_trcon, lwork_trcon, &idummy, liwork,
-                              info_ref_trcon);
+                              info_ref_trcon );
             lwork_trcon = (int64_t)( real( dummy_trcon ) );
             liwork = (int64_t)( real( idummy ) );
 
@@ -241,10 +241,10 @@ void test_trcondest_work(Params& params, bool run)
             std::vector<blas_int> iwork( liwork );
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ptrcon( to_c_string( norm ), to_c_string( uplo ), to_c_string( diag ), n,
+            scalapack::trcon( norm, uplo, diag, n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &scl_rcond, &work_trcon[0], lwork, &iwork[0], liwork,
-                              info_ref_trcon);
+                              info_ref_trcon );
             slate_assert(info_ref_trcon == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

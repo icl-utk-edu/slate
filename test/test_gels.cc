@@ -437,20 +437,20 @@ void test_gels_work(Params& params, bool run)
 
             int64_t info;
             blas_int Aref_desc[9], BXref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
-            scalapack_descinit(BXref_desc, maxmn, nrhs, nb, nb, 0, 0, ictxt, mlocBX, &info);
+            scalapack::descinit( BXref_desc, maxmn, nrhs, nb, nb, 0, 0, ictxt, mlocBX, &info );
             slate_assert(info == 0);
 
             int64_t info_ref = 0;
 
             // query for workspace size
             scalar_t dummy;
-            scalapack_pgels(to_c_string( trans ), m, n, nrhs,
-                            &Aref_data[0],  1, 1, Aref_desc,
-                            &BXref_data[0], 1, 1, BXref_desc,
-                            &dummy, -1, &info_ref);
+            scalapack::gels( trans, m, n, nrhs,
+                             &Aref_data[0],  1, 1, Aref_desc,
+                             &BXref_data[0], 1, 1, BXref_desc,
+                             &dummy, -1, &info_ref );
             slate_assert(info_ref == 0);
             lwork = int64_t( real( dummy ) );
             work.resize(lwork);
@@ -459,10 +459,10 @@ void test_gels_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgels(to_c_string( trans ), m, n, nrhs,
-                            &Aref_data[0],  1, 1, Aref_desc,
-                            &BXref_data[0], 1, 1, BXref_desc,
-                            work.data(), lwork, &info_ref);
+            scalapack::gels( trans, m, n, nrhs,
+                             &Aref_data[0],  1, 1, Aref_desc,
+                             &BXref_data[0], 1, 1, BXref_desc,
+                             work.data(), lwork, &info_ref );
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

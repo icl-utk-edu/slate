@@ -24,6 +24,7 @@ template <typename scalar_t>
 void test_trtri_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using slate::Norm, slate::Op, slate::Side;
 
     // Constants
     const scalar_t one = 1.0, zero = 0.0;
@@ -168,13 +169,13 @@ void test_trtri_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int64_t info;
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
-            scalapack_descinit(Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
             //==================================================
@@ -199,31 +200,31 @@ void test_trtri_work(Params& params, bool run)
                                  : slate::Uplo::Lower);
             if (uplo == slate::Uplo::Lower) {
                 if (diag == slate::Diag::Unit) {
-                    scalapack_plaset( to_c_string( lo_up ), n, n, zero, one,
+                    scalapack::laset( lo_up, n, n, zero, one,
                                       &Aref_data[0], 1, 1, Aref_desc );
                 }
                 else {
-                    scalapack_plaset( to_c_string( lo_up ), n-1, n-1, zero, zero,
+                    scalapack::laset( lo_up, n-1, n-1, zero, zero,
                                       &Aref_data[0], 1, 2, Aref_desc );
                 }
             }
             else {
                 if (diag == slate::Diag::Unit) {
-                    scalapack_plaset( to_c_string( lo_up ), n, n, zero, one,
+                    scalapack::laset( lo_up, n, n, zero, one,
                                       &Aref_data[0], 1, 1, Aref_desc );
                 }
                 else {
-                    scalapack_plaset( to_c_string( lo_up ), n-1, n-1, zero, zero,
+                    scalapack::laset( lo_up, n-1, n-1, zero, zero,
                                       &Aref_data[0], 2, 1, Aref_desc );
                 }
             }
             print_matrix( "Aref", Aref, params );
 
             // Aref_data = inv(A) * Aref_data
-            scalapack_ptrmm("left", to_c_string( uplo ), "notrans", to_c_string( diag ),
-                            n, n, one,
-                            &A_data[0], 1, 1, A_desc,
-                            &Aref_data[0], 1, 1, Aref_desc);
+            scalapack::trmm( Side::Left, uplo, Op::NoTrans, diag,
+                             n, n, one,
+                             &A_data[0], 1, 1, A_desc,
+                             &Aref_data[0], 1, 1, Aref_desc );
 
             // Make Cchk_data into an identity matrix
             slate::set(zero, one, C);
@@ -235,10 +236,9 @@ void test_trtri_work(Params& params, bool run)
 
             // Norm of Cchk_data ( = I - inv(A) * A )
             //// real_t C_norm = slate::norm(slate::norm::One, C);
-            std::vector<real_t> worklange(n);
-            real_t C_norm
-                = scalapack_plange(
-                      "1", n, n, &Cchk_data[0], 1, 1, Cchk_desc, &worklange[0]);
+            std::vector<real_t> work( n );
+            real_t C_norm = scalapack::lange(
+                Norm::One, n, n, &Cchk_data[0], 1, 1, Cchk_desc, &work[0] );
 
             double residual = C_norm / (A_norm * n);
             params.error() = residual;

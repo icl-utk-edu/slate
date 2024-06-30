@@ -333,7 +333,7 @@ void test_stedc_deflate_work( Params& params, bool run )
             //==================================================
             time = barrier_get_wtime( MPI_COMM_WORLD );
 
-            scalapack_plaed2(
+            scalapack::laed2(
                 ictxt, &nsecular_ref, n, n1, nb,
                 &Dref[0], 0, 0,
                 &Qref_data[0], lldQ, &rho_ref,

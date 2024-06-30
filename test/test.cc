@@ -281,16 +281,18 @@ std::vector< testsweeper::routines_t > routines = {
 
     // -----
     // matrix norms
-    { "genorm",             test_genorm,       Section::aux_norm },
+    { "genorm",             test_norm,         Section::aux_norm },
     { "gbnorm",             test_gbnorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
 
-    { "henorm",             test_henorm,       Section::aux_norm },
+    { "henorm",             test_norm,         Section::aux_norm },
     { "hbnorm",             test_hbnorm,       Section::aux_norm },
-    { "synorm",             test_synorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
 
-    { "trnorm",             test_trnorm,       Section::aux_norm },
+    { "synorm",             test_norm,         Section::aux_norm },
+    { "",                   nullptr,           Section::newline },
+
+    { "trnorm",             test_norm,         Section::aux_norm },
     { "",                   nullptr,           Section::newline },
 
     // -----

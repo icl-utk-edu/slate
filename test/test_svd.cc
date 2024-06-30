@@ -26,6 +26,7 @@ void test_svd_work( Params& params, bool run )
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
+    using slate::Job;
 
     // Constants
     const scalar_t zero = 0;
@@ -96,7 +97,7 @@ void test_svd_work( Params& params, bool run )
     }
 
     if (check && ! ref
-        && (jobu == slate::Job::NoVec || jobvt == slate::Job::NoVec)) {
+        && (jobu == Job::NoVec || jobvt == Job::NoVec)) {
         params.msg() = "job = NoVec requires --ref y to check singular values";
     }
 
@@ -111,20 +112,20 @@ void test_svd_work( Params& params, bool run )
         {slate::Option::InnerBlocking, ib}
     };
 
-    bool wantu  = (jobu  == slate::Job::Vec
-                   || jobu  == slate::Job::AllVec
-                   || jobu  == slate::Job::SomeVec);
-    bool wantvt = (jobvt == slate::Job::Vec
-                   || jobvt == slate::Job::AllVec
-                   || jobvt == slate::Job::SomeVec);
+    bool wantu  = (jobu  == Job::Vec
+                   || jobu  == Job::AllVec
+                   || jobu  == Job::SomeVec);
+    bool wantvt = (jobvt == Job::Vec
+                   || jobvt == Job::AllVec
+                   || jobvt == Job::SomeVec);
 
     int64_t min_mn = std::min(m, n);
 
     // U  is either m-by-min( m, n ) for some vec, or m-by-m for all vec;
     // VT is either min( m, n )-by-n for some vec, or n-by-n for all vec.
     int64_t Um  = wantu  ? m : 0;
-    int64_t Un  = wantu  ? (jobu  == slate::Job::AllVec ? m : min_mn) : 0;
-    int64_t VTm = wantvt ? (jobvt == slate::Job::AllVec ? n : min_mn) : 0;
+    int64_t Un  = wantu  ? (jobu  == Job::AllVec ? m : min_mn) : 0;
+    int64_t VTm = wantvt ? (jobvt == Job::AllVec ? n : min_mn) : 0;
     int64_t VTn = wantvt ? n : 0;
 
     // array Sigma (global output), singular values of A
@@ -220,9 +221,9 @@ void test_svd_work( Params& params, bool run )
     if (check && (wantu || wantvt)) {
         // Residual matrix.
         int64_t Rm = min_mn;
-        if (jobu == slate::Job::AllVec)
+        if (jobu == Job::AllVec)
             Rm = blas::max( Rm, m );
-        if (jobvt == slate::Job::AllVec)
+        if (jobvt == Job::AllVec)
             Rm = blas::max( Rm, n );
         auto R_alloc = allocate_test_Matrix<scalar_t>( false, true, Rm, Rm, params );
         auto R = R_alloc.A;
@@ -236,7 +237,7 @@ void test_svd_work( Params& params, bool run )
             //              N
             //==================================================
             slate::Matrix<scalar_t> Ru;
-            if (jobu == slate::Job::AllVec)
+            if (jobu == Job::AllVec)
                 Ru = R.slice( 0, m-1, 0, m-1 );
             else
                 Ru = R.slice( 0, min_mn-1, 0, min_mn-1 );
@@ -257,7 +258,7 @@ void test_svd_work( Params& params, bool run )
             //              N
             //==================================================
             slate::Matrix<scalar_t> Rv;
-            if (jobvt == slate::Job::AllVec)
+            if (jobvt == Job::AllVec)
                 Rv = R.slice( 0, n-1, 0, n-1 );
             else
                 Rv = R.slice( 0, min_mn-1, 0, min_mn-1 );
@@ -316,10 +317,10 @@ void test_svd_work( Params& params, bool run )
             // ScaLAPACK uses job = N and V (same as S);
             // it doesn't support LAPACK's job = S, A, O options.
             // Warn if that makes a smaller U or V than AllVec would.
-            const char* jobu_str  = jobu  == slate::Job::NoVec ? "N" : "V";
-            const char* jobvt_str = jobvt == slate::Job::NoVec ? "N" : "V";
-            if ((jobu == slate::Job::AllVec && m > n)
-                || (jobvt == slate::Job::AllVec && n > m)) {
+            Job s_jobu  = jobu  == Job::NoVec ? Job::NoVec : Job::Vec;
+            Job s_jobvt = jobvt == Job::NoVec ? Job::NoVec : Job::Vec;
+            if ((jobu == Job::AllVec && m > n)
+                || (jobvt == Job::AllVec && n > m)) {
                 params.msg() = "ScaLAPACK doesn't support AllVec; using SomeVec.";
             }
 
@@ -327,8 +328,8 @@ void test_svd_work( Params& params, bool run )
             int64_t info_ref = 0;
             scalar_t dummy_work;
             real_t dummy_rwork;
-            scalapack_pgesvd(
-                jobu_str, jobvt_str, m, n,
+            scalapack::gesvd(
+                s_jobu, s_jobvt, m, n,
                 &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                 &U_data[0],  1, 1, U_desc,
                 &VT_data[0], 1, 1, VT_desc,
@@ -343,8 +344,8 @@ void test_svd_work( Params& params, bool run )
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgesvd(
-                jobu_str, jobvt_str, m, n,
+            scalapack::gesvd(
+                s_jobu, s_jobvt, m, n,
                 &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                 &U_data[0],  1, 1, U_desc,
                 &VT_data[0], 1, 1, VT_desc,

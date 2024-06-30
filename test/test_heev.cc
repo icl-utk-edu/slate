@@ -287,11 +287,11 @@ void test_heev_work(Params& params, bool run)
 
             int64_t info;
             blas_int A_desc[9];
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
             blas_int Z_desc[9];
-            scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
+            scalapack::descinit( Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info );
             slate_assert(info == 0);
 
             // query for workspace size
@@ -301,7 +301,7 @@ void test_heev_work(Params& params, bool run)
             std::vector<real_t> rwork(1);
             std::vector<blas_int> iwork(1);
             if (method_eig == slate::MethodEig::DC && jobz == slate::Job::Vec) {
-                scalapack_pheevd( jobz, uplo, n,
+                scalapack::heevd( jobz, uplo, n,
                                   &Aref_data[0], 1, 1, A_desc,
                                   &Lambda_ref[0], // global output
                                   &Z_data[0], 1, 1, Z_desc,
@@ -309,7 +309,7 @@ void test_heev_work(Params& params, bool run)
                                   &iwork[0], -1, &info_tst );
             }
             else {
-                scalapack_pheev( jobz, uplo, n,
+                scalapack::heev( jobz, uplo, n,
                                  &Aref_data[0], 1, 1, A_desc,
                                  &Lambda_ref[0], // global output
                                  &Z_data[0], 1, 1, Z_desc,
@@ -335,7 +335,7 @@ void test_heev_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (method_eig == slate::MethodEig::DC && jobz == slate::Job::Vec) {
-                scalapack_pheevd( jobz, uplo, n,
+                scalapack::heevd( jobz, uplo, n,
                                   &Aref_data[0], 1, 1, A_desc,
                                   &Lambda_ref[0],
                                   &Z_data[0], 1, 1, Z_desc,
@@ -343,7 +343,7 @@ void test_heev_work(Params& params, bool run)
                                   &iwork[0], liwork, &info_tst );
             }
             else {
-                scalapack_pheev( jobz, uplo, n,
+                scalapack::heev( jobz, uplo, n,
                                  &Aref_data[0], 1, 1, A_desc,
                                  &Lambda_ref[0],
                                  &Z_data[0], 1, 1, Z_desc,

@@ -237,7 +237,7 @@ void test_her2k_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pher2k( uplo, trans, n, k, alpha,
+            scalapack::her2k( uplo, trans, n, k, alpha,
                               &A_data[0], 1, 1, A_desc,
                               &B_data[0], 1, 1, B_desc, beta,
                               &Cref_data[0], 1, 1, Cref_desc );

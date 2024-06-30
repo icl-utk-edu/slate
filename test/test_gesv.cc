@@ -394,7 +394,7 @@ void test_gesv_work(Params& params, bool run)
 
             if (params.routine == "getrs") {
                 // Factor matrix A.
-                scalapack_pgetrf( m, n, &Aref_data[0], 1, 1, Aref_desc,
+                scalapack::getrf( m, n, &Aref_data[0], 1, 1, Aref_desc,
                                   &ipiv_ref[0], &info );
                 slate_assert( info == 0 );
             }
@@ -404,16 +404,16 @@ void test_gesv_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (params.routine == "getrf") {
-                scalapack_pgetrf( m, n, &Aref_data[0], 1, 1, Aref_desc,
+                scalapack::getrf( m, n, &Aref_data[0], 1, 1, Aref_desc,
                                   &ipiv_ref[0], &info );
             }
             else if (params.routine == "getrs") {
-                scalapack_pgetrs( trans, n, nrhs,
+                scalapack::getrs( trans, n, nrhs,
                                   &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
                                   &Bref_data[0], 1, 1, Bref_desc, &info );
             }
             else {
-                scalapack_pgesv( n, nrhs,
+                scalapack::gesv( n, nrhs,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
                                  &Bref_data[0], 1, 1, Bref_desc, &info );
             }

@@ -209,7 +209,7 @@ void test_trsm_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ptrsm( side, uplo, transA, diag,
+            scalapack::trsm( side, uplo, transA, diag,
                              m, n, alpha,
                              &A_data[0], 1, 1, A_desc,
                              &Bref_data[0], 1, 1, Bref_desc );

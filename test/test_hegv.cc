@@ -370,15 +370,15 @@ void test_hegv_work(Params& params, bool run)
 
             int64_t info;
             blas_int A_desc[9];
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack::descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info );
             slate_assert(info == 0);
 
             blas_int B_desc[9];
-            scalapack_descinit(B_desc, n, n, nb, nb, 0, 0, ictxt, mlocB, &info);
+            scalapack::descinit( B_desc, n, n, nb, nb, 0, 0, ictxt, mlocB, &info );
             slate_assert(info == 0);
 
             blas_int Z_desc[9];
-            scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
+            scalapack::descinit( Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info );
             slate_assert(info == 0);
 
             Range range = Range::All;
@@ -400,7 +400,7 @@ void test_hegv_work(Params& params, bool run)
             std::vector<blas_int> ifail(n);
             std::vector<blas_int> iclustr(2*p*q);
             std::vector<real_t> gap(p*q);
-            scalapack_phegvx( itype, jobz, range, uplo, n,
+            scalapack::hegvx( itype, jobz, range, uplo, n,
                               &Aref_data[0], 1, 1, A_desc,
                               &Bref_data[0], 1, 1, B_desc,
                               vl, vu, il, iu, abstol, &nfound, &nzfound,
@@ -428,7 +428,7 @@ void test_hegv_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(mpi_comm);
 
-            scalapack_phegvx( itype, jobz, range, uplo, n,
+            scalapack::hegvx( itype, jobz, range, uplo, n,
                               &Aref_data[0], 1, 1, A_desc,
                               &Bref_data[0], 1, 1, B_desc,
                               vl, vu, il, iu, abstol, &nfound, &nzfound,

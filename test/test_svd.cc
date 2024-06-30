@@ -328,7 +328,7 @@ void test_svd_work( Params& params, bool run )
             int64_t info_ref = 0;
             scalar_t dummy_work;
             real_t dummy_rwork;
-            scalapack_pgesvd(
+            scalapack::gesvd(
                 s_jobu, s_jobvt, m, n,
                 &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                 &U_data[0],  1, 1, U_desc,
@@ -344,7 +344,7 @@ void test_svd_work( Params& params, bool run )
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgesvd(
+            scalapack::gesvd(
                 s_jobu, s_jobvt, m, n,
                 &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                 &U_data[0],  1, 1, U_desc,

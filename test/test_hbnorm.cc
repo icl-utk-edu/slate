@@ -122,7 +122,7 @@ void test_hbnorm_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int64_t info;
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info);
+            scalapack::descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info );
             slate_assert(info == 0);
 
             // allocate work space
@@ -135,7 +135,7 @@ void test_hbnorm_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
-            real_t A_norm_ref = scalapack_planhe(
+            real_t A_norm_ref = scalapack::lanhe(
                                     norm, A.uplo(),
                                     n, &A_data[0], 1, 1, A_desc, &work[0] );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

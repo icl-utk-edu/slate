@@ -152,12 +152,12 @@ void test_add_work(Params& params, bool run)
 
             int64_t info;
             if (uplo == slate::Uplo::General) {
-                scalapack_pgeadd( trans, m, n,
+                scalapack::geadd( trans, m, n,
                                   alpha, &Aref_data[0], 1, 1, A_desc,
                                   beta,  &Bref_data[0], 1, 1, B_desc, &info );
             }
             else {
-                scalapack_ptradd( uplo, trans, m, n,
+                scalapack::tradd( uplo, trans, m, n,
                                   alpha, &Aref_data[0], 1, 1, A_desc,
                                   beta,  &Bref_data[0], 1, 1, B_desc, &info );
             }

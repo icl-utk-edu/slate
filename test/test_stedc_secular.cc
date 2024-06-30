@@ -242,7 +242,7 @@ void test_stedc_secular_work( Params& params, bool run )
             //==================================================
             time = barrier_get_wtime( MPI_COMM_WORLD );
 
-            scalapack_plaed3(
+            scalapack::laed3(
                 ictxt, nsecular, n, nb,
                 &Lambda_ref[0], 0, 0, rho, &D[0], &z[0], &ztilde_ref[0],
                 &Uref_data[0], lldU, &buf[0],

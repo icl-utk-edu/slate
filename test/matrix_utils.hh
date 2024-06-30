@@ -247,8 +247,8 @@ public:
     void ScaLAPACK_descriptor( blas_int ictxt, blas_int A_desc[9] )
     {
         int64_t info;
-        scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mloc, &info);
-        slate_assert(info == 0);
+        scalapack::descinit( A_desc, m, n, nb, nb, 0, 0, ictxt, mloc, &info );
+        slate_assert( info == 0 );
     }
 
     void create_ScaLAPACK_context( blas_int* ictxt )

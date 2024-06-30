@@ -197,7 +197,7 @@ void test_norm_work( Params& params, bool run )
             if (scope == slate::NormScope::Matrix) {
                 if constexpr (std::is_same< matrix_type,
                                   Matrix<scalar_t> >::value) {
-                    A_norm_ref = scalapack_plange(
+                    A_norm_ref = scalapack::lange(
                         op_norm, m, n,
                         &A_data[0], 1, 1, A_desc, &work[0] );
                 }
@@ -205,19 +205,19 @@ void test_norm_work( Params& params, bool run )
                                        TriangularMatrix<scalar_t> >::value
                                    || std::is_same< matrix_type,
                                           TrapezoidMatrix<scalar_t> >::value ) {
-                    A_norm_ref = scalapack_plantr(
+                    A_norm_ref = scalapack::lantr(
                         norm, A.uplo(), diag, m, n,
                         &A_data[0], 1, 1, A_desc, &work[0] );
                 }
                 else if constexpr (std::is_same< matrix_type,
                                        SymmetricMatrix<scalar_t> >::value) {
-                    A_norm_ref = scalapack_plansy(
+                    A_norm_ref = scalapack::lansy(
                         norm, A.uplo(), n,
                         &A_data[0], 1, 1, A_desc, &work[0] );
                 }
                 else if constexpr (std::is_same< matrix_type,
                                        HermitianMatrix<scalar_t> >::value) {
-                    A_norm_ref = scalapack_planhe(
+                    A_norm_ref = scalapack::lanhe(
                         norm, A.uplo(), n,
                         &A_data[0], 1, 1, A_desc, &work[0] );
                 }
@@ -247,7 +247,7 @@ void test_norm_work( Params& params, bool run )
                 // error: macro "assert" passed 2 arguments, but takes just 1
                 //assert( std::is_same< matrix_type, Matrix<scalar_t> >::value );
                 for (int64_t j = 0; j < n; ++j) {
-                    A_norm_ref = scalapack_plange(
+                    A_norm_ref = scalapack::lange(
                         norm, m, 1,
                         &A_data[0], 1, j+1, A_desc, &work[0] );
                     error += std::abs( values[ j ] - A_norm_ref ) / A_norm_ref;
@@ -345,7 +345,7 @@ void test_norm_work( Params& params, bool run )
 
                                     A_norm = slate::norm( norm, A, opts );
 
-                                    A_norm_ref = scalapack_plange(
+                                    A_norm_ref = scalapack::lange(
                                         norm, m, n,
                                         &A_data[0], 1, 1, A_desc, &work[0] );
 

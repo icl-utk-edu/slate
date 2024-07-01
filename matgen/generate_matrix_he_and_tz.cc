@@ -8,6 +8,7 @@
 #include "random.hh"
 #include "generate_matrix_utils.hh"
 #include "generate_sigma.hh"
+#include "generate_type_heev.hh"
 #include "generate_type_rand.hh"
 
 #include <exception>
@@ -131,8 +132,16 @@ void generate_matrix(
             generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, seed );
             break;
 
-        case TestMatrixType::poev:
-        case TestMatrixType::heev:
+        case TestMatrixType::poev: {
+            generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma, seed, opts );
+            break;
+        }
+
+        case TestMatrixType::heev: {
+            generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma, seed, opts );
+            break;
+        }
+
         default:
             snprintf( msg, sizeof( msg ), "'%s' not yet implemented",
                       params.kind.c_str() );

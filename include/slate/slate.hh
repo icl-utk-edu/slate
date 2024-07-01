@@ -1281,14 +1281,36 @@ void sterf(
     Options const& opts = Options());
 
 //-----------------------------------------
-// steqr2()
+// steqr()
 template <typename scalar_t>
-void steqr2(
+void steqr(
     Job jobz,
     std::vector< blas::real_type<scalar_t> >& D,
     std::vector< blas::real_type<scalar_t> >& E,
     Matrix<scalar_t>& Z,
     Options const& opts = Options());
+
+template <typename scalar_t>
+[[deprecated( "Use steqr. Will be removed 2025-06." )]]
+void steqr2(
+    Job jobz,
+    std::vector< blas::real_type<scalar_t> >& D,
+    std::vector< blas::real_type<scalar_t> >& E,
+    Matrix<scalar_t>& Z,
+    Options const& opts = Options())
+{
+    steqr( jobz, D, E, Z, opts );
+}
+
+// low-level implementation
+template <typename scalar_t>
+int64_t steqr(
+    int64_t n,
+    blas::real_type<scalar_t>* D,
+    blas::real_type<scalar_t>* E,
+    scalar_t* Z, int64_t ldz,
+    int64_t nrows,
+    blas::real_type<scalar_t>* work, int64_t lwork );
 
 //------------------------------------------------------------------------------
 // Condition number estimate

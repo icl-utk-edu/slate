@@ -721,7 +721,6 @@ tester_src += \
         test/test_gelqf.cc \
         test/test_gels.cc \
         test/test_gemm.cc \
-        test/test_genorm.cc \
         test/test_geqrf.cc \
         test/test_gesv.cc \
         test/test_getri.cc \
@@ -733,10 +732,10 @@ tester_src += \
         test/test_hegst.cc \
         test/test_hegv.cc \
         test/test_hemm.cc \
-        test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \
         test/test_hesv.cc \
+        test/test_norm.cc \
         test/test_pbsv.cc \
         test/test_pocondest.cc \
         test/test_posv.cc \
@@ -753,14 +752,12 @@ tester_src += \
         test/test_sterf.cc \
         test/test_svd.cc \
         test/test_symm.cc \
-        test/test_synorm.cc \
         test/test_syr2k.cc \
         test/test_syrk.cc \
         test/test_tb2bd.cc \
         test/test_tbsm.cc \
         test/test_trcondest.cc \
         test/test_trmm.cc \
-        test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
         test/test_unmqr.cc \

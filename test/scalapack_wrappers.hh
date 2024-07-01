@@ -116,21 +116,6 @@ inline int64_t scalapack_numroc(
 
 //==============================================================================
 // Fortran prototype
-#define scalapack_ilcm BLAS_FORTRAN_NAME( ilcm, ILCM )
-
-extern "C"
-blas_int scalapack_ilcm( blas_int* a, blas_int* b );
-
-// High-level C++ wrapper
-inline int64_t scalapack_ilcm( int64_t a, int64_t b )
-{
-    blas_int a_ = to_blas_int( a );
-    blas_int b_ = to_blas_int( b );
-    return scalapack_ilcm( &a_, &b_ );
-}
-
-//==============================================================================
-// Fortran prototype
 #define scalapack_indxg2p BLAS_FORTRAN_NAME( indxg2p, INDXG2P )
 
 extern "C"

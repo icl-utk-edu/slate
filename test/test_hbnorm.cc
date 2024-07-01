@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
+#include <numeric>
 
 //------------------------------------------------------------------------------
 template<typename scalar_t>
@@ -126,7 +127,7 @@ void test_hbnorm_work(Params& params, bool run)
 
             // allocate work space
             int64_t ldw = nb*ceildiv( ceildiv( nlocA, nb ),
-                                      scalapack_ilcm( p, q ) / p );
+                                      std::lcm( p, q ) / p );
             int64_t lwork = 2*mlocA + nlocA + ldw;
             std::vector<real_t> worklanhe( lwork );
 

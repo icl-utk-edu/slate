@@ -91,17 +91,19 @@ void add_sumsq(
 }
 
 //------------------------------------------------------------------------------
-/// @return ceil( x / y ), for integer type T.
-template <typename T>
-inline constexpr T ceildiv(T x, T y)
+/// @return ceil( x / y ), for integer types T1, T2.
+template <typename T1, typename T2>
+inline constexpr std::common_type_t<T1, T2> ceildiv( T1 x, T2 y )
 {
+    using T = std::common_type_t<T1, T2>;
     return T((x + y - 1) / y);
 }
 
 /// @return ceil( x / y )*y, i.e., x rounded up to next multiple of y.
-template <typename T>
-inline constexpr T roundup(T x, T y)
+template <typename T1, typename T2>
+inline constexpr std::common_type_t<T1, T2> roundup( T1 x, T2 y )
 {
+    using T = std::common_type_t<T1, T2>;
     return T((x + y - 1) / y) * y;
 }
 

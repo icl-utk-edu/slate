@@ -439,11 +439,8 @@ void test_unmbr_tb2bd(Params& params, bool run);
 
 // matrix norms
 void test_gbnorm (Params& params, bool run);
-void test_genorm (Params& params, bool run);
-void test_henorm (Params& params, bool run);
 void test_hbnorm (Params& params, bool run);
-void test_synorm (Params& params, bool run);
-void test_trnorm (Params& params, bool run);
+void test_norm   (Params& params, bool run);
 
 // auxiliary matrix routines
 void test_add    (Params& params, bool run);

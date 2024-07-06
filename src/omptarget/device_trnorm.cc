@@ -248,8 +248,8 @@ void trnorm(
                 #pragma omp parallel for schedule(static, 1)
                 for (int64_t i = 0; i < m; ++i) {
                     const scalar_t* row = &tileA[i];
-                    real_t scale = 0;
-                    real_t sumsq = 1;
+                    real_t scale = 1.0;
+                    real_t sumsq = 0.0;
                     if (uplo == lapack::Uplo::Lower) {
                         if (diag == lapack::Diag::Unit) {
                             if (i < n) // diag

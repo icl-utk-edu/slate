@@ -170,8 +170,8 @@ void synorm(
                 #pragma omp parallel for schedule(static, 1)
                 for (int64_t i = 0; i < n; ++i) {
                     scalar_t const* rowI = &tileA[i];
-                    real_t scale_ki = 0;
-                    real_t sumsq_ki = 1;
+                    real_t scale_ki = 1.0;
+                    real_t sumsq_ki = 0.0;
                     if (uplo == lapack::Uplo::Lower) {
                         for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                             add_sumsq(scale_ki, sumsq_ki, abs_val(rowI[j*lda]));

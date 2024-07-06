@@ -248,8 +248,8 @@ __global__ void genorm_fro_kernel(
     // This does coalesced reads of one column at a time in parallel.
     for (int i = threadIdx.x; i < m; i += blockDim.x) {
         scalar_t const* row = &tile[ i ];
-        real_t scale = 0;
-        real_t sumsq = 1;
+        real_t scale = 1.0;
+        real_t sumsq = 0.0;
         chunk = i % blockDim.x;
 
         for (int64_t j = 0; j < n; ++j) {
@@ -257,8 +257,8 @@ __global__ void genorm_fro_kernel(
         }
 
         if (i < blockDim.x) {
-            row_scale[chunk] = 0;
-            row_sumsq[chunk] = 1;
+            row_scale[chunk] = 1.0;
+            row_sumsq[chunk] = 0.0;
         }
 
         // Save partial results in shared memory.

@@ -181,8 +181,8 @@ void genorm(
                     // distribute rows to threads (i)
                     #pragma omp parallel for schedule(static, 1)
                     for (int64_t i = 0; i < m; ++i) {
-                        real_t scale_ki = 0;
-                        real_t sumsq_ki = 1;
+                        real_t scale_ki = 1.0;
+                        real_t sumsq_ki = 0.0;
                         for (int64_t j = 0; j < n; ++j)
                             add_sumsq(scale_ki, sumsq_ki, abs_val( tileA[i + j*lda] ));
                         // accumulate the scale and sumsq for each k

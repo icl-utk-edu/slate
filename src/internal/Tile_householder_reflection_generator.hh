@@ -89,8 +89,8 @@ void householder_reflection_generator(
 
         //------------------
         // thread local norm
-        scale[thread_rank] = 0.0;
-        sumsq[thread_rank] = 1.0;
+        scale[ thread_rank ] = 1.0;
+        sumsq[ thread_rank ] = 0.0;
         for (int64_t idx = thread_rank;
              idx < int64_t(tiles.size());
              idx += thread_size)

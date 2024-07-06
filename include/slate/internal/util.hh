@@ -18,6 +18,8 @@
 
 namespace slate {
 
+using std::isnan, std::isinf;
+
 //------------------------------------------------------------------------------
 /// max that propagates nan consistently:
 ///
@@ -27,7 +29,7 @@ namespace slate {
 template <typename real_t>
 inline real_t max_nan(real_t x, real_t y)
 {
-    return (std::isnan(y) || (y) >= (x) ? (y) : (x));
+    return (isnan(y) || (y) >= (x) ? (y) : (x));
 }
 
 //------------------------------------------------------------------------------
@@ -60,12 +62,15 @@ void combine_sumsq(
     real_t& scale1, real_t& sumsq1,
     real_t  scale2, real_t  sumsq2 )
 {
-    if (scale1 > scale2) {
-        sumsq1 = sumsq1 + sumsq2*sqr(scale2 / scale1);
+    if (scale1 >= scale2) {
+        if (scale1 != 0 && ! isinf( scale1 ))
+            sumsq1 += sumsq2*sqr( scale2 / scale1 );
+        else
+            sumsq1 += sumsq2;  // in case sumsq2 is NaN
         // scale1 stays same
     }
-    else if (scale2 != 0) {
-        sumsq1 = sumsq1*sqr(scale1 / scale2) + sumsq2;
+    else {
+        sumsq1 = sumsq1*sqr( scale1 / scale2 ) + sumsq2;
         scale1 = scale2;
     }
 }
@@ -81,12 +86,18 @@ void add_sumsq(
     real_t& scale, real_t& sumsq,
     real_t absx)
 {
-    if (scale < absx) {
-        sumsq = 1 + sumsq * sqr(scale / absx);
-        scale = absx;
-    }
-    else {
-        sumsq = sumsq + sqr(absx / scale);
+    if (absx > 0 || isnan( absx )) {
+        if (isinf( scale )) {
+            sumsq += absx;  // in case absx is NaN
+        }
+        else if (scale < absx) {
+            sumsq = 1 + sumsq * sqr( scale / absx );
+            scale = absx;
+        }
+        else {
+            sumsq += sqr( absx / scale );
+            // scale unchanged
+        }
     }
 }
 
@@ -99,6 +110,7 @@ inline constexpr std::common_type_t<T1, T2> ceildiv( T1 x, T2 y )
     return T((x + y - 1) / y);
 }
 
+//------------------------------------------------------------------------------
 /// @return ceil( x / y )*y, i.e., x rounded up to next multiple of y.
 template <typename T1, typename T2>
 inline constexpr std::common_type_t<T1, T2> roundup( T1 x, T2 y )

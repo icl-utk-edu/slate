@@ -192,8 +192,8 @@ __global__ void synorm_fro_kernel(
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
     for (int i = threadIdx.x; i < n; i += blockDim.x) {
-        real_t scale = 0;
-        real_t sumsq = 1;
+        real_t scale = 1.0;
+        real_t sumsq = 0.0;
         chunk = i % blockDim.x;
         scalar_t const* row = &tile[ i ];
 
@@ -216,8 +216,8 @@ __global__ void synorm_fro_kernel(
         }
 
         if (i < blockDim.x) {
-            row_scale[chunk] = 0;
-            row_sumsq[chunk] = 1;
+            row_scale[ chunk ] = 1.0;
+            row_sumsq[ chunk ] = 0.0;
         }
         combine_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
     }

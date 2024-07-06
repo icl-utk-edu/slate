@@ -13,8 +13,10 @@ namespace device {
 
 //------------------------------------------------------------------------------
 /// max that propagates nan consistently:
+///
 ///     max_nan( 1,   nan ) = nan
 ///     max_nan( nan, 1   ) = nan
+///
 template <typename real_t>
 __host__ __device__
 inline real_t max_nan(real_t x, real_t y)
@@ -233,19 +235,24 @@ inline scalar_t sqr(scalar_t x)
 //------------------------------------------------------------------------------
 /// Adds two scaled, sum-of-squares representations.
 /// On exit, scale1 and sumsq1 are updated such that:
+///
 ///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
+///
 template <typename real_t>
 __host__ __device__
 void combine_sumsq(
     real_t& scale1, real_t& sumsq1,
     real_t  scale2, real_t  sumsq2 )
 {
-    if (scale1 > scale2) {
-        sumsq1 = sumsq1 + sumsq2*sqr(scale2 / scale1);
+    if (scale1 >= scale2) {
+        if (scale1 != 0 && ! isinf( scale1 ))
+            sumsq1 += sumsq2*sqr( scale2 / scale1 );
+        else
+            sumsq1 += sumsq2;  // in case sumsq2 is NaN
         // scale1 stays same
     }
-    else if (scale2 != 0) {
-        sumsq1 = sumsq1*sqr(scale1 / scale2) + sumsq2;
+    else {
+        sumsq1 = sumsq1*sqr( scale1 / scale2 ) + sumsq2;
         scale1 = scale2;
     }
 }
@@ -253,19 +260,27 @@ void combine_sumsq(
 //------------------------------------------------------------------------------
 /// Adds new value to scaled, sum-of-squares representation.
 /// On exit, scale and sumsq are updated such that:
+///
 ///     scale^2 sumsq := scale^2 sumsq + (absx)^2
+///
 template <typename real_t>
 __host__ __device__
 void add_sumsq(
     real_t& scale, real_t& sumsq,
     real_t absx)
 {
-    if (scale < absx) {
-        sumsq = 1 + sumsq * sqr(scale / absx);
-        scale = absx;
-    }
-    else if (scale != 0) {
-        sumsq = sumsq + sqr(absx / scale);
+    if (absx > 0 || isnan( absx )) {
+        if (isinf( scale )) {
+            sumsq += absx;  // in case absx is NaN
+        }
+        else if (scale < absx) {
+            sumsq = 1 + sumsq * sqr( scale / absx );
+            scale = absx;
+        }
+        else {
+            sumsq += sqr( absx / scale );
+            // scale unchanged
+        }
     }
 }
 

@@ -257,8 +257,8 @@ __global__ void genorm_fro_kernel(
         }
 
         if (i < blockDim.x) {
-            row_scale[chunk] = 1.0;
-            row_sumsq[chunk] = 0.0;
+            row_scale[ chunk ] = 1.0;
+            row_sumsq[ chunk ] = 0.0;
         }
 
         // Save partial results in shared memory.

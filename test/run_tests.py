@@ -134,6 +134,7 @@ group_opt.add_argument( '--matrix',  action='store', help='default=%(default)s',
 group_opt.add_argument( '--matrixB', action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--matrixC', action='store', help='default=%(default)s', default='' )
 group_opt.add_argument( '--cond',    action='store', help='default=%(default)s', default='1e2' )
+group_opt.add_argument( '--extended', action='store', help='default=%(default)s', default='10' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -316,6 +317,7 @@ matrixB = ' --matrixB ' + opts.matrixB if (opts.matrixB) else ''
 matrixC = ' --matrixC ' + opts.matrixC if (opts.matrixC) else ''
 matrixBC = matrixB + matrixC
 cond    = ' --cond ' + opts.cond if (opts.cond) else ''
+extended = ' --extended ' + opts.extended if (opts.extended) else ''
 
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
@@ -326,6 +328,7 @@ ge_matrix = grid_order + dev_order
 sy_matrix = grid_order + dev_order + uplo
 he_matrix = grid_order + dev_order + uplo
 tr_matrix = grid_order + dev_order + uplo + diag
+tz_matrix = tr_matrix
 
 if (opts.matrix):
     gen += matrix
@@ -617,10 +620,11 @@ if (opts.svd):
 # norms
 if (opts.norms):
     cmds += [
-    [ 'genorm', gen + dtype + mn + norm + nonuniform_nb + ge_matrix ],
-    [ 'henorm', gen + dtype + n  + norm + nonuniform_nb + he_matrix ],
-    [ 'synorm', gen + dtype + n  + norm + nonuniform_nb + sy_matrix ],
-    [ 'trnorm', gen + dtype + mn + norm + nonuniform_nb + tr_matrix ],
+    [ 'genorm', gen + dtype + mn + norm + extended + nonuniform_nb + ge_matrix ],
+    [ 'henorm', gen + dtype + n  + norm + extended + nonuniform_nb + he_matrix ],
+    [ 'synorm', gen + dtype + n  + norm + extended + nonuniform_nb + sy_matrix ],
+    [ 'trnorm', gen + dtype + n  + norm + extended + nonuniform_nb + tr_matrix ],
+    [ 'tznorm', gen + dtype + mn + norm + extended + nonuniform_nb + tz_matrix ],
 
     # Banded
     [ 'gbnorm', gen + dtype + mn  + kl + ku + norm ],

@@ -158,7 +158,7 @@ inline float abs(rocblas_float_complex x)
     // CUDA has a good implementation.
     return hipCabsf(x);
 #else
-    // For HIP, use our implementation that scales per LAPACK.
+    // For HIP, use our implementation that scales per LAPACK lapy2.
     float a = real( x );
     float b = imag( x );
     float z, w, t;
@@ -173,7 +173,7 @@ inline float abs(rocblas_float_complex x)
         b = fabsf(b);
         w = max(a, b);
         z = min(a, b);
-        if (z == 0) {
+        if (z == 0 || isinf( w )) {
             t = w;
         }
         else {
@@ -194,7 +194,7 @@ inline double abs(rocblas_double_complex x)
     // CUDA has a good implementation.
     return hipCabs(x);
 #else
-    // For HIP, use our implementation that scales per LAPACK.
+    // For HIP, use our implementation that scales per LAPACK lapy2.
     double a = real( x );
     double b = imag( x );
     double z, w, t;
@@ -209,12 +209,12 @@ inline double abs(rocblas_double_complex x)
         b = fabs(b);
         w = max(a, b);
         z = min(a, b);
-        if (z == 0) {
+        if (z == 0 || isinf( w )) {
             t = w;
         }
         else {
             t = z/w;
-            t = 1.0 + t*t;
+            t = 1 + t*t;
             t = w * sqrt(t);
         }
         return t;

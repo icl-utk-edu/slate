@@ -203,7 +203,7 @@ void generate_matrix(
             const scalar_t inner_const = pi/scalar_t(max_mn+1);
 
             entry_type orthog_entry = [ outer_const, inner_const ]( int64_t i, int64_t j) {
-                scalar_t a = scalar_t(i) * scalar_t(j) * inner_const;
+                scalar_t a = scalar_t(i+1) * scalar_t(j+1) * inner_const;
                 return outer_const * sin(a);
             };
             set( orthog_entry, A, opts );
@@ -228,7 +228,8 @@ void generate_matrix(
         case TestMatrixType::ris: {
             const int64_t max_mn = std::max(n, m);
             entry_type ris_entry = [max_mn]( int64_t i, int64_t j ) {
-                return 0.5 / ( max_mn - j - i + 1.5 );
+                // n-(j + 1)-(i + 1)+1.5 = n-j-i-0.5
+                return 0.5 / ( max_mn - j - i - 0.5);
             };
             set( ris_entry, A, opts );
             break;

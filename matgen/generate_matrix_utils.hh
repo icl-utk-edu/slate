@@ -53,6 +53,18 @@ enum class TestMatrixType {
     heev,
     geev,
     geevx,
+    minij,
+    hilb,
+    frank,
+    lehmer,
+    lotkin,
+    redheff,
+    triw,
+    tridiag,
+    toeppen,
+    pei,
+    parter,
+    moler,
 };
 
 enum class TestMatrixDist {

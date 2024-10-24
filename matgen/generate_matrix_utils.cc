@@ -96,6 +96,10 @@ void generate_matrix_usage()
     "toeppen   |  1's on second subdiagonal and second superdiagonal, -10's on subdiagonal, 10's on superdiagonal, rest zero\n"
     "parter    |  matrix entry i,j equal to 1/(i-j+0.5)\n"
     "moler     |  matrix entry i,j equal to i on diagonal, rest min(i,j)\n"
+    "cauchy    |  matrix entry i,j equal to 1/(i + j)\n"
+    "chow      |  matrix with 1's on the diagonal, superdiagonal, and all elements below them, and 0's above the superdiagonal\n"
+    "clement   |  matrix with decreasing values [n-1 : 1] on subdiagonal, and increasing values [1 : n-1] on superdiagonal\n"
+    "gcdmat    |  matrix entry i,j equal to gcd(i,j)\n"
     "          |  \n"
     "rand@     |  matrix entries random uniform on (0, 1)\n"
     "rands@    |  matrix entries random uniform on (-1, 1)\n"
@@ -254,6 +258,10 @@ void decode_matrix(
     else if (base == "pei"     ) { type = TestMatrixType::pei;      }
     else if (base == "parter"  ) { type = TestMatrixType::parter;   }
     else if (base == "moler"   ) { type = TestMatrixType::moler;    }
+    else if (base == "cauchy"  ) { type = TestMatrixType::cauchy;   }
+    else if (base == "chow"    ) { type = TestMatrixType::chow;     }
+    else if (base == "clement" ) { type = TestMatrixType::clement;  }
+    else if (base == "gcdmat"  ) { type = TestMatrixType::gcdmat;   }
     else {
         snprintf( msg, sizeof( msg ), "in '%s': unknown matrix '%s'",
                   kind.c_str(), base.c_str() );

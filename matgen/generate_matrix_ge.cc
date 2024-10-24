@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
+#include <numeric>      // std::gcd
 
 namespace slate {
 
@@ -419,6 +420,48 @@ void generate_matrix(
             set( moler_entry, A, opts );
             break;
         }
+
+        case TestMatrixType::cauchy: {
+            entry_type cauchy_entry = []( int64_t i, int64_t j ) {
+                return 1.0 / ( i + j + 2);
+            };
+            set( cauchy_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::chow: {
+            entry_type chow_entry = []( int64_t i, int64_t j ) {
+                return ((i - j) < -1 ? 0 : 1);
+            };
+            set( chow_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::clement: {
+            const int64_t max_mn = std::max(n, m);
+            entry_type clement_entry = [max_mn]( int64_t i, int64_t j ) {
+                if ((i - j) == 1) {
+                    return max_mn - j - 1;
+                }
+                else if ((i - j) == -1) {
+                    return j;
+                }
+                else {
+                    return (int64_t)0;
+                }
+            };
+            set( clement_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::gcdmat: {
+            entry_type gcdmat_entry = []( int64_t i, int64_t j ) {
+                return std::gcd(i + 1, j + 1);
+            };
+            set( gcdmat_entry, A, opts );
+            break;
+        }
+
     }
 
     // rand types have already been made diagonally dominant.

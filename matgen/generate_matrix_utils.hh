@@ -65,6 +65,10 @@ enum class TestMatrixType {
     pei,
     parter,
     moler,
+    cauchy,
+    chow,
+    clement,
+    gcdmat,
 };
 
 enum class TestMatrixDist {

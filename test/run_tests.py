@@ -669,7 +669,7 @@ if (opts.aux):
 
     [ 'scale_row_col', gen + dtype + mn + equed + nonuniform_nb + ge_matrix ],
 
-    [ 'matgen',    gen + dtype + mn + ab + nonuniform_nb + ge_matrix        ],
+    [ 'matgen', gen_no_nb + dtype + ' --dim 20 --nb 4 --verbose 4' + ge_matrix ],
 
     [ 'set',    gen + dtype + mn + ab + nonuniform_nb + ge_matrix        ],
     [ 'tzset',  gen + dtype + mn + ab + nonuniform_nb + ge_matrix + uplo ],

@@ -23,10 +23,10 @@ template <typename matrix_type>
 void test_matgen_work(Params& params, bool run)
 {
     using scalar_t = typename matrix_type::value_type;
-    using real_t = blas::real_type<scalar_t>;
-    using blas::real;
-    using blas::imag;
-    using slate::ceildiv;
+    //using real_t = blas::real_type<scalar_t>;
+    //using blas::real;
+    //using blas::imag;
+    //using slate::ceildiv;
 
     // get & mark input values
     slate::Uplo uplo;
@@ -36,8 +36,6 @@ void test_matgen_work(Params& params, bool run)
         uplo = params.uplo();
     slate::Op trans = params.trans();
     slate::Diag diag = slate::Diag::NonUnit;
-    scalar_t alpha = params.alpha.get<real_t>();
-    scalar_t beta = params.beta.get<real_t>();
     int64_t m = params.dim.m();
     int64_t n;
     if (std::is_same< matrix_type, slate::TriangularMatrix<scalar_t> >::value
@@ -51,7 +49,7 @@ void test_matgen_work(Params& params, bool run)
     bool ref_only = params.ref() == 'o';
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
-    bool trace = params.trace() == 'y';
+    //bool trace = params.trace() == 'y';
     slate::Target target = params.target();
     params.matrix.mark();
 
@@ -76,7 +74,7 @@ void test_matgen_work(Params& params, bool run)
 
     auto& Afull     = A_alloc.A;
     auto& Aref_full = A_alloc.Aref;
-    auto& Aref_data = A_alloc.Aref_data;
+    //auto& Aref_data = A_alloc.Aref_data;
 
     slate::generate_matrix( params.matrix, Afull );
 
@@ -96,7 +94,7 @@ void test_matgen_work(Params& params, bool run)
     print_matrix( "A", A, params );
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_matgen_dispatch(Params& params, bool run )
 {
@@ -109,7 +107,7 @@ void test_matgen_dispatch(Params& params, bool run )
     }
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void test_matgen(Params& params, bool run)
 {
     switch (params.datatype()) {

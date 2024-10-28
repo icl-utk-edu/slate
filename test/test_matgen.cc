@@ -23,10 +23,6 @@ template <typename matrix_type>
 void test_matgen_work(Params& params, bool run)
 {
     using scalar_t = typename matrix_type::value_type;
-    //using real_t = blas::real_type<scalar_t>;
-    //using blas::real;
-    //using blas::imag;
-    //using slate::ceildiv;
 
     // get & mark input values
     slate::Uplo uplo;
@@ -49,7 +45,6 @@ void test_matgen_work(Params& params, bool run)
     bool ref_only = params.ref() == 'o';
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
-    //bool trace = params.trace() == 'y';
     slate::Target target = params.target();
     params.matrix.mark();
 
@@ -74,7 +69,6 @@ void test_matgen_work(Params& params, bool run)
 
     auto& Afull     = A_alloc.A;
     auto& Aref_full = A_alloc.Aref;
-    //auto& Aref_data = A_alloc.Aref_data;
 
     slate::generate_matrix( params.matrix, Afull );
 
@@ -90,7 +84,7 @@ void test_matgen_work(Params& params, bool run)
     else if (trans == slate::Op::ConjTrans)
         A = conj_transpose( A );
 
-    print_matrix( "Afull", Afull, params );
+    //print_matrix( "Afull", Afull, params );
     print_matrix( "A", A, params );
 }
 

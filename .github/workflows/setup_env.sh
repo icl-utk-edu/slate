@@ -80,15 +80,17 @@ ${CC}  --version
 ${FC}  --version
 
 #----------------------------------------------------------------- MPI
-# Test Open MPI with CPU and CUDA.
+# Test Open MPI with CPU and CUDA. --> temporarily use Intel MPI.
 # Test Intel MPI with ROCm and SYCL.
 # Note: Open MPI hides SYCL devices, at least in our current CI.
-if [ "${device}" = "cpu" -o "${device}" = "gpu_nvidia" ]; then
+if false; then
+#if [ "${device}" = "cpu" -o "${device}" = "gpu_nvidia" ]; then
     print "======================================== Load Open MPI"
     quiet module load openmpi
     export OMPI_CXX=${CXX}
     export OMPI_CC=${CC}
     export OMPI_FC=${FC}
+    unset UCX_NET_DEVICES  # complains about unavailable interface mlx5_0:1
 
     echo "mkl_blacs = openmpi" >> make.inc
 else

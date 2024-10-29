@@ -448,6 +448,7 @@ void test_copy   (Params& params, bool run);
 void test_scale  (Params& params, bool run);
 void test_scale_row_col(Params& params, bool run);
 void test_set    (Params& params, bool run);
+void test_matgen (Params& params, bool run);
 
 //------------------------------------------------------------------------------
 inline double barrier_get_wtime(MPI_Comm comm)

@@ -322,6 +322,8 @@ std::vector< testsweeper::routines_t > routines = {
     { "scale_row_col",      test_scale_row_col, Section::aux },
     { "",                   nullptr,           Section::newline },
 
+    { "matgen",             test_matgen,       Section::aux_gen },
+
     { "set",                test_set,          Section::aux },
     { "tzset",              test_set,          Section::aux },
     { "trset",              test_set,          Section::aux },

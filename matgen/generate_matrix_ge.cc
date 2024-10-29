@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
+#include <numeric>      // std::gcd
 
 namespace slate {
 
@@ -203,7 +204,7 @@ void generate_matrix(
             const scalar_t inner_const = pi/scalar_t(max_mn+1);
 
             entry_type orthog_entry = [ outer_const, inner_const ]( int64_t i, int64_t j) {
-                scalar_t a = scalar_t(i) * scalar_t(j) * inner_const;
+                scalar_t a = scalar_t(i+1) * scalar_t(j+1) * inner_const;
                 return outer_const * sin(a);
             };
             set( orthog_entry, A, opts );
@@ -228,7 +229,8 @@ void generate_matrix(
         case TestMatrixType::ris: {
             const int64_t max_mn = std::max(n, m);
             entry_type ris_entry = [max_mn]( int64_t i, int64_t j ) {
-                return 0.5 / ( max_mn - j - i + 1.5 );
+                // n-(j + 1)-(i + 1)+1.5 = n-j-i-0.5
+                return 0.5 / ( max_mn - j - i - 0.5);
             };
             set( ris_entry, A, opts );
             break;
@@ -289,6 +291,177 @@ void generate_matrix(
             generate_geevx( params, dist, cond, sigma_max, A, Sigma, seed, opts );
             break;
         }
+
+        case TestMatrixType::minij: {
+            entry_type minij_entry = []( int64_t i, int64_t j ) {
+                return std::min(i + 1, j + 1);
+            };
+            set( minij_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::hilb: {
+            entry_type hilb_entry = []( int64_t i, int64_t j ) {
+                return 1.0 / (i + j + 1);
+            };
+            set( hilb_entry, A, opts );
+            break;
+        }
+
+         case TestMatrixType::frank: {
+            const int64_t max_mn = std::max(n, m);
+            entry_type frank_entry = [max_mn]( int64_t i, int64_t j ) {
+                if ((i - j) > 1) {
+                    return int64_t( 0 );
+                }
+                else if ((i - j) == 1) {
+                    return max_mn - j - 1;
+                }
+                else {
+                    return max_mn - j;
+                }
+            };
+            set( frank_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::lehmer: {
+            entry_type lehmer_entry = []( int64_t i, int64_t j ) {
+                return double (std::min(i, j) + 1) / (std::max(i, j) + 1);
+            };
+            set( lehmer_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::lotkin: {
+            entry_type lotkin_entry = []( int64_t i, int64_t j ) {
+                return (i == 0 ? 1.0 : (1.0 / (i + j + 1)));
+            };
+            set( lotkin_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::redheff: {
+            entry_type redheff_entry = []( int64_t i, int64_t j ) {
+                return ((j+1) % (i+1) == 0 || j == 0 ? 1 : 0);
+            };
+            set( redheff_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::triw: {
+            entry_type triw_entry = []( int64_t i, int64_t j ) {
+                if (i == j) {
+                    return 1;
+                }
+                else if (i > j) {
+                    return 0;
+                }
+                else {
+                    return -1;
+                }
+            };
+            set( triw_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::pei: {
+            entry_type pei_entry = []( int64_t i, int64_t j ) {
+                return (i == j ? 2 : 1);
+            };
+            set( pei_entry, A, opts);
+            break;
+        }
+
+        case TestMatrixType::tridiag: {
+            entry_type tridiag_entry = []( int64_t i, int64_t j ) {
+                if (i == j) {
+                    return 2;
+                }
+                else if (std::abs(i - j) == 1) {
+                    return -1;
+                }
+                else {
+                    return 0;
+                }
+            };
+            set( tridiag_entry, A, opts );
+            break;
+        }
+        
+        case TestMatrixType::toeppen: {
+            entry_type toeppen_entry = []( int64_t i, int64_t j ) {
+                if (std::abs(j - i) == 1) {
+                    return int ((j - i) * 10);
+                }
+                else if (std::abs(i - j) == 2) {
+                    return 1;
+                }
+                else {
+                    return 0;
+                }
+            };
+            set( toeppen_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::parter: {
+            entry_type parter_entry = []( int64_t i, int64_t j ) {
+                return 1 / (i - j + 0.5);
+            };
+            set( parter_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::moler: {
+            entry_type moler_entry = []( int64_t i, int64_t j ) {
+                return (i == j ? i + 1 : std::min(i, j) - 1);
+            };
+            set( moler_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::cauchy: {
+            entry_type cauchy_entry = []( int64_t i, int64_t j ) {
+                return 1.0 / ( i + j + 2);
+            };
+            set( cauchy_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::chow: {
+            entry_type chow_entry = []( int64_t i, int64_t j ) {
+                return ((i - j) < -1 ? 0 : 1);
+            };
+            set( chow_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::clement: {
+            const int64_t max_mn = std::max(n, m);
+            entry_type clement_entry = [max_mn]( int64_t i, int64_t j ) {
+                if ((i - j) == 1) {
+                    return max_mn - j - 1;
+                }
+                else if ((i - j) == -1) {
+                    return j;
+                }
+                else {
+                    return (int64_t)0;
+                }
+            };
+            set( clement_entry, A, opts );
+            break;
+        }
+
+        case TestMatrixType::gcdmat: {
+            entry_type gcdmat_entry = []( int64_t i, int64_t j ) {
+                return std::gcd(i + 1, j + 1);
+            };
+            set( gcdmat_entry, A, opts );
+            break;
+        }
+
     }
 
     // rand types have already been made diagonally dominant.

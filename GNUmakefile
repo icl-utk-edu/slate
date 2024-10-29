@@ -723,6 +723,7 @@ tester_src += \
         test/test_her2k.cc \
         test/test_herk.cc \
         test/test_hesv.cc \
+        test/test_matgen.cc \
         test/test_norm.cc \
         test/test_pbsv.cc \
         test/test_pocondest.cc \

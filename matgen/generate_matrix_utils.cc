@@ -84,6 +84,22 @@ void generate_matrix_usage()
     "riemann   |  matrix entry i,j equal to i+1 if j+2 divides i+2 else -1\n"
     "ris       |  matrix entry i,j equal to 0.5/(n-i-j+1.5)\n"
     "zielkeNS  |  nonsymmetric matrix of Zielke\n"
+    "minij     |  matrix entry i,j equal to min(i,j)\n"
+    "hilb      |  matrix entry i,j equal to 1/(i+j-1)\n"
+    "frank     |  square upper Hessenberg matrix with determinant 1\n"
+    "lehmer    |  matrix entry i,j equal to i/j if j>=i else j/i \n"
+    "lotkin    |  Hilbert matrix with 1's in its first row"
+    "redheff   |  matrix entry i,j equal to 1 if j==1 or i divides j, else 0\n"
+    "triw      |  upper triangular matrix with 1's on the diagonal and -1's above the diagonal\n"
+    "pei       |  2's on diagonal, rest 1's\n"
+    "tridiag   |  2's on diagonal, -1's on sub- and superdiagonal, rest zero\n"
+    "toeppen   |  1's on second subdiagonal and second superdiagonal, -10's on subdiagonal, 10's on superdiagonal, rest zero\n"
+    "parter    |  matrix entry i,j equal to 1/(i-j+0.5)\n"
+    "moler     |  matrix entry i,j equal to i on diagonal, rest min(i,j)\n"
+    "cauchy    |  matrix entry i,j equal to 1/(i + j)\n"
+    "chow      |  matrix with 1's on the diagonal, superdiagonal, and all elements below them, and 0's above the superdiagonal\n"
+    "clement   |  matrix with decreasing values [n-1 : 1] on subdiagonal, and increasing values [1 : n-1] on superdiagonal\n"
+    "gcdmat    |  matrix entry i,j equal to gcd(i,j)\n"
     "          |  \n"
     "rand@     |  matrix entries random uniform on (0, 1)\n"
     "rands@    |  matrix entries random uniform on (-1, 1)\n"
@@ -230,6 +246,22 @@ void decode_matrix(
              base == "syev"    ) { type = TestMatrixType::heev;     }
     else if (base == "geevx"   ) { type = TestMatrixType::geevx;    }
     else if (base == "geev"    ) { type = TestMatrixType::geev;     }
+    else if (base == "minij"   ) { type = TestMatrixType::minij;    }
+    else if (base == "hilb"    ) { type = TestMatrixType::hilb;     }
+    else if (base == "frank"   ) { type = TestMatrixType::frank;    }
+    else if (base == "lehmer"  ) { type = TestMatrixType::lehmer;   }
+    else if (base == "lotkin"  ) { type = TestMatrixType::lotkin;   }
+    else if (base == "redheff" ) { type = TestMatrixType::redheff;  }
+    else if (base == "triw"    ) { type = TestMatrixType::triw;     }
+    else if (base == "tridiag" ) { type = TestMatrixType::tridiag;  }
+    else if (base == "toeppen" ) { type = TestMatrixType::toeppen;  }
+    else if (base == "pei"     ) { type = TestMatrixType::pei;      }
+    else if (base == "parter"  ) { type = TestMatrixType::parter;   }
+    else if (base == "moler"   ) { type = TestMatrixType::moler;    }
+    else if (base == "cauchy"  ) { type = TestMatrixType::cauchy;   }
+    else if (base == "chow"    ) { type = TestMatrixType::chow;     }
+    else if (base == "clement" ) { type = TestMatrixType::clement;  }
+    else if (base == "gcdmat"  ) { type = TestMatrixType::gcdmat;   }
     else {
         snprintf( msg, sizeof( msg ), "in '%s': unknown matrix '%s'",
                   kind.c_str(), base.c_str() );

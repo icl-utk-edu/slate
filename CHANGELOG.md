@@ -1,7 +1,17 @@
+2024.10.29
+  - Fixed norm to correctly propagate NaN and Inf values.
+  - Fixed matrix generators to 1-based i,j indices, to match Matlab.
+  - Added new matrix generators (minij, hilb, ..., gcdmat).
+  - Require MPI in CMake/Makefile. The non-MPI build was always broken.
+  - Improved GitHub continuous testing.
+  - Refactored norm test code.
+  - Refactored ScaLAPACK wrappers with enums, namespace.
+  - Replaced Fortran steqr2 with C++ steqr.
+
 2024.05.31
-  - Add shared library version (ABI version 1.0.0)
-  - Update enum parameters to have `to_string`, `from_string`;
-    deprecate `<enum>2str`, `str2<enum>`
+  - Added shared library version (ABI version 1.0.0)
+  - Updated enum parameters to have `to_string`, `from_string`;
+    deprecated `<enum>2str`, `str2<enum>`
   - Changed methods to enums; renamed some values and deprecated old values
   - Added "all vectors" case to SVD
   - Fixed SVD for slightly tall case (m > n but not m >> n)
@@ -18,29 +28,29 @@
   - Added internal timers to testers; use `tester --timer-level 2`
 
 2023.11.05
-  - Fix variable block sizes
-  - Fix tau in LQ tester
-  - Update examples for Users Guide
-  - Fix CUDA sync in Frobenius norm
-  - Add random butterfly transform (RBT) solver
-  - Use `blas_int` in scalapack wrappers, towards supporting int64
-  - Fix Cholesky QR test with well-conditioned matrix
-  - Add info check in LU for singular matrix
-  - Fix SVD tester for all vectors
-  - Use multi-threaded Intel MKL to improve eig and svd
-  - Add arbitrary batch regions in `set`
-  - Add timers in `gesv`, `posv`, `gels`, `heev`, `svd`
-  - Improve support for 2D GPU grids and lambda constructors
-  - Fix ROCm complex for ROCm 5.6
-  - Merge Cholesky potrf Host and Device implementations
-  - Remove tile life from QR, LQ, add routines
-  - Fix test matrix generation
-  - Cleanup MOSI, move to Tile class
-  - Add zerocol test matrix variant
-  - Fix receive count
-  - Use GPU-to-GPU copies
-  - Fix `tileMB`, `tileNb`
-  - Improve LU left pivoting for target device
+  - Fixed variable block sizes
+  - Fixed tau in LQ tester
+  - Updated examples for Users Guide
+  - Fixed CUDA sync in Frobenius norm
+  - Added random butterfly transform (RBT) solver
+  - Used `blas_int` in scalapack wrappers, towards supporting int64
+  - Fixed Cholesky QR test with well-conditioned matrix
+  - Added info check in LU for singular matrix
+  - Fixed SVD tester for all vectors
+  - Used multi-threaded Intel MKL to improve eig and svd
+  - Added arbitrary batch regions in `set`
+  - Added timers in `gesv`, `posv`, `gels`, `heev`, `svd`
+  - Improved support for 2D GPU grids and lambda constructors
+  - Fixed ROCm complex for ROCm 5.6
+  - Merged Cholesky potrf Host and Device implementations
+  - Removed tile life from QR, LQ, add routines
+  - Fixed test matrix generation
+  - Cleaned up MOSI, moved to Tile class
+  - Added zerocol test matrix variant
+  - Fixed receive count
+  - Used GPU-to-GPU copies
+  - Fixed `tileMB`, `tileNb`
+  - Improved LU left pivoting for target device
 
 2023.08.25
   - Added oneMKL/SYCL support

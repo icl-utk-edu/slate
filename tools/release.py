@@ -219,7 +219,7 @@ def make( project, version_h, version_c ):
 
     # Build Doxygen docs. Create dummy 'make.inc' to avoid 'make config'.
     open( 'make.inc', mode='a' ).close()
-    myrun( 'make docs blas=openblas' )
+    myrun( 'make docs blas=openblas mpi=1' )
     os.unlink( 'make.inc' )
 
     os.chdir( '..' )

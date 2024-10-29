@@ -1335,7 +1335,7 @@ LDFLAGS_clean  = ${filter-out -fPIC -L./%, ${LDFLAGS}}
 
 .PHONY: ${pkg}
 ${pkg}:
-	perl -pe "s'#VERSION'2024.05.31'; \
+	perl -pe "s'#VERSION'2024.10.29'; \
 	          s'#PREFIX'${abs_prefix}'; \
 	          s'#CXX\b'${CXX}'; \
 	          s'#CXXFLAGS'${CXXFLAGS_clean}'; \

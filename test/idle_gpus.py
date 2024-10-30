@@ -48,7 +48,8 @@ if (gpu_kind == 'cuda'):
             if (s):
                 gpu = s.group( 1 )
 
-            # If using >= 10 MiB or 5% utilization, assume it is not idle.
+            # If using >= 50% memory or utilization, mark it as not idle.
+            # This allows some sharing of GPUs with other users.
             # Typically idle is 1 MiB and 0% utilization.
             # Docker can't see processes in section 2.
             s = re.search( '^\| +N/A +\d+C +\w+ +\d+W +/ +\d+W *\| +(\d+)MiB +/ +(\d+)MiB *\| +(\d+)%', line )
@@ -56,7 +57,7 @@ if (gpu_kind == 'cuda'):
                 used_mem  = int( s.group( 1 ) )
                 total_mem = int( s.group( 2 ) )
                 percent   = int( s.group( 3 ) )
-                if (used_mem >= 10 or percent >= 5):
+                if (used_mem >= 0.5*total_mem or percent >= 50):
                     gpus[ gpu ] = 0
         else:
             # Match process lines:

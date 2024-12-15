@@ -19,8 +19,8 @@ jobs:
     timeout-minutes: 120
     strategy:
       matrix:
-        maker: [cmake]
-        device: [gpu_intel]
+        maker: [make, cmake]
+        device: [cpu, gpu_nvidia, gpu_amd, gpu_intel]
       fail-fast: false
     runs-on: slurm:${{ matrix.device }}
     steps:

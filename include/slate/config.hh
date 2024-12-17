@@ -19,22 +19,22 @@ public:
     /// @see bool gpu_aware_mpi()
     static bool value()
     {
-        return get().gpu_aware_mpi_;
+        return instance().gpu_aware_mpi_;
     }
 
     /// @see void gpu_aware_mpi( bool )
     static void value( bool val )
     {
-        get().gpu_aware_mpi_ = val;
+        instance().gpu_aware_mpi_ = val;
     }
 
 private:
     /// @return GPU_Aware_MPI singleton.
     /// Uses thread-safe Scott Meyers' singleton to query on first call only.
-    static GPU_Aware_MPI& get()
+    static GPU_Aware_MPI& instance()
     {
-        static GPU_Aware_MPI singleton;
-        return singleton;
+        static GPU_Aware_MPI instance_;
+        return instance_;
     }
 
     /// Constructor checks $SLATE_GPU_AWARE_MPI.

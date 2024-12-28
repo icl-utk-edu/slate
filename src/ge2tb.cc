@@ -14,7 +14,7 @@ namespace slate {
 namespace impl {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel reduction to band for 3-stage SVD.
+/// Distributed parallel reduction to band for 2-stage SVD.
 /// Generic implementation for any target.
 /// Panel computed on host using Host OpenMP task.
 ///
@@ -469,7 +469,7 @@ void ge2tb(
 } // namespace impl
 
 //------------------------------------------------------------------------------
-/// Distributed parallel reduction to band for 3-stage SVD.
+/// Distributed parallel reduction to band for 2-stage SVD.
 ///
 /// Reduces an m-by-n matrix $A$ to band form using unitary transformations.
 /// The factorization has the form

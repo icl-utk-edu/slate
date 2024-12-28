@@ -12,29 +12,41 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel Hermitian matrix eigen decomposition.
-/// heev Computes all eigenvalues and, optionally, eigenvectors of a
-/// Hermitian matrix A. The matrix A is preliminary reduced to
+/// Distributed parallel Hermitian matrix eigen decomposition,
+/// \[
+///     A = Z \Lambda Z^H.
+/// \]
+/// Computes all eigenvalues and, optionally, eigenvectors of a
+/// Hermitian matrix $A$. The matrix $A$ is preliminary reduced to
 /// tridiagonal form using a two-stage approach:
-/// First stage: reduction to band tridiagonal form (see he2hb);
-/// Second stage: reduction from band to tridiagonal form (see hb2st).
+/// @see he2hb First stage: reduction to band tridiagonal form.
+/// @see hb2st Second stage: reduction from band to tridiagonal form.
+///
+/// #### Restrictions ####
+///
+/// Currently requires a **lower triangular** storage Hermitian matrix.
+///
+/// Currently requires a **square MPI process grid** ($p \times p$).
+/// This is because it applies the same QR factorization on the
+/// left ($p$ block-rows) and the right ($p$ block-cols), with a size $p$
+/// reduction tree. We hope to eventually remove this restriction.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in] A
-///     On entry, the n-by-n Hermitian matrix $A$.
+///     On entry, the $n \times n$ Hermitian matrix $A$.
 ///     On exit, contents are destroyed.
 ///
 /// @param[out] Lambda
-///     The vector Lambda of length n.
+///     The vector Lambda of length $n$.
 ///     If successful, the eigenvalues in ascending order.
 ///
 /// @param[out] Z
-///     On entry, if Z is empty, does not compute eigenvectors.
-///     Otherwise, the n-by-n matrix $Z$ to store eigenvectors.
-///     On exit, orthonormal eigenvectors of the matrix A.
+///     On entry, if $Z$ is empty, does not compute eigenvectors.
+///     Otherwise, the $n \times n$ matrix $Z$ to store eigenvectors.
+///     On exit, orthonormal eigenvectors of the matrix $A$.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -79,6 +91,15 @@ void heev(
 
     MethodEig method = get_option( opts, Option::MethodEig, MethodEig::DC );
     Target target = get_option( opts, Option::Target, Target::HostTask );
+
+    // Currently he2hb requires lower triangular matrix.
+    slate_assert( A.uplo() == Uplo::Lower );
+
+    // Currently requires square process grid.
+    GridOrder grid_order;
+    int nprow, npcol, myrow, mycol;
+    A.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    slate_assert( nprow == npcol );
 
     // Scale matrix to allowable range, if necessary.
     real_t Anorm = norm( Norm::Max, A );

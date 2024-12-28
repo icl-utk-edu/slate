@@ -88,13 +88,30 @@ void test_heev_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // Skip invalid or unimplemented options.
+    slate::HermitianMatrix<scalar_t> A( uplo, n, nb, p, q, MPI_COMM_WORLD );
+
+    // Vector Lambda (global output) has eigenvalues in ascending order.
+    std::vector<real_t> Lambda( n );
+
+    // Test that invalid or unimplemented options throw exceptions.
+    bool invalid = false;
     if (uplo == slate::Uplo::Upper) {
-        params.msg() = "skipping: Uplo::Upper isn't supported.";
-        return;
+        params.msg() = "Uplo::Upper isn't supported.";
+        invalid = true;
     }
-    if (p != q) {
-        params.msg() = "skipping: requires square process grid (p == q).";
+    else if (p != q) {
+        params.msg() = "requires square process grid (p == q).";
+        invalid = true;
+    }
+    if (invalid) {
+        params.okay() = false;  // fails unless caught below
+        try {
+            slate::eig_vals( A, Lambda, opts );
+        }
+        catch (slate::Exception const& ex) {
+            //params.msg() += std::string(" Caught: ") + ex.what();
+            params.okay() = testsweeper::skipped;
+        }
         return;
     }
 
@@ -106,9 +123,6 @@ void test_heev_work(Params& params, bool run)
 
     std::vector<scalar_t> A_data;
 
-    // matrix Lambda (global output) gets eigenvalues in decending order
-    std::vector<real_t> Lambda(n);
-
     // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors
     // corresponding to Lambda of the reference scalapack
     int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
@@ -117,11 +131,9 @@ void test_heev_work(Params& params, bool run)
     std::vector<scalar_t> Z_data( lldZ * nlocZ );
 
     // Initialize SLATE data structures
-    slate::HermitianMatrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
     }
     else {

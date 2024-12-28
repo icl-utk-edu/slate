@@ -13,7 +13,7 @@ namespace slate {
 namespace impl {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel reduction to band for 3-stage Hermitian eigenvalue
+/// Distributed parallel reduction to band for 2-stage Hermitian eigenvalue
 /// decomposition.
 /// Generic implementation for any target.
 /// Panel computed on host using Host OpenMP task.
@@ -33,7 +33,7 @@ void he2hb(
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
-    assert( A.uplo() == Uplo::Lower );  // for now
+    slate_assert( A.uplo() == Uplo::Lower );  // for now
 
     // Constants
     const scalar_t zero = 0.0;
@@ -629,7 +629,7 @@ void he2hb(
 } // namespace impl
 
 //------------------------------------------------------------------------------
-/// Distributed parallel reduction to band for 3-stage SVD.
+/// Distributed parallel reduction to band for 2-stage SVD.
 ///
 /// Reduces an n-by-n Hermitian matrix $A$ to band form using unitary
 /// transformations. The factorization has the form

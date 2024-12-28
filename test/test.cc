@@ -23,6 +23,9 @@ using testsweeper::ansi_bold;
 using testsweeper::ansi_red;
 using testsweeper::ansi_normal;
 
+using testsweeper::no_check;
+using testsweeper::skipped;
+
 using blas::Layout, blas::Layout_help;
 using blas::Side,   blas::Side_help;
 using blas::Uplo,   blas::Uplo_help;
@@ -507,10 +510,9 @@ Params::Params():
     ref_gbytes( "ref gbyte/s",  12, 3, PT_Out, no_data, 0, 0, "reference Gbyte/s rate" ),
     ref_iters ( "ref iters",     5,    PT_Out, 0,       0, 0, "reference iterations to solution" ),
 
-    // default -1 means "no check"
-    //          name,         w, type, default, min, max, help
-    okay      ( "status",     6, PT_Out,    -1, 0, 0, "success indicator" ),
-    msg       ( "",           1, PT_Out,    "",       "error message" )
+    //          name,         w, type,   default, min, max, help
+    okay      ( "status",     6, PT_Out, no_check, 0, 0, "success indicator" ),
+    msg       ( "",           1, PT_Out, "",             "error message" )
 {
     // set header different than command line prefix
     lookahead.name("la", "lookahead");

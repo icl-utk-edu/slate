@@ -92,9 +92,6 @@ void heev(
     MethodEig method = get_option( opts, Option::MethodEig, MethodEig::DC );
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
-    // Currently he2hb requires lower triangular matrix.
-    slate_assert( A.uplo() == Uplo::Lower );
-
     // Currently requires square process grid.
     GridOrder grid_order;
     int nprow, npcol, myrow, mycol;
@@ -124,6 +121,7 @@ void heev(
     // 1. Reduce to band form.
     TriangularFactors<scalar_t> T;
     Timer t_he2hb;
+    // Currently he2hb requires lower triangular matrix.
     he2hb(A, T, opts);
     timers[ "heev::he2hb" ] = t_he2hb.stop();
 

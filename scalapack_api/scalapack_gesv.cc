@@ -91,11 +91,11 @@ extern "C" void pzgesv_(int* n, int* nrhs, std::complex<double>* a, int* ia, int
 template< typename scalar_t >
 void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, int* info)
 {
-    static slate::Target target = slate_scalapack_set_target();
-    static int verbose = slate_scalapack_set_verbose();
-    static int64_t lookahead = slate_scalapack_set_lookahead();
-    static int64_t panel_threads = slate_scalapack_set_panelthreads();
-    static int64_t inner_blocking = slate_scalapack_set_ib();
+    slate::Target target = TargetConfig::value();
+    int verbose = VerboseConfig::value();
+    int64_t lookahead = LookaheadConfig::value();
+    int64_t panel_threads = PanelThreadsConfig::value();
+    int64_t inner_blocking = IBConfig::value();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // Matrix sizes

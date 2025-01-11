@@ -124,9 +124,9 @@ void slate_psymm(const char* sidestr, const char* uplostr, int m, int n, scalar_
     from_string( std::string( 1, sidestr[0] ), &side );
     from_string( std::string( 1, uplostr[0] ), &uplo );
 
-    static slate::Target target = slate_scalapack_set_target();
-    static int verbose = slate_scalapack_set_verbose();
-    static int64_t lookahead = slate_scalapack_set_lookahead();
+    slate::Target target = TargetConfig::value();
+    int verbose = VerboseConfig::value();
+    int64_t lookahead = LookaheadConfig::value();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     int64_t An = (side == blas::Side::Left ? m : n);

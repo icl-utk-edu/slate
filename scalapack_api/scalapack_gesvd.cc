@@ -102,11 +102,11 @@ void slate_pgesvd(const char* jobustr, const char* jobvtstr, int m, int n, scala
     from_string( std::string( 1, jobustr[0] ), &jobu );
     from_string( std::string( 1, jobvtstr[0] ), &jobvt );
 
-    static slate::Target target = slate_scalapack_set_target();
-    static int verbose = slate_scalapack_set_verbose();
-    static int64_t lookahead = slate_scalapack_set_lookahead();
-    static int64_t panel_threads = slate_scalapack_set_panelthreads();
-    static int64_t ib = slate_scalapack_set_ib();
+    slate::Target target = TargetConfig::value();
+    int verbose = VerboseConfig::value();
+    int64_t lookahead = LookaheadConfig::value();
+    int64_t panel_threads = PanelThreadsConfig::value();
+    int64_t ib = IBConfig::value();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // todo: extract the real info from gesvd

@@ -94,9 +94,9 @@ blas::real_type<scalar_t> slate_plange(const char* normstr, int m, int n, scalar
     Norm norm{};
     from_string( std::string( 1, normstr[0] ), &norm );
 
-    static slate::Target target = slate_scalapack_set_target();
-    static int verbose = slate_scalapack_set_verbose();
-    static int64_t lookahead = slate_scalapack_set_lookahead();
+    slate::Target target = TargetConfig::value();
+    int verbose = VerboseConfig::value();
+    int64_t lookahead = LookaheadConfig::value();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // Matrix sizes

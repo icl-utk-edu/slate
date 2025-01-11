@@ -875,7 +875,7 @@ TEST_LDFLAGS  = ${LDFLAGS} -L./lib -Wl,-rpath,${abspath ./lib}
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,${abspath ./testsweeper}
 TEST_LDFLAGS += -Wl,-rpath,${abspath ./blaspp/lib}
 TEST_LDFLAGS += -Wl,-rpath,${abspath ./lapackpp/lib}
-TEST_LIBS     = -lslate -lslate_matgen -ltestsweeper ${LIBS}
+TEST_LIBS    += -lslate -lslate_matgen -ltestsweeper ${LIBS}
 ifneq (${SCALAPACK_LIBRARIES},none)
     TEST_LIBS += ${SCALAPACK_LIBRARIES}
     CXXFLAGS  += -DSLATE_HAVE_SCALAPACK

@@ -105,9 +105,9 @@ void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr
     from_string( std::string( 1, transastr[0] ), &transA );
     from_string( std::string( 1, diagstr[0] ), &diag );
 
-    static slate::Target target = slate_scalapack_set_target();
-    static int verbose = slate_scalapack_set_verbose();
-    static int64_t lookahead = slate_scalapack_set_lookahead();
+    slate::Target target = TargetConfig::value();
+    int verbose = VerboseConfig::value();
+    int64_t lookahead = LookaheadConfig::value();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // setup so trans(B) is m-by-n

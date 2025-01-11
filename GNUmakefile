@@ -1352,7 +1352,7 @@ ${pkg}:
 
 lib: ${slate} ${matgen}
 
-clean: src/clean test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
+clean: src/clean matgen/clean test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
 	rm -f lib/lib* ${dep}
 	rm -f trace_*.svg
 

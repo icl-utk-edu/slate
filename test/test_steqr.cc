@@ -144,37 +144,39 @@ void test_steqr_work(Params& params, bool run)
         //==================================================
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
-        // Set Zref = Identity, distributed on 1D mpi_size-by-1 grid.
-        std::vector<scalar_t> Zref_data( ldz*n );
-        auto Zref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            n, n, &Zref_data[0], ldz, nb, mpi_size, 1, MPI_COMM_WORLD );
-        set( zero, one, Zref );
+        #ifdef SLATE_HAVE_SCALAPACK
+            // Set Zref = Identity, distributed on 1D mpi_size-by-1 grid.
+            std::vector<scalar_t> Zref_data( ldz*n );
+            auto Zref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, n, &Zref_data[0], ldz, nb, mpi_size, 1, MPI_COMM_WORLD );
+            set( zero, one, Zref );
 
-        lwork = max( 1, 2*n - 2 );
-        work.resize( lwork );
+            lwork = max( 1, 2*n - 2 );
+            work.resize( lwork );
 
-        //==================================================
-        // Run ScaLAPACK reference routine.
-        //==================================================
-        time = barrier_get_wtime(MPI_COMM_WORLD);
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
+            time = barrier_get_wtime(MPI_COMM_WORLD);
 
-        scalapack::steqr2(
-            jobz, n, &Dref[0], &Eref[0], &Zref_data[0], ldz, nrows,
-            &work[0], &info );
-        assert( info == 0 );
+            scalapack::steqr2(
+                jobz, n, &Dref[0], &Eref[0], &Zref_data[0], ldz, nrows,
+                &work[0], &info );
+            assert( info == 0 );
 
-        params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
+            params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-        if (mpi_rank == 0) {
-            print_vector( "Dref_out", Dref, params );
-        }
-        print_matrix( "Zref_out", Zref, params );
+            if (mpi_rank == 0) {
+                print_vector( "Dref_out", Dref, params );
+            }
+            print_matrix( "Zref_out", Zref, params );
 
-        // Relative forward error: || D - Dref || / || Dref ||.
-        real_t Dnorm = blas::nrm2( n, &Dref[0], 1 );
-        blas::axpy( n, -1.0, &D[0], 1, &Dref[0], 1 );
-        params.error() = blas::nrm2( n, &Dref[0], 1 ) / Dnorm;
-        params.okay() = (params.error() <= tol);
+            // Relative forward error: || D - Dref || / || Dref ||.
+            real_t Dnorm = blas::nrm2( n, &Dref[0], 1 );
+            blas::axpy( n, -1.0, &D[0], 1, &Dref[0], 1 );
+            params.error() = blas::nrm2( n, &Dref[0], 1 ) / Dnorm;
+            params.okay() = (params.error() <= tol);
+        #endif
 
         //==================================================
         // Test results by checking the orthogonality of Z

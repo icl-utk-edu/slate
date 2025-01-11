@@ -77,7 +77,7 @@ void trtrm(
                     bcast_list_A.push_back({k, j, {A.sub(j, k-1, j, j),
                                                    A.sub(j, j, 0, j)}});
                 }
-                A.template listBcast(bcast_list_A, layout);
+                A.template listBcast<>( bcast_list_A, layout );
             }
 
             // update tailing submatrix

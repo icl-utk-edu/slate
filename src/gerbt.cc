@@ -181,8 +181,8 @@ void gerbt(Matrix<scalar_t>& U_in,
         internal::gerbt_bcast_filter_duplicates<scalar_t>(bcast_list_U);
         internal::gerbt_bcast_filter_duplicates<scalar_t>(bcast_list_V);
 
-        U.template listBcastMT(bcast_list_U, Layout::ColMajor);
-        V.template listBcastMT(bcast_list_V, Layout::ColMajor);
+        U.template listBcastMT<>( bcast_list_U, Layout::ColMajor );
+        V.template listBcastMT<>( bcast_list_V, Layout::ColMajor );
 
         // NB: only tasks created so far are in listBcastMT
 
@@ -297,7 +297,7 @@ void gerbt(Matrix<scalar_t>& Uin,
 
         // Bcast random factors
         internal::gerbt_bcast_filter_duplicates<scalar_t>(bcast_list);
-        U.template listBcastMT(bcast_list, Layout::ColMajor);
+        U.template listBcastMT<>( bcast_list, Layout::ColMajor );
 
         // NB: only tasks created so far are in listBcastMT
 

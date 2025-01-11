@@ -231,7 +231,7 @@ void ge2tb(
                         bcast_list_T.push_back(
                             {row, k, {TUlocal.sub(row, row, k+1, A_nt-1)}});
                     }
-                    TUlocal.template listBcast(bcast_list_T, layout);
+                    TUlocal.template listBcast<>( bcast_list_T, layout );
                 }
 
                 // bcast TUreduce across row for trailing matrix update
@@ -245,7 +245,7 @@ void ge2tb(
                                 {row, k, {TUreduce.sub(row, row, k+1, A_nt-1)}});
                         }
                     }
-                    TUreduce.template listBcast(bcast_list_T, layout);
+                    TUreduce.template listBcast<>( bcast_list_T, layout );
                 }
 
                 int64_t j = k+1;
@@ -380,7 +380,7 @@ void ge2tb(
                             bcast_list_T.push_back(
                                 {k, col, {TVlocal.sub(k+1, A_mt-1, col, col)}});
                         }
-                        TVlocal.template listBcast(bcast_list_T, layout);
+                        TVlocal.template listBcast<>( bcast_list_T, layout );
                     }
 
                     // bcast TVreduce down col for trailing matrix update
@@ -394,7 +394,7 @@ void ge2tb(
                                     {k, col, {TVreduce.sub(k+1, A_mt-1, col, col)}});
                             }
                         }
-                        TVreduce.template listBcast(bcast_list_T, layout);
+                        TVreduce.template listBcast<>( bcast_list_T, layout );
                     }
 
                     int64_t i = k+1;

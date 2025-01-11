@@ -131,7 +131,7 @@ void tbsm(
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    A.template tileBcast<>( k, k, B.sub( k, k, 0, nt-1 ), layout );
 
                     // solve A(k, k) B(k, :) = B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -215,7 +215,7 @@ void tbsm(
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    A.template tileBcast<>( k, k, B.sub( k, k, 0, nt-1 ), layout );
 
                     // solve A(k, k) B(k, :) = B(k, :)
                     internal::trsm<Target::HostTask>(
@@ -324,7 +324,7 @@ void tbsm(
                 // solve diagonal block (Akk tile)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    A.template tileBcast<>( k, k, B.sub( k, k, 0, nt-1 ), layout );
 
                     // solve A(k, k) B(k, :) = B(k, :)
                     internal::trsm<Target::HostTask>(

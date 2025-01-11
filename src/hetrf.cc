@@ -443,7 +443,7 @@ int64_t hetrf(
                     bcast_list_T.push_back({k+1, k, {A.sub(k+1, A_mt-1, k-1, k-1)}});
                     // for computing T(j, j)
                     bcast_list_T.push_back({k+1, k, {A.sub(k+1, k+1,    k+1, k+1)}});
-                    T.template listBcast(bcast_list_T, layout, tag);
+                    T.template listBcast<>( bcast_list_T, layout, tag );
                 }
             }
             #pragma omp task depend(inout:columnL[k])

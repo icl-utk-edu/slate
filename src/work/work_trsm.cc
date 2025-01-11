@@ -106,7 +106,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             #pragma omp task depend(inout:row[k]) priority(1)
             {
                 // send A(k, k) to ranks owning block row B(k, :)
-                A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                A.template tileBcast<>( k, k, B.sub( k, k, 0, nt-1 ), layout );
 
                 // solve A(k, k) B(k, :) = alpha B(k, :)
                 internal::trsm<target>(
@@ -191,7 +191,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             #pragma omp task depend(inout:row[k]) priority(1)
             {
                 // send A(k, k) to ranks owning block row B(k, :)
-                A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                A.template tileBcast<>( k, k, B.sub( k, k, 0, nt-1 ), layout );
 
                 // solve A(k, k) B(k, :) = alpha B(k, :)
                 internal::trsm<target>(

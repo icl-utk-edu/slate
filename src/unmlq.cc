@@ -151,7 +151,7 @@ void unmlq(
                         bcast_list_T.push_back(
                             {k, j, {C.sub(i0, i1, j0, j1)}});
                     }
-                    Tlocal.template listBcast(bcast_list_T, layout);
+                    Tlocal.template listBcast<>( bcast_list_T, layout );
                 }
 
                 // Send Treduce(j) across row C(j, 0:nt-1) or col C(0:mt-1, j).
@@ -173,7 +173,7 @@ void unmlq(
                                 {k, j, {C.sub(i0, i1, j0, j1)}});
                         }
                     }
-                    Treduce.template listBcast(bcast_list_T, layout);
+                    Treduce.template listBcast<>( bcast_list_T, layout );
                 }
 
                 Matrix<scalar_t> C_trail, W_trail;

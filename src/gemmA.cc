@@ -118,7 +118,7 @@ void gemmA(
                                           {A.sub( i, i, 0, A.nt()-1 )}
                                         } );
             int tag_0 = 0;
-            C.template listReduce( reduce_list_C, layout, tag_0 );
+            C.template listReduce<>( reduce_list_C, layout, tag_0 );
         }
 
         // Clean up workspace
@@ -180,7 +180,7 @@ void gemmA(
                                               {A.sub( i, i, 0, A.nt()-1 )}
                                             } );
                 int tag_k = k;
-                C.template listReduce( reduce_list_C, layout, tag_k );
+                C.template listReduce<>( reduce_list_C, layout, tag_k );
             }
 
             // Clean up workspace

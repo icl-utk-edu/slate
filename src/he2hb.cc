@@ -242,7 +242,7 @@ void he2hb(
                                       i } );
                             }
                         }
-                        Treduce.template listBcastMT( bcast_list_T, layout );
+                        Treduce.template listBcastMT<>( bcast_list_T, layout );
                     }
 
                     std::vector<int64_t> panel_rank_rows;

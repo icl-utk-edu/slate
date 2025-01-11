@@ -191,7 +191,7 @@ void geqrf(
                             if (row > k) // exclude the first row of this panel that has no Treduce tile
                                 bcast_list_T.push_back({row, k, {Treduce.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Treduce.template listBcast(bcast_list_T, layout);
+                        Treduce.template listBcast<>( bcast_list_T, layout );
                     }
                 }
             }

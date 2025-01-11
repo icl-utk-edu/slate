@@ -96,7 +96,7 @@ int64_t pbtrf(
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, i),
                                                    A.sub(i, ij_end-1, i, i)}});
                 }
-                A.template listBcast(bcast_list_A, layout);
+                A.template listBcast<>( bcast_list_A, layout );
             }
 
             // update trailing submatrix, normal priority

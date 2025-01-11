@@ -65,8 +65,8 @@ void getri(
             }
 
             // send W down col A(0:nt-1, k)
-            W.template tileBcast(
-                0, 0, A.sub(0, A.nt()-1, k, k), layout);
+            W.template tileBcast<>(
+                0, 0, A.sub( 0, A.nt()-1, k, k ), layout );
 
             auto Wkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, W);
             internal::trsm<Target::HostTask>(
@@ -106,7 +106,7 @@ void getri(
                 // send W(i) down column A(0:nt-1, k+i)
                 bcast_list_W.push_back({i, 0, {A.sub(0, A.nt()-1, k+i, k+i)}});
             }
-            W.template listBcast(bcast_list_W, layout);
+            W.template listBcast<>( bcast_list_W, layout );
 
             // A(:, k) -= A(:, k+1:nt-1) * W
             internal::gemmA<Target::HostTask>(
@@ -124,7 +124,7 @@ void getri(
                                           {A.sub(i, i, k+1, A.nt()-1)}
                                         });
             }
-            A.template listReduce(reduce_list_A, layout);
+            A.template listReduce<>( reduce_list_A, layout );
 
             // Release workspace tiles from gemmA
             A.sub(0, A.nt()-1, k, k).releaseRemoteWorkspace();

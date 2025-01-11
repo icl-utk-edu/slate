@@ -9,10 +9,6 @@ namespace slate {
 namespace scalapack_api {
 
 // -----------------------------------------------------------------------------
-
-// Required CBLACS calls
-extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my_row, int*  my_col);
-
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
 void slate_pgesvd(const char* jobustr, const char* jobvtstr, int m, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* s, scalar_t* u, int iu, int ju, int* descu, scalar_t* vt, int ivt, int jvt, int* descvt, scalar_t* work, int lwork, blas::real_type<scalar_t>* rwork, int* info);

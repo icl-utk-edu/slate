@@ -11,12 +11,28 @@
 
 #include "slate/slate.hh"
 
-extern "C" void Cblacs_pinfo(int* mypnum, int* nprocs);
-extern "C" void Cblacs_pcoord(int icontxt, int pnum, int* prow, int* pcol);
-extern "C" void Cblacs_get(int icontxt, int what, int* val);
+//==============================================================================
+// Prototypes for BLACS routines.
+extern "C" {
 
-#include <complex>
+// Get my process number and the number of processes.
+void Cblacs_pinfo( blas_int* mypnum, blas_int* nprocs );
 
+// Get row and col in 2D process grid for process pnum.
+void Cblacs_pcoord( blas_int context, blas_int pnum,
+                    blas_int* prow, blas_int* pcol );
+
+// Lookup BLACS information.
+void Cblacs_get( blas_int context, blas_int what, blas_int* val );
+
+// Get 2D process grid size and my row and col in the grid.
+void Cblacs_gridinfo( blas_int context,
+                      blas_int* np_row, blas_int* np_col,
+                      blas_int* my_row, blas_int* my_col );
+
+} // extern "C"
+
+//==============================================================================
 namespace slate {
 namespace scalapack_api {
 

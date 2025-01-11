@@ -12,10 +12,6 @@ namespace slate {
 namespace scalapack_api {
 
 // -----------------------------------------------------------------------------
-
-// Required CBLACS calls
-extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my_row, int*  my_col);
-
 // Declarations
 template<typename scalar_t>
 void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr, const char* diagstr, int m, int n, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb);

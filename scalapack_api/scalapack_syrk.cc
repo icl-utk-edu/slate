@@ -11,91 +11,21 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-// Declarations
-template< typename scalar_t >
-void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t beta, scalar_t* c, int ic, int jc, int* descc);
-
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_psyrk
-
-extern "C" void PDSYRK(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* beta, double* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pdsyrk(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* beta, double* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pdsyrk_(const char* uplo, const char* trans, int* n, int* k, double* alpha, double* a, int* ia, int* ja, int* desca, double* beta, double* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PSSYRK(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pssyrk(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pssyrk_(const char* uplo, const char* trans, int* n, int* k, float* alpha, float* a, int* ia, int* ja, int* desca, float* beta, float* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PCSYRK(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pcsyrk(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pcsyrk_(const char* uplo, const char* trans, int* n, int* k, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* beta, std::complex<float>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZSYRK(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pzsyrk(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-extern "C" void pzsyrk_(const char* uplo, const char* trans, int* n, int* k, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* beta, std::complex<double>* c, int* ic, int* jc, int* descc)
-{
-    slate_psyrk(uplo, trans, *n, *k, *alpha, a, *ia, *ja, desca, *beta, c, *ic, *jc, descc);
-}
-
-// -----------------------------------------------------------------------------
-
-// Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
+//------------------------------------------------------------------------------
+/// SLATE ScaLAPACK wrapper sets up SLATE matrices from ScaLAPACK descriptors
+/// and calls SLATE.
+template <typename scalar_t>
+void slate_psyrk(
+    const char* uplo_str, const char* trans_str,
+    blas_int n, blas_int k, scalar_t alpha,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    scalar_t beta,
+    scalar_t* C_data, blas_int ic, blas_int jc, blas_int const* descC )
 {
     Uplo uplo{};
     Op transA{};
-    from_string( std::string( 1, uplostr[0] ), &uplo );
-    from_string( std::string( 1, transstr[0] ), &transA );
+    from_string( std::string( 1, uplo_str[0] ), &uplo );
+    from_string( std::string( 1, trans_str[0] ), &transA );
 
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -109,29 +39,98 @@ void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar
     int64_t Cn = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(
+        desc_m( descA ), desc_n( descA ), A_data, desc_lld( descA ),
+        desc_mb( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    A = slate_scalapack_submatrix( Am, An, A, ia, ja, descA );
 
-    Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myprow, &mypcol);
-    auto C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_NB(descc), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    C = slate_scalapack_submatrix(Cm, Cn, C, ic, jc, descc);
+    Cblacs_gridinfo( desc_ctxt( descC ), &nprow, &npcol, &myprow, &mypcol );
+    auto C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+        uplo, desc_n( descC ), C_data, desc_lld( descC ), desc_nb( descC ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    C = slate_scalapack_submatrix( Cm, Cn, C, ic, jc, descC );
 
     if (transA == blas::Op::Trans)
-        A = transpose(A);
+        A = transpose( A );
     else if (transA == blas::Op::ConjTrans)
         A = conj_transpose( A );
-    assert(A.mt() == C.mt());
+    assert( A.mt() == C.mt() );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "syrk");
 
-    slate::syrk(alpha, A, beta, C, {
+    slate::syrk( alpha, A, beta, C, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 }
+
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
+
+extern "C" {
+
+#define SCALAPACK_pssyrk BLAS_FORTRAN_NAME( pssyrk, PSSYRK )
+void SCALAPACK_pssyrk(
+    const char* uplo, const char* trans,
+    blas_int const* n, blas_int const* k, float* alpha,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* beta,
+    float* C_data, blas_int const* ic, blas_int const* jc, blas_int const* descC )
+{
+    slate_psyrk(
+        uplo, trans, *n, *k, *alpha,
+        A_data, *ia, *ja, descA, *beta,
+        C_data, *ic, *jc, descC );
+}
+
+#define SCALAPACK_pdsyrk BLAS_FORTRAN_NAME( pdsyrk, PDSYRK )
+void SCALAPACK_pdsyrk(
+    const char* uplo, const char* trans,
+    blas_int const* n, blas_int const* k, double* alpha,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* beta,
+    double* C_data, blas_int const* ic, blas_int const* jc, blas_int const* descC )
+{
+    slate_psyrk(
+        uplo, trans, *n, *k, *alpha,
+        A_data, *ia, *ja, descA, *beta,
+        C_data, *ic, *jc, descC );
+}
+
+#define SCALAPACK_pcsyrk BLAS_FORTRAN_NAME( pcsyrk, PCSYRK )
+void SCALAPACK_pcsyrk(
+    const char* uplo, const char* trans,
+    blas_int const* n, blas_int const* k, std::complex<float>* alpha,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    std::complex<float>* beta,
+    std::complex<float>* C_data, blas_int const* ic, blas_int const* jc, blas_int const* descC )
+{
+    slate_psyrk(
+        uplo, trans, *n, *k, *alpha,
+        A_data, *ia, *ja, descA, *beta,
+        C_data, *ic, *jc, descC );
+}
+
+#define SCALAPACK_pzsyrk BLAS_FORTRAN_NAME( pzsyrk, PZSYRK )
+void SCALAPACK_pzsyrk(
+    const char* uplo, const char* trans,
+    blas_int const* n, blas_int const* k, std::complex<double>* alpha,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    std::complex<double>* beta,
+    std::complex<double>* C_data, blas_int const* ic, blas_int const* jc, blas_int const* descC )
+{
+    slate_psyrk(
+        uplo, trans, *n, *k, *alpha,
+        A_data, *ia, *ja, descA, *beta,
+        C_data, *ic, *jc, descC );
+}
+
+} // extern "C"
 
 } // namespace scalapack_api
 } // namespace slate

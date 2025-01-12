@@ -11,95 +11,25 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-// Declarations
-template<typename scalar_t>
-void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr, const char* diagstr, int m, int n, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb);
-
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_ptrsm
-
-extern "C" void PDTRSM(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, double* alpha, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-extern "C" void pdtrsm(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, double* alpha, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-extern "C" void pdtrsm_(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, double* alpha, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PSTRSM(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, float* alpha, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-extern "C" void pstrsm(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, float* alpha, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-extern "C" void pstrsm_(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, float* alpha, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PCTRSM(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-extern "C" void pctrsm(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-extern "C" void pctrsm_(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<float>* alpha, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZTRSM(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-extern "C" void pztrsm(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-extern "C" void pztrsm_(const char* side, const char* uplo, const char* transa, const char* diag, int* m, int* n, std::complex<double>* alpha, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb)
-{
-    slate_ptrsm(side, uplo, transa, diag, *m, *n, *alpha, a, *ia, *ja, desca, b, *ib, *jb, descb);
-}
-
-// -----------------------------------------------------------------------------
-
-// Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr, const char* diagstr, int m, int n, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb)
+//------------------------------------------------------------------------------
+/// SLATE ScaLAPACK wrapper sets up SLATE matrices from ScaLAPACK descriptors
+/// and calls SLATE.
+template <typename scalar_t>
+void slate_ptrsm(
+    const char* side_str, const char* uplo_str, const char* transA_str,
+    const char* diag_str,
+    blas_int m, blas_int n, scalar_t alpha,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    scalar_t* B_data, blas_int ib, blas_int jb, blas_int const* descB)
 {
     Side side{};
     Uplo uplo{};
     Op transA{};
     Diag diag{};
-    from_string( std::string( 1, sidestr[0] ), &side );
-    from_string( std::string( 1, uplostr[0] ), &uplo );
-    from_string( std::string( 1, transastr[0] ), &transA );
-    from_string( std::string( 1, diagstr[0] ), &diag );
+    from_string( std::string( 1, side_str[0] ), &side );
+    from_string( std::string( 1, uplo_str[0] ), &uplo );
+    from_string( std::string( 1, transA_str[0] ), &transA );
+    from_string( std::string( 1, diag_str[0] ), &diag );
 
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -113,28 +43,93 @@ void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr
     int64_t Bn  = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto AT = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(uplo, diag, desc_N(desca), a, desc_LLD(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    AT = slate_scalapack_submatrix(Am, An, AT, ia, ja, desca);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
+    auto AT = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+        uplo, diag, desc_n( descA ), A_data, desc_lld( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    AT = slate_scalapack_submatrix( Am, An, AT, ia, ja, descA );
 
-    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myprow, &mypcol);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), desc_NB(descb), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
+    Cblacs_gridinfo( desc_ctxt( descB ), &nprow, &npcol, &myprow, &mypcol );
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
+        desc_m( descB ), desc_n( descB ), B_data, desc_lld( descB ),
+        desc_mb( descB ), desc_nb( descB ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    B = slate_scalapack_submatrix( Bm, Bn, B, ib, jb, descB );
 
     if (transA == Op::Trans)
-        AT = transpose(AT);
+        AT = transpose( AT );
     else if (transA == Op::ConjTrans)
         AT = conj_transpose( AT );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "trsm");
 
-    slate::trsm(side, alpha, AT, B, {
+    slate::trsm( side, alpha, AT, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
 }
+
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
+
+extern "C" {
+
+#define SCALAPACK_pdtrsm BLAS_FORTRAN_NAME( pdtrsm, PDTRSM )
+void SCALAPACK_pdtrsm(
+    const char* side, const char* uplo, const char* transA, const char* diag,
+    blas_int const* m, blas_int const* n, double* alpha,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB )
+{
+    slate_ptrsm(
+        side, uplo, transA, diag, *m, *n, *alpha,
+        A_data, *ia, *ja, descA,
+        B_data, *ib, *jb, descB );
+}
+
+#define SCALAPACK_pstrsm BLAS_FORTRAN_NAME( pstrsm, PSTRSM )
+void SCALAPACK_pstrsm(
+    const char* side, const char* uplo, const char* transA, const char* diag,
+    blas_int const* m, blas_int const* n, float* alpha,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB )
+{
+    slate_ptrsm(
+        side, uplo, transA, diag, *m, *n, *alpha,
+        A_data, *ia, *ja, descA,
+        B_data, *ib, *jb, descB );
+}
+
+#define SCALAPACK_pctrsm BLAS_FORTRAN_NAME( pctrsm, PCTRSM )
+void SCALAPACK_pctrsm(
+    const char* side, const char* uplo, const char* transA, const char* diag,
+    blas_int const* m, blas_int const* n, std::complex<float>* alpha,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    std::complex<float>* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB )
+{
+    slate_ptrsm(
+        side, uplo, transA, diag, *m, *n, *alpha,
+        A_data, *ia, *ja, descA,
+        B_data, *ib, *jb, descB );
+}
+
+#define SCALAPACK_pztrsm BLAS_FORTRAN_NAME( pztrsm, PZTRSM )
+void SCALAPACK_pztrsm(
+    const char* side, const char* uplo, const char* transA, const char* diag,
+    blas_int const* m, blas_int const* n, std::complex<double>* alpha,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    std::complex<double>* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB )
+{
+    slate_ptrsm(
+        side, uplo, transA, diag, *m, *n, *alpha,
+        A_data, *ia, *ja, descA,
+        B_data, *ib, *jb, descB );
+}
+
+} // extern "C"
 
 } // namespace scalapack_api
 } // namespace slate

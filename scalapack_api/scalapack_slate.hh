@@ -27,8 +27,8 @@ void Cblacs_get( blas_int context, blas_int what, blas_int* val );
 
 // Get 2D process grid size and my row and col in the grid.
 void Cblacs_gridinfo( blas_int context,
-                      blas_int* np_row, blas_int* np_col,
-                      blas_int* my_row, blas_int* my_col );
+                      blas_int* nprow, blas_int* npcol,
+                      blas_int* myprow, blas_int* mypcol );
 
 } // extern "C"
 
@@ -37,49 +37,83 @@ namespace slate {
 namespace scalapack_api {
 
 #define logprintf(fmt, ...) \
-    do { fprintf(stderr, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); fflush(0); } while (0)
+    do { \
+        fprintf( stdout, "%s:%d %s(): " fmt, \
+                 __FILE__, __LINE__, __func__, __VA_ARGS__ ); \
+        fflush(0); \
+    } while (0)
 
-enum slate_scalapack_dtype {BLOCK_CYCLIC_2D=1, BLOCK_CYCLIC_2D_INB=2};
-enum slate_scalapack_desc {DTYPE_=0, CTXT_, M_, N_, MB_, NB_, RSRC_, CSRC_, LLD_};
-enum slate_scalapack_desc_inb {DTYPE_INB=0, CTXT_INB, M_INB, N_INB, IMB_INB, INB_INB, MB_INB, NB_INB, RSRC_INB, CSRC_INB, LLD_INB};
+enum dtype {
+    BlockCyclic2D     = 1,
+    BlockCyclic2D_INB = 2,
+};
 
-inline int desc_CTXT(int* desca)
+enum desc {
+    DTYPE_ = 0,
+    CTXT_,
+    M_,
+    N_,
+    MB_,
+    NB_,
+    RSRC_,
+    CSRC_,
+    LLD_,
+};
+
+enum desc_inb {
+    DTYPE_INB = 0,
+    CTXT_INB,
+    M_INB,
+    N_INB,
+    IMB_INB,
+    INB_INB,
+    MB_INB,
+    NB_INB,
+    RSRC_INB,
+    CSRC_INB,
+    LLD_INB
+};
+
+//------------------------------------------------------------------------------
+inline blas_int desc_ctxt( blas_int const* descA )
 {
-    return desca[1];
+    return descA[ CTXT_ ];
 }
 
-inline int desc_M(int* desca)
+inline blas_int desc_m( blas_int const* descA )
 {
-    return desca[2];
+    return descA[ M_ ];
 }
 
-inline int desc_N(int* desca)
+inline blas_int desc_n( blas_int const* descA )
 {
-    return desca[3];
+    return descA[ N_ ];
 }
 
-inline int desc_MB(int* desca)
+inline blas_int desc_mb( blas_int const* descA )
 {
-    return (desca[0] == BLOCK_CYCLIC_2D) ? desca[MB_] : desca[MB_INB];
+    return (descA[ DTYPE_ ] == BlockCyclic2D) ? descA[ MB_ ] : descA[ MB_INB ];
 }
 
-inline int desc_NB(int* desca)
+inline blas_int desc_nb( blas_int const* descA )
 {
-    return (desca[0] == BLOCK_CYCLIC_2D) ? desca[NB_] : desca[NB_INB];
+    return (descA[ DTYPE_ ] == BlockCyclic2D) ? descA[ NB_ ] : descA[ NB_INB ];
 }
 
-inline int desc_LLD(int* desca)
+inline blas_int desc_lld( blas_int const* descA )
 {
-    return (desca[0] == BLOCK_CYCLIC_2D) ? desca[LLD_] : desca[LLD_INB];
+    return (descA[ DTYPE_ ] == BlockCyclic2D) ? descA[ LLD_ ] : descA[ LLD_INB ];
 }
 
+//------------------------------------------------------------------------------
+/// Determine grid order for default BLACS context.
 inline slate::GridOrder slate_scalapack_blacs_grid_order()
 {
     // if nprocs == 1, the grid layout is irrelevant, all-OK
     // if nprocs > 1 check the grid location of process-number-1 pnum(1).
     // if pnum(1) is at grid-coord(0, 1) then grid is col-major
     // else if pnum(1) is not at grid-coord(0, 1) then grid is row-major
-    int mypnum, nprocs, prow, pcol, icontxt=-1, imone=-1, izero=0, pnum_1=1;
+    blas_int mypnum, nprocs, prow, pcol, icontxt=-1, imone=-1, izero=0, pnum_1=1;
     Cblacs_pinfo( &mypnum, &nprocs );
     if (nprocs == 1) // only one process, so col-major grid-layout
         return slate::GridOrder::Col;
@@ -93,65 +127,80 @@ inline slate::GridOrder slate_scalapack_blacs_grid_order()
     }
 }
 
-template< typename scalar_t >
-inline slate::Matrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::Matrix<scalar_t>& A, int ia, int ja, int* desca)
+template <typename scalar_t>
+slate::Matrix<scalar_t> slate_scalapack_submatrix(
+    blas_int Am, blas_int An, slate::Matrix<scalar_t>& A,
+    blas_int ia, blas_int ja, blas_int const* descA )
 {
-    // logprintf("Am %d An %d ia %d ja %d desc_MB(desca) %d desc_NB(desca) %d A.m() %ld A.n() %ld \n", Am, An, ia, ja, desc_MB(desca), desc_NB(desca), A.m(), A.n());
-    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
-    assert((ia-1) % desc_MB(desca) == 0);
-    assert((ja-1) % desc_NB(desca) == 0);
-    assert(Am % desc_MB(desca) == 0);
-    assert(An % desc_NB(desca) == 0);
-    int64_t i1 = (ia-1)/desc_MB(desca);
-    int64_t i2 = i1 + (Am/desc_MB(desca)) - 1;
-    int64_t j1 = (ja-1)/desc_NB(desca);
-    int64_t j2 = j1 + (An/desc_NB(desca)) - 1;
-    return A.sub(i1, i2, j1, j2);
+    // logprintf("Am %d An %d ia %d ja %d desc_mb( descA ) %d desc_nb( descA ) %d A.m() %ld A.n() %ld \n", Am, An, ia, ja, desc_mb( descA ), desc_nb( descA ), A.m(), A.n());
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n())
+        return A;
+    assert( (ia-1) % desc_mb( descA ) == 0 );
+    assert( (ja-1) % desc_nb( descA ) == 0 );
+    assert( Am % desc_mb( descA ) == 0 );
+    assert( An % desc_nb( descA ) == 0 );
+    int64_t i1 = (ia-1)/desc_mb( descA );
+    int64_t i2 = i1 + (Am/desc_mb( descA )) - 1;
+    int64_t j1 = (ja-1)/desc_nb( descA );
+    int64_t j2 = j1 + (An/desc_nb( descA )) - 1;
+    return A.sub( i1, i2, j1, j2 );
 }
 
-template< typename scalar_t >
-inline slate::SymmetricMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::SymmetricMatrix<scalar_t>& A, int ia, int ja, int* desca)
+template <typename scalar_t>
+slate::SymmetricMatrix<scalar_t> slate_scalapack_submatrix(
+    blas_int Am, blas_int An, slate::SymmetricMatrix<scalar_t>& A,
+    blas_int ia, blas_int ja, blas_int const* descA )
 {
-    //logprintf("Am %d An %d ia %d ja %d desc_MB(desca) %d desc_NB(desca) %d \n", Am, An, ia, ja, desc_MB(desca), desc_NB(desca));
-    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
-    assert((ia-1) % desc_MB(desca) == 0);
-    assert(Am % desc_MB(desca) == 0);
-    int64_t i1 = (ia-1)/desc_MB(desca);
-    int64_t i2 = i1 + (Am/desc_MB(desca)) - 1;
-    return A.sub(i1, i2);
+    //logprintf("Am %d An %d ia %d ja %d desc_mb( descA ) %d desc_nb( descA ) %d \n", Am, An, ia, ja, desc_mb( descA ), desc_nb( descA ));
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n())
+        return A;
+    assert( (ia-1) % desc_mb( descA ) == 0 );
+    assert( Am % desc_mb( descA ) == 0 );
+    int64_t i1 = (ia-1)/desc_mb( descA );
+    int64_t i2 = i1 + (Am/desc_mb( descA )) - 1;
+    return A.sub( i1, i2 );
 }
 
-template< typename scalar_t >
-inline slate::TriangularMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::TriangularMatrix<scalar_t>& A, int ia, int ja, int* desca)
+template <typename scalar_t>
+slate::TriangularMatrix<scalar_t> slate_scalapack_submatrix(
+    blas_int Am, blas_int An, slate::TriangularMatrix<scalar_t>& A,
+    blas_int ia, blas_int ja, blas_int const* descA )
 {
-    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
-    assert((ia-1) % desc_MB(desca) == 0);
-    assert(Am % desc_MB(desca) == 0);
-    int64_t i1 = (ia-1)/desc_MB(desca);
-    int64_t i2 = i1 + (Am/desc_MB(desca)) - 1;
-    return A.sub(i1, i2);
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n())
+        return A;
+    assert( (ia-1) % desc_mb( descA ) == 0 );
+    assert( Am % desc_mb( descA ) == 0 );
+    int64_t i1 = (ia-1)/desc_mb( descA );
+    int64_t i2 = i1 + (Am/desc_mb( descA )) - 1;
+    return A.sub( i1, i2 );
 }
 
-template< typename scalar_t >
-inline slate::TrapezoidMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::TrapezoidMatrix<scalar_t>& A, int ia, int ja, int* desca)
+template <typename scalar_t>
+slate::TrapezoidMatrix<scalar_t> slate_scalapack_submatrix(
+    blas_int Am, blas_int An, slate::TrapezoidMatrix<scalar_t>& A,
+    blas_int ia, blas_int ja, blas_int const* descA )
 {
-    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
-    assert((ia-1) % desc_NB(desca) == 0);
-    assert(An % desc_NB(desca) == 0);
-    int64_t i1 = (ia-1)/desc_NB(desca);
-    int64_t i2 = i1 + (Am/desc_NB(desca)) - 1;
-    return A.sub(i1, i2, i2);
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n())
+        return A;
+    assert( (ia-1) % desc_nb( descA ) == 0);
+    assert( An % desc_nb( descA) == 0);
+    int64_t i1 = (ia-1)/desc_nb( descA );
+    int64_t i2 = i1 + (Am/desc_nb( descA )) - 1;
+    return A.sub( i1, i2, i2 );
 }
 
-template< typename scalar_t >
-inline slate::HermitianMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::HermitianMatrix<scalar_t>& A, int ia, int ja, int* desca)
+template <typename scalar_t>
+slate::HermitianMatrix<scalar_t> slate_scalapack_submatrix(
+    blas_int Am, blas_int An, slate::HermitianMatrix<scalar_t>& A,
+    blas_int ia, blas_int ja, blas_int const* descA )
 {
-    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
-    assert((ia-1) % desc_NB(desca) == 0);
-    assert(An % desc_NB(desca) == 0);
-    int64_t i1 = (ia-1)/desc_NB(desca);
-    int64_t i2 = i1 + (Am/desc_NB(desca)) - 1;
-    return A.sub(i1, i2);
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n())
+        return A;
+    assert( (ia-1) % desc_nb( descA ) == 0 );
+    assert( An % desc_nb( descA ) == 0 );
+    int64_t i1 = (ia-1)/desc_nb( descA );
+    int64_t i2 = i1 + (Am/desc_nb( descA )) - 1;
+    return A.sub( i1, i2 );
 }
 
 //==============================================================================
@@ -400,32 +449,55 @@ private:
     int64_t lookahead_;
 };
 
-// -----------------------------------------------------------------------------
-// helper funtion to check and do type conversion
-// TODO: this is duplicated at the testing module
-inline int int64_to_int(int64_t n)
+//==============================================================================
+// This is duplicated from blaspp/src/blas_internal.hh
+
+//------------------------------------------------------------------------------
+/// @see to_blas_int
+///
+inline blas_int to_blas_int_( int64_t x, const char* x_str )
 {
-    if (sizeof(int64_t) > sizeof(blas_int))
-        assert(n < std::numeric_limits<int>::max());
-    int n_ = (int)n;
-    return n_;
+    if constexpr (sizeof(int64_t) > sizeof(blas_int)) {
+        blas_error_if_msg( x > std::numeric_limits<blas_int>::max(), "%s", x_str );
+    }
+    return blas_int( x );
 }
+
+//----------------------------------------
+/// Convert int64_t to blas_int.
+/// If blas_int is 64-bit, this does nothing.
+/// If blas_int is 32-bit, throws if x > INT_MAX, so conversion would overflow.
+///
+/// Note this is in src/blas_internal.hh, so this macro won't pollute
+/// the namespace when apps #include <blas.hh>.
+///
+#define to_blas_int( x ) to_blas_int_( x, #x )
+
+//==============================================================================
+
 
 // -----------------------------------------------------------------------------
 // TODO: this is duplicated at the testing module
-#define scalapack_numroc BLAS_FORTRAN_NAME(numroc,NUMROC)
-extern "C" int scalapack_numroc(int* n, int* nb, int* iproc, int* isrcproc, int* nprocs);
-inline int64_t scalapack_numroc(int64_t n, int64_t nb, int iproc, int isrcproc, int nprocs)
+#define SCALAPACK_numroc BLAS_FORTRAN_NAME( numroc, NUMROC )
+extern "C"
+blas_int SCALAPACK_numroc(
+    blas_int* n, blas_int* nb, blas_int* iproc, blas_int* isrcproc,
+    blas_int* nprocs );
+
+inline int64_t scalapack_numroc(
+    int64_t n, int64_t nb, blas_int iproc, blas_int isrcproc, blas_int nprocs )
 {
-    int n_ = int64_to_int(n);
-    int nb_ = int64_to_int(nb);
-    int nroc_ = scalapack_numroc(&n_, &nb_, &iproc, &isrcproc, &nprocs);
-    int64_t nroc = (int64_t)nroc_;
-    return nroc;
+    blas_int n_    = to_blas_int( n );
+    blas_int nb_   = to_blas_int( nb );
+    blas_int nroc_ = SCALAPACK_numroc( &n_, &nb_, &iproc, &isrcproc, &nprocs );
+    return nroc_;
 }
 
-#define scalapack_indxl2g BLAS_FORTRAN_NAME(indxl2g,INDXL2G)
-extern "C" int scalapack_indxl2g(int* indxloc, int* nb, int* iproc, int* isrcproc, int* nprocs);
+#define scalapack_indxl2g BLAS_FORTRAN_NAME( indxl2g, INDXL2G )
+extern "C"
+blas_int scalapack_indxl2g(
+    blas_int* indxloc, blas_int* nb, blas_int* iproc, blas_int* isrcproc,
+    blas_int* nprocs );
 
 } // namespace scalapack_api
 } // namespace slate

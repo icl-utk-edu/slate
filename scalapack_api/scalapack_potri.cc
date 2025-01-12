@@ -11,87 +11,17 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-// Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_ppotri(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info);
-
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_pher2k
-
-extern "C" void PSPOTRI(const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-extern "C" void pspotri(const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-extern "C" void pspotri_(const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PDPOTRI(const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-extern "C" void pdpotri(const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-extern "C" void pdpotri_(const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PCPOTRI(const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-extern "C" void pcpotri(const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-extern "C" void pcpotri_(const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZPOTRI(const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-extern "C" void pzpotri(const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-extern "C" void pzpotri_(const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* info)
-{
-    slate_ppotri(uplo, *n, a, *ia, *ja, desca, info);
-}
-
-// -----------------------------------------------------------------------------
-template< typename scalar_t >
-void slate_ppotri(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info)
+//------------------------------------------------------------------------------
+/// SLATE ScaLAPACK wrapper sets up SLATE matrices from ScaLAPACK descriptors
+/// and calls SLATE.
+template <typename scalar_t>
+void slate_ppotri(
+    const char* uplo_str, blas_int n,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    blas_int* info )
 {
     Uplo uplo{};
-    from_string( std::string( 1, uplostr[0] ), &uplo );
+    from_string( std::string( 1, uplo_str[0] ), &uplo );
 
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -102,15 +32,17 @@ void slate_ppotri(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* 
     int64_t An = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(An, An, A, ia, ja, desca);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+        uplo, desc_n( descA ), A_data, desc_lld( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    A = slate_scalapack_submatrix( An, An, A, ia, ja, descA );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "potri");
 
-    slate::potri(A, {
+    slate::potri( A, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
@@ -118,6 +50,62 @@ void slate_ppotri(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* 
     // todo: extract the real info from potri
     *info = 0;
 }
+
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
+
+extern "C" {
+
+#define SCALAPACK_pspotri BLAS_FORTRAN_NAME( pspotri, PSPOTRI )
+void SCALAPACK_pspotri(
+    const char* uplo, blas_int const* n,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* info )
+{
+    slate_ppotri(
+        uplo, *n,
+        A_data, *ia, *ja, descA,
+        info );
+}
+
+#define SCALAPACK_pdpotri BLAS_FORTRAN_NAME( pdpotri, PDPOTRI )
+void SCALAPACK_pdpotri(
+    const char* uplo, blas_int const* n,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* info )
+{
+    slate_ppotri(
+        uplo, *n,
+        A_data, *ia, *ja, descA,
+        info );
+}
+
+#define SCALAPACK_pcpotri BLAS_FORTRAN_NAME( pcpotri, PCPOTRI )
+void SCALAPACK_pcpotri(
+    const char* uplo, blas_int const* n,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* info )
+{
+    slate_ppotri(
+        uplo, *n,
+        A_data, *ia, *ja, descA,
+        info );
+}
+
+#define SCALAPACK_pzpotri BLAS_FORTRAN_NAME( pzpotri, PZPOTRI )
+void SCALAPACK_pzpotri(
+    const char* uplo, blas_int const* n,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* info )
+{
+    slate_ppotri(
+        uplo, *n,
+        A_data, *ia, *ja, descA,
+        info );
+}
+
+} // extern "C"
 
 } // namespace scalapack_api
 } // namespace slate

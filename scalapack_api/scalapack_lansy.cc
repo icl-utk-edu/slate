@@ -8,93 +8,141 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-
-// Required CBLACS calls
-extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my_row, int*  my_col);
-
+//------------------------------------------------------------------------------
 // Type generic function calls the SLATE routine
-template< typename scalar_t >
-blas::real_type<scalar_t> slate_plansy(const char* normstr, const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work);
+template <typename scalar_t>
+blas::real_type<scalar_t> slate_plansy(const char* norm_str, const char* uplo_str, blas_int n,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    blas::real_type<scalar_t>* work);
 
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_pher2k
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
 
-extern "C" float PSLANSY(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float PSLANSY(const char* norm, const char* uplo, blas_int const* n,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-extern "C" float pslansy(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pslansy(const char* norm, const char* uplo, blas_int const* n,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-extern "C" float pslansy_(const char* norm, const char* uplo, int* n, float* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pslansy_(const char* norm, const char* uplo, blas_int const* n,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
-extern "C" double PDLANSY(const char* norm, const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, double* work)
+extern "C" double PDLANSY(const char* norm, const char* uplo, blas_int const* n,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-extern "C" double pdlansy(const char* norm, const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, double* work)
+extern "C" double pdlansy(const char* norm, const char* uplo, blas_int const* n,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-extern "C" double pdlansy_(const char* norm, const char* uplo, int* n, double* a, int* ia, int* ja, int* desca, double* work)
+extern "C" double pdlansy_(const char* norm, const char* uplo, blas_int const* n,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
-extern "C" float PCLANSY(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float PCLANSY(const char* norm, const char* uplo, blas_int const* n,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-extern "C" float pclansy(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pclansy(const char* norm, const char* uplo, blas_int const* n,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-extern "C" float pclansy_(const char* norm, const char* uplo, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* work)
+extern "C" float pclansy_(const char* norm, const char* uplo, blas_int const* n,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-// -----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
-extern "C" double PZLANSY(const char* norm, const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* work)
+extern "C" double PZLANSY(const char* norm, const char* uplo, blas_int const* n,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-extern "C" double pzlansy(const char* norm, const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* work)
+extern "C" double pzlansy(const char* norm, const char* uplo, blas_int const* n,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-extern "C" double pzlansy_(const char* norm, const char* uplo, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* work)
+extern "C" double pzlansy_(const char* norm, const char* uplo, blas_int const* n,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* work)
 {
-    return slate_plansy(norm, uplo, *n, a, *ia, *ja, desca, work);
+    return slate_plansy(norm, uplo, *n,
+        A_data, *ia, *ja, descA,
+        work);
 }
 
-// -----------------------------------------------------------------------------
-template< typename scalar_t >
-blas::real_type<scalar_t> slate_plansy(const char* normstr, const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work)
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+blas::real_type<scalar_t> slate_plansy(const char* norm_str, const char* uplo_str, blas_int n,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    blas::real_type<scalar_t>* work)
 {
     Uplo uplo{};
     Norm norm{};
-    from_string( std::string( 1, uplostr[0] ), &uplo );
-    from_string( std::string( 1, normstr[0] ), &norm );
+    from_string( std::string( 1, uplo_str[0] ), &uplo );
+    from_string( std::string( 1, norm_str[0] ), &norm );
 
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -106,16 +154,18 @@ blas::real_type<scalar_t> slate_plansy(const char* normstr, const char* uplostr,
     int64_t An = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
+    auto A = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+        uplo, desc_n( descA ), A_data, desc_lld( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    A = slate_scalapack_submatrix( Am, An, A, ia, ja, descA );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "lansy");
 
     blas::real_type<scalar_t> A_norm;
-    A_norm = slate::norm(norm, A, {
+    A_norm = slate::norm( norm, A, {
         {slate::Option::Target, target},
         {slate::Option::Lookahead, lookahead}
     });

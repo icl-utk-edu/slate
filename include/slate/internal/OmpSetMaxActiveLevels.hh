@@ -36,7 +36,7 @@ public:
     OmpSetMaxActiveLevels(int min_active_levels)
     {
         int curr_max_active_levels = omp_get_max_active_levels();
-        #if defined(_OPENMP) && _OPENMP < 201811
+        #if defined(_OPENMP) && _OPENMP < 200805
             // if OpenMP version < 5.0 then enable omp_set_nested
             omp_set_nested(1);
         #endif

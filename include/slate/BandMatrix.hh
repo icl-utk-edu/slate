@@ -326,7 +326,7 @@ void BandMatrix<scalar_t>::insertLocalTiles(Target origin)
     int64_t nt = this->nt();
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
-            if (this->tileIsLocal(i, j) && this->tileIsInBand(i,j)) {
+            if (this->tileIsLocal(i, j) && this->tileIsInBand(i, j)) {
                 int dev = (on_devices ? this->tileDevice(i, j)
                                       : HostNum);
                 this->tileInsert(i, j, dev);

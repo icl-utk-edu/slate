@@ -25,8 +25,16 @@ namespace slate {
 template <typename scalar_t>
 class BandMatrix: public BaseBandMatrix<scalar_t> {
 public:
+    using ij_tuple = std::tuple<int64_t, int64_t>;
+
     // constructors
     BandMatrix();
+
+    BandMatrix(int64_t m, int64_t n, int64_t kl, int64_t ku,
+               std::function<int64_t (int64_t j)>& inTileNb,
+               std::function<int (ij_tuple ij)>& inTileRank,
+               std::function<int (ij_tuple ij)>& inTileDevice,
+               MPI_Comm mpi_comm);
 
     BandMatrix(int64_t m, int64_t n, int64_t kl, int64_t ku,
                int64_t nb, int p, int q, MPI_Comm mpi_comm);
@@ -57,6 +65,8 @@ public:
 
     int64_t upperBandwidth() const;
     void    upperBandwidth(int64_t ku);
+
+    void insertLocalTiles(Target origin=Target::Host);
 };
 
 //------------------------------------------------------------------------------
@@ -64,6 +74,47 @@ public:
 template <typename scalar_t>
 BandMatrix<scalar_t>::BandMatrix():
     BaseBandMatrix<scalar_t>()
+{}
+
+//------------------------------------------------------------------------------
+/// Constructor creates an m-by-n band matrix, with no tiles allocated,
+/// where tileMb, tileNb, tileRank, tileDevice are given as functions.
+/// Tiles can be added with tileInsert().
+//
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of the matrix. n >= 0.
+///
+/// @param[in] kl
+///     Number of subdiagonals within band. kl >= 0.
+///
+/// @param[in] ku
+///     Number of superdiagonals within band. ku >= 0.
+///
+/// @param[in] inTileNb
+///     Function that takes block-col index, returns block-col size.
+///
+/// @param[in] inTileRank
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns MPI rank for that tile.
+///
+/// @param[in] inTileDevice
+///     Function that takes tuple of { block-row, block-col } indices,
+///     returns local GPU device ID for that tile.
+///
+/// @param[in] mpi_comm
+///     MPI communicator to distribute matrix across.
+///
+template <typename scalar_t>
+BandMatrix<scalar_t>::BandMatrix(int64_t m, int64_t n, int64_t kl, int64_t ku,
+    std::function<int64_t (int64_t j)>& inTileNb,
+    std::function<int (ij_tuple ij)>& inTileRank,
+    std::function<int (ij_tuple ij)>& inTileDevice,
+    MPI_Comm mpi_comm)
+    : BaseBandMatrix<scalar_t>(m, n, kl, ku, inTileNb, inTileRank, inTileDevice,
+    mpi_comm)
 {}
 
 //------------------------------------------------------------------------------
@@ -258,6 +309,30 @@ void BandMatrix<scalar_t>::upperBandwidth(int64_t ku)
         this->ku_ = ku;
     else
         this->kl_ = ku;
+}
+
+//------------------------------------------------------------------------------
+/// Inserts all local tiles into an empty band matrix.
+///
+/// @param[in] target
+///     - if target = Devices, inserts tiles on appropriate GPU devices, or
+///     - if target = Host, inserts on tiles on CPU host.
+///
+template <typename scalar_t>
+void BandMatrix<scalar_t>::insertLocalTiles(Target origin)
+{
+    bool on_devices = (origin == Target::Devices);
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+    for (int64_t j = 0; j < nt; ++j) {
+        for (int64_t i = 0; i < mt; ++i) {
+            if (this->tileIsLocal(i, j) && this->tileIsInBand(i, j)) {
+                int dev = (on_devices ? this->tileDevice(i, j)
+                                      : HostNum);
+                this->tileInsert(i, j, dev);
+            }
+        }
+    }
 }
 
 } // namespace slate

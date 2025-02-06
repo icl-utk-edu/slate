@@ -57,6 +57,8 @@ public:
     void    allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1);
     void    reserveDeviceWorkspace();
 
+    /// Returns whether any part of tile {i, j} of op(A) is inside band.
+    bool tileIsInBand(int64_t i, int64_t j) const;
     // sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2,
                          int64_t j1, int64_t j2);
@@ -361,6 +363,42 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
             }
         }
     }
+}
+
+//------------------------------------------------------------------------------
+/// Check if any part of the tile {i, j} is in the band.
+//
+template <typename scalar_t>
+bool BaseBandMatrix<scalar_t>::tileIsInBand(int64_t i, int64_t j) const
+{
+    // global index of the first row of the tile -> column index of diagonal
+    int64_t diag_gidx_first = 0;
+    for (int64_t ti = 0; ti < i; ++ti) {
+        diag_gidx_first += this->tileMb(ti);
+    }
+    int64_t N = std::max(this->n(), this->m());
+    // column index where band starts (for first row of tile)
+    int64_t bnd_col_sidx_first = std::max(diag_gidx_first - kl_, int64_t {0});
+    // column index where band stops (for last row of tile)
+    int64_t bnd_col_eidx_last = diag_gidx_first + this->tileMb(i) - 1 + ku_;
+    // out of matrix?
+    bnd_col_eidx_last = std::min(bnd_col_eidx_last, N - 1);
+
+    // global column index for first column of tile
+    int64_t col_gidx_first = 0;
+    for (int64_t tj = 0; tj < j; ++tj) {
+        col_gidx_first += this->tileNb(tj);
+    }
+    // global column index for last column of tile
+    int64_t col_gidx_last = std::min(col_gidx_first + this->tileNb(j) - 1, N - 1);
+
+    // is last element of first row of tile right to the band start and
+    // is the first element of the last tile row left of the band stop?
+    if ((col_gidx_last >= bnd_col_sidx_first) &&
+        ( col_gidx_first <= bnd_col_eidx_last )) {
+        return true;
+    }
+    return false;
 }
 
 } // namespace slate

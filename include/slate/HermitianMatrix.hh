@@ -521,8 +521,6 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::slice(
 /// parent matrix, A[ row1:row2, col1:col2 ].
 /// This takes row & col indices instead of block row & block col indices.
 /// The sub-matrix cannot overlap the diagonal.
-/// - if uplo = Lower, 0 <= col1 <= col2 <= row1 <= row2 < n;
-/// - if uplo = Upper, 0 <= row1 <= row2 <= col1 <= col2 < n.
 ///
 /// @param[in] row1
 ///     Starting row index.
@@ -541,9 +539,30 @@ Matrix<scalar_t> HermitianMatrix<scalar_t>::slice(
     int64_t row1, int64_t row2,
     int64_t col1, int64_t col2)
 {
-    return Matrix<scalar_t>(
-               *this, typename BaseMatrix<scalar_t>::Slice( row1, row2,
-                                                            col1, col2 ));
+    // in which triangle is the slice?
+    // checks that slice is completly in one of the triangles
+    Uplo inTriag;
+    // given slice is completly in upper triangle
+    if ((row1 <= col1) && (row2 <= col1)) {
+        inTriag = Uplo::Upper;
+    }
+    // or in lower triangle
+    else if ((row1 >= col1) && (col2 <= row1)) {
+        inTriag = Uplo::Lower;
+    }
+    // it must not happen that a slice overlaps the diagonal
+    else {
+        slate_error("slice overlaps the diagonal");
+    }
+    // slice is in available traingle
+    if (inTriag == this->uploLogical()) {
+        return BaseTrapezoidMatrix<scalar_t>::slice(row1, row2, col1, col2);
+    }
+    else {
+        // we extract from the available triangle and transpose
+        return conj_transpose(
+            BaseTrapezoidMatrix<scalar_t>::slice(col1, col2,row1, row2));
+    }
 }
 
 //------------------------------------------------------------------------------

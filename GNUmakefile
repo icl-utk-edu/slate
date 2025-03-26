@@ -543,7 +543,7 @@ cuda_src := \
 cuda_hdr := \
         src/cuda/device_util.cuh
 
-hip_src := ${patsubst src/cuda/%.cu,src/hip/%.hip.cc,${cuda_src}}
+hip_src := ${patsubst src/cuda/%.cu,src/hip/%.hip,${cuda_src}}
 hip_hdr := ${patsubst src/cuda/%.cuh,src/hip/%.hip.hh,${cuda_hdr}}
 
 # OpenMP implementations of device kernels
@@ -1308,7 +1308,7 @@ comma := ,
 # to prevent them from being intermediate files,
 # so they are _always_ generated and never removed.
 # Perl updates includes and removes excess spaces that fail style hook.
-${hip_src}: src/hip/%.hip.cc: src/cuda/%.cu.md5 | src/hip
+${hip_src}: src/hip/%.hip:    src/cuda/%.cu.md5 | src/hip
 ${hip_hdr}: src/hip/%.hip.hh: src/cuda/%.cuh.md5 | src/hip
 
 ${hip_src} ${hip_hdr}:
@@ -1383,8 +1383,8 @@ hooks: ${hooks}
 #-------------------------------------------------------------------------------
 # Compile object files
 
-# .hip.cc rule before .cc rule.
-%.hip.o: %.hip.cc | ${hip_hdr}
+# Generate HIP headers before compiling sources.
+%.o: %.hip | ${hip_hdr}
 	${HIPCC} ${HIPCCFLAGS} -c $< -o $@
 
 %.o: %.cc

@@ -5,7 +5,7 @@
 #
 # CMake script for SLATE library. See INSTALL.md for directions.
 
-cmake_minimum_required( VERSION 3.18 )
+cmake_minimum_required( VERSION 3.21 )
 # 3.1  target_compile_features
 # 3.8  target_compile_features( cxx_std_17 )
 # 3.14 install( LIBRARY DESTINATION lib ) default
@@ -13,6 +13,7 @@ cmake_minimum_required( VERSION 3.18 )
 # 3.15 message DEBUG, string REPEAT
 # 3.17 find_package( CUDAToolkit )
 # 3.18 CMAKE_CUDA_ARCHITECTURES
+# 3.21 enable_language( HIP ) support
 
 project(
     slate
@@ -111,6 +112,13 @@ set( CMAKE_CUDA_ARCHITECTURES "60" CACHE STRING
      "CUDA architectures, as semi-colon separated list of numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
 set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
               30 35 50 60 70 75 80 90 )
+
+# HIP architectures required in CMake 3.21
+# At least, CMake complains if none is set.
+set( CMAKE_HIP_ARCHITECTURES "gfx90a" CACHE STRING
+     "HIP architectures, as semi-colon separated list of gfx numbers, e.g., gfx908;gfx90a for MI100, MI250x. See https://llvm.org/docs/AMDGPUUsage.html#processors" )
+set_property( CACHE CMAKE_HIP_ARCHITECTURES PROPERTY STRINGS
+              gfx900 gfx906 gfx908 gfx90a gfx942 )
 
 #-----------------------------------
 message( DEBUG "Settings:
@@ -521,18 +529,14 @@ set( slate_use_hip false )  # output in slateConfig.cmake.in
 if (gpu_backend MATCHES "^(auto|hip)$")
     message( STATUS "${bold}Looking for HIP/ROCm${not_bold} (gpu_backend = ${gpu_backend})" )
     if (gpu_backend STREQUAL "hip")
-        find_package( HIP REQUIRED )
+        find_package( hip REQUIRED )
     else()
-        find_package( HIP QUIET )
+        find_package( hip QUIET )
     endif()
 endif()
-if (HIP_FOUND)
+if (hip_FOUND)
     message( STATUS "Building HIP/ROCm support in SLATE" )
 
-    # In their official docs, they have 'hip' and 'HIP' as different packages,
-    # which both need to be found
-    # https://github.com/ROCm-Developer-Tools/HIP/issues/1029
-    find_package( hip REQUIRED )
     find_package( rocblas REQUIRED )
     set( slate_use_hip true )
     set( gpu_backend "hip" )
@@ -541,128 +545,21 @@ if (HIP_FOUND)
     set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-fPIC" )
     set_target_properties( hip::device PROPERTIES INTERFACE_LINK_LIBRARIES "hip::host" )
 
-    # First, get the HIP source's base files (which are CUDA sources, needing
-    # to be hipified)
+    # Get CUDA sources, hipify to get HIP sources, and add to slate to compile.
+    enable_language( HIP )
     file(
-        GLOB slate_hip_src_cuda
+        GLOB slate_cuda_src
         CONFIGURE_DEPENDS  # glob at build time
         src/cuda/*.cu
         src/cuda/*.cuh
     )
-    message( DEBUG "slate_hip_src_cuda ${slate_hip_src_cuda}" )
-
-    # Make the object directory
-    file( MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src/hip" )
-
-    # Generate BLAS++ and LAPACK++ include flags
-    get_target_property( blaspp_inc   blaspp   INTERFACE_INCLUDE_DIRECTORIES )
-    get_target_property( lapackpp_inc lapackpp INTERFACE_INCLUDE_DIRECTORIES )
-    get_target_property( rocblas_inc roc::rocblas INTERFACE_INCLUDE_DIRECTORIES )
-    set( dirs ${blaspp_inc} )
-    list( APPEND dirs ${lapackpp_inc} )
-    list( APPEND dirs ${rocblas_inc} )
-    list( REMOVE_DUPLICATES dirs )
-    set( inc_ "" )
-    foreach (dir IN LISTS dirs)
-        list( APPEND inc_ $<$<BOOL:${dir}>:-I${dir}> )
-    endforeach()
-    message( DEBUG "blaspp_inc   = '${blaspp_inc}'" )
-    message( DEBUG "lapackpp_inc = '${lapackpp_inc}'" )
-    message( DEBUG "rocblas_inc  = '${rocblas_inc}'" )
-    message( DEBUG "dirs = '${dirs}'" )
-    message( DEBUG "inc_ = '${inc_}'" )
-
-    # Generate definitions list
-    get_target_property( defs_ slate COMPILE_DEFINITIONS )
-    set( Ddefs_ "" )
-    foreach (def_ ${defs_})
-        list( APPEND Ddefs_ "-D${def_}" )
-    endforeach()
-    message( DEBUG "defs_  = '${defs_}'" )
-    message( DEBUG "Ddefs_ = '${Ddefs_}'" )
-
-    # Iterate over CUDA files
-    foreach (src_cu ${slate_hip_src_cuda})
-        # Get name without directory, and replace extension.
-        get_filename_component( name "${src_cu}" NAME )
-        set( src_cu_relative  "src/cuda/${name}" )
-        string( REGEX REPLACE ".cu$"  ".hip.cc" name "${name}"  )
-        string( REGEX REPLACE ".cuh$" ".hip.hh" name "${name}" )
-        set( src_hip "${CMAKE_SOURCE_DIR}/src/hip/${name}"   )
-        set( obj_hip "src/hip/${name}.o" )  # in binary dir
-
-        message( DEBUG "src_cu_relative ${src_cu_relative}" )
-        message( DEBUG "src_cu  ${src_cu}" )
-        message( DEBUG "src_hip ${src_hip}" )
-        message( DEBUG "obj_hip ${obj_hip}" )
-        message( DEBUG "" )
-
-        # Automatically generate HIP source from CUDA source.
-        # As in the Makefile, this applies the given build rule ($cmd)
-        # only if the md5 sums of the target's dependency ($src_cu.md5)
-        # doesn't match that stored in the target's dep file
-        # ($src_hip.dep). If the target ($src_hip) is already up-to-date
-        # based on md5 sums, its timestamp is updated so make will
-        # recognize it as up-to-date. Otherwise, the target is built and
-        # its dep file updated. Instead of depending on the src file,
-        # the target depends on the md5 file of the src file.
-        string(
-            CONCAT cmd
-            "if [ -e ${src_hip} ]"
-            "   && diff ${src_cu}.md5 ${src_hip}.dep > /dev/null 2>&1; then"
-            "    echo '${src_hip} is up-to-date based on md5sum.';"
-            "    touch ${src_hip};"
-            "else"
-            "    echo '${src_hip} is out-of-date based on md5sum.';"
-            "    echo 'hipify-perl ${src_cu} > ${src_hip}';"
-            "          hipify-perl ${src_cu} > ${src_hip};"
-            "    sed -i -e 's/\.cuh/.hip.hh/g' ${src_hip};"
-            "    cp ${src_cu}.md5 ${src_hip}.dep;"
-            "fi"
-        )
-        message( DEBUG "cmd <${cmd}>" )
-
-        message( "cu  ${src_cu}\n => ${src_hip}" )
-        add_custom_command(
-            OUTPUT   "${src_hip}"
-            DEPENDS  "${src_cu}.md5"
-            VERBATIM
-            COMMAND  sh -c "${cmd}"
-        )
-
-        message( "md5 ${src_cu}\n => ${src_cu}.md5\n in ${CMAKE_SOURCE_DIR}" )
-        add_custom_command(
-            OUTPUT   "${src_cu}.md5"
-            DEPENDS  "${src_cu}"
-            VERBATIM
-            # md5sum needs ${src_cu_relative} to be relative to
-            # CMAKE_SOURCE_DIR to match .dep files.
-            COMMAND  md5sum "${src_cu_relative}" > "${src_cu}.md5"
-            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        )
-
-        # Compile hip.cc source (not hip.hh headers).
-        if (${src_hip} MATCHES ".hip.cc$")
-            message( "hcc ${src_hip}\n && src/hip/device_util.hip.hh\n => ${obj_hip}" )
-            add_custom_command(
-                OUTPUT  "${obj_hip}"
-                DEPENDS "${src_hip}"
-                        "src/hip/device_util.hip.hh"
-                VERBATIM
-                COMMAND pwd
-                COMMAND hipcc ${Ddefs_} ${inc_}
-                        "-I${CMAKE_SOURCE_DIR}/include"
-                        -fPIC -c -o ${obj_hip} ${src_hip}
-            )
-
-            # Add the .o as a 'source' (even though it is already compiled)
-            target_sources(
-                slate
-                PRIVATE
-                "${obj_hip}"
-            )
-        endif()
-    endforeach()
+    include( "cmake/hipify.cmake" )
+    hipify( "${slate_cuda_src}" slate_hip_src )
+    target_sources(
+        slate
+        PRIVATE
+        ${slate_hip_src}
+    )
 else()
     message( STATUS "${red}No HIP/ROCm support: gpu_backend = ${gpu_backend}${plain}" )
 endif()

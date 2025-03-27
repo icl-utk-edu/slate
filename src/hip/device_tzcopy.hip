@@ -117,7 +117,8 @@ void tzcopy(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
     tzcopy_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
           uplo,
@@ -125,8 +126,8 @@ void tzcopy(
           Aarray, lda,
           Barray, ldb);
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------

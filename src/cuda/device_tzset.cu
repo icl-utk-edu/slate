@@ -111,7 +111,8 @@ void tzset(
     scalar_t* A, int64_t lda,
     blas::Queue& queue )
 {
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int nthreads = std::min( int64_t( 1024 ), m );
@@ -120,8 +121,8 @@ void tzset(
         uplo, m, n,
         offdiag_value, diag_value, A, lda );
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert( error == cudaSuccess );
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------
@@ -225,7 +226,8 @@ void tzset(
     if (batch_count == 0)
         return;
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int nthreads = std::min( int64_t( 1024 ), m );
@@ -234,8 +236,8 @@ void tzset(
         uplo, m, n,
         offdiag_value, diag_value, Aarray, lda );
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert( error == cudaSuccess );
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------

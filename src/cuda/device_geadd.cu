@@ -129,7 +129,8 @@ void geadd(
     if (m == 0 || n == 0)
         return;
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
@@ -139,8 +140,8 @@ void geadd(
         alpha, A, lda,
         beta, B, ldb);
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert(error == cudaSuccess);
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------
@@ -245,7 +246,8 @@ void geadd(
     if (batch_count == 0)
         return;
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
@@ -255,8 +257,8 @@ void geadd(
         alpha, Aarray, lda,
         beta, Barray, ldb);
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert(error == cudaSuccess);
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------

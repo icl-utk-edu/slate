@@ -291,7 +291,8 @@ void transpose(
         return;
     assert(lda >= n);
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
     int nt = ceildiv( n, int64_t(ib) );
     assert(nt <= 65535);                // CUDA limitation
@@ -312,8 +313,8 @@ void transpose(
     transpose_kernel<<< blocks, threads, 0, queue.stream() >>>
         (is_conj, n, A, lda);
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------
@@ -349,7 +350,8 @@ void transpose_batch(
         return;
     assert(lda >= n);
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
     int nt = ceildiv( n, int64_t(ib) );
     assert(nt <= 65535);                // CUDA limitation
@@ -371,8 +373,8 @@ void transpose_batch(
     transpose_batch_kernel<<< blocks, threads, 0, queue.stream() >>>
         ( is_conj, n, Aarray, lda );
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------
@@ -430,7 +432,8 @@ void transpose(
     assert(lda >= m);
     assert(ldat >= n);
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
     int mt = ceildiv( m, int64_t(NB) );
     assert(mt <= 65535);                // CUDA limitation
@@ -442,8 +445,8 @@ void transpose(
     transpose_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
         ( is_conj, m, n, dA, lda, dAT, ldat );
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------
@@ -494,7 +497,8 @@ void transpose_batch(
     assert(lda >= m);
     assert(ldat >= n);
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
     int mt = ceildiv( m, int64_t(NB) );
     assert(mt <= 65535);                // CUDA limitation
@@ -507,8 +511,8 @@ void transpose_batch(
     transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
         ( is_conj, m, n, dA_array, lda, dAT_array, ldat );
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------

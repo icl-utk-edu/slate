@@ -384,7 +384,8 @@ void genorm(
     if (batch_count == 0)
         return;
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     if (scope == NormScope::Matrix) {
 
@@ -466,8 +467,8 @@ void genorm(
         slate_not_implemented("The norm scope isn't yet supported.");
     }
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert(error == cudaSuccess);
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------

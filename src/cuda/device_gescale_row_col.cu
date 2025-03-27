@@ -184,7 +184,8 @@ void gescale_row_col_batch(
     if (batch_count == 0)
         return;
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
@@ -202,8 +203,8 @@ void gescale_row_col_batch(
             m, n, Rarray, Carray, Aarray, lda );
     }
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert( error == cudaSuccess );
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------

@@ -102,7 +102,8 @@ void geset(
     if (m == 0 || n == 0)
         return;
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
@@ -111,8 +112,8 @@ void geset(
         m, n,
         offdiag_value, diag_value, A, lda);
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------
@@ -208,7 +209,8 @@ void geset(
     if (m == 0 || n == 0)
         return;
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
@@ -217,8 +219,8 @@ void geset(
         m, n,
         offdiag_value, diag_value, Aarray, lda);
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------

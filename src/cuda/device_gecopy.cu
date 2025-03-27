@@ -103,15 +103,16 @@ void gecopy(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     gecopy_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
           m, n,
           Aarray, lda,
           Barray, ldb);
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert(error == cudaSuccess);
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------

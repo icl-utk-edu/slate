@@ -298,7 +298,8 @@ void synorm(
     if (batch_count == 0)
         return;
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     //---------
     // max norm
@@ -339,8 +340,8 @@ void synorm(
         }
     }
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert(error == cudaSuccess);
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 const int ib  = 32;
@@ -495,7 +496,8 @@ void synormOffdiag(
     if (batch_count == 0)
         return;
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     //---------
     // one norm
@@ -512,8 +514,8 @@ void synormOffdiag(
         slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
     }
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert(error == cudaSuccess);
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------

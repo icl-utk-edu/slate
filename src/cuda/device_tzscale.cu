@@ -115,7 +115,8 @@ void tzscale(
     if (batch_count == 0)
         return;
 
-    cudaSetDevice( queue.device() );
+    blas_dev_call(
+        cudaSetDevice( queue.device() ) );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
@@ -124,8 +125,8 @@ void tzscale(
         uplo, m, n,
         numer, denom, Aarray, lda);
 
-    cudaError_t error = cudaGetLastError();
-    slate_assert(error == cudaSuccess);
+    blas_dev_call(
+        cudaGetLastError() );
 }
 
 //------------------------------------------------------------------------------

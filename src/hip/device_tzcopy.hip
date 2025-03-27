@@ -9,16 +9,14 @@
 
 #include "device_util.hip.hh"
 
-#include <cstdio>
-
 namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Kernel implementing element-wise tile addition.
+/// Kernel implementing copy and precision conversions, copying A to B.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
-/// Launched by tzadd().
+/// Launched by tzcopy().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
@@ -33,46 +31,46 @@ namespace device {
 /// @param[in] lda
 ///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-/// @param[in,out] Barray
+/// @param[out] Barray
 ///     Array of tiles of dimension gridDim.x,
 ///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
 /// @param[in] ldb
 ///     Leading dimension of each tile in Barray. ldb >= m.
 ///
-template <typename scalar_t>
-__global__ void tzadd_kernel(
+template <typename src_scalar_t, typename dst_scalar_t>
+__global__ void tzcopy_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** Aarray, int64_t lda,
-    scalar_t beta,  scalar_t** Barray, int64_t ldb)
+    src_scalar_t const* const* Aarray, int64_t lda,
+    dst_scalar_t** Barray, int64_t ldb)
 {
-    scalar_t* tileA = Aarray[ blockIdx.x ];
-    scalar_t* tileB = Barray[ blockIdx.x ];
+    src_scalar_t const* tileA = Aarray[ blockIdx.x ];
+    dst_scalar_t*       tileB = Barray[ blockIdx.x ];
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
-        scalar_t* rowA = &tileA[ i ];
-        scalar_t* rowB = &tileB[ i ];
+        src_scalar_t const* rowA = &tileA[ i ];
+        dst_scalar_t*       rowB = &tileB[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
             for (int64_t j = 0; j <= i && j < n; ++j) { // lower
-                rowB[j*ldb] = alpha * rowA[j*lda] + beta * rowB[ j*ldb ];
+                copy(rowA[j*lda], rowB[j*ldb]);
             }
         }
         else {
             for (int64_t j = n-1; j >= i; --j) { // upper
-                 rowB[j*ldb] = alpha * rowA[ j*lda ] + beta * rowB[ j*ldb ];
+                copy(rowA[j*lda], rowB[j*ldb]);
             }
         }
     }
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise trapezoidal tile addition.
-/// Sets upper or lower part of
+/// Batched routine for element-wise trapezoidal copy and precision conversion,
+/// copying A to B. Sets upper or lower part of
 /// \[
-///     Barray[k] = \alpha Aarray[k] + \beta Barray[k].
+///     Barray[k] = Aarray[k].
 /// \]
 ///
 /// @param[in] uplo
@@ -84,9 +82,6 @@ __global__ void tzadd_kernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
 ///
-/// @param[in] alpha
-///     The scalar alpha.
-///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
 ///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
@@ -94,10 +89,7 @@ __global__ void tzadd_kernel(
 /// @param[in] lda
 ///     Leading dimension of each tile in A. lda >= m.
 ///
-/// @param[in] beta
-///     The scalar beta.
-///
-/// @param[in,out] Barray
+/// @param[out] Barray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
 ///     where each Barray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
@@ -110,12 +102,12 @@ __global__ void tzadd_kernel(
 /// @param[in] queue
 ///     BLAS++ queue to execute in.
 ///
-template <typename scalar_t>
-void tzadd(
+template <typename src_scalar_t, typename dst_scalar_t>
+void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t const& alpha, scalar_t** Aarray, int64_t lda,
-    scalar_t const& beta, scalar_t** Barray, int64_t ldb,
+    src_scalar_t const* const* Aarray, int64_t lda,
+    dst_scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return
@@ -125,68 +117,119 @@ void tzadd(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
-    tzadd_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
-        uplo,
-        m, n,
-        alpha, Aarray, lda,
-        beta, Barray, ldb);
+    tzcopy_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+          uplo,
+          m, n,
+          Aarray, lda,
+          Barray, ldb);
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
+
+// float => float
 template
-void tzadd(
+void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float const& alpha, float** Aarray, int64_t lda,
-    float const& beta, float** Barray, int64_t ldb,
+    float const* const* Aarray, int64_t lda,
+    float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+// float => double
 template
-void tzadd(
+void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double const& alpha, double** Aarray, int64_t lda,
-    double const& beta, double** Barray, int64_t ldb,
+    float const* const* Aarray, int64_t lda,
+    double** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue);
+
+// double => double
+template
+void tzcopy(
+    lapack::Uplo uplo,
+    int64_t m, int64_t n,
+    double const* const* Aarray, int64_t lda,
+    double** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue);
+
+// double => float
+template
+void tzcopy(
+    lapack::Uplo uplo,
+    int64_t m, int64_t n,
+    double const* const* Aarray, int64_t lda,
+    float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 //------------------------------------------------------------------------------
 // Specializations to cast std::complex => hipComplex.
+
+// complex-float => complex-float
 template <>
-void tzadd(
+void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<float> const& alpha, std::complex<float>** Aarray, int64_t lda,
-    std::complex<float> const& beta,  std::complex<float>** Barray, int64_t ldb,
+    std::complex<float> const* const* Aarray, int64_t lda,
+    std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-    tzadd( uplo, m, n,
-           rocblas_float_complex( real( alpha ), imag( alpha ) ),
-           (rocblas_float_complex**) Aarray, lda,
-           rocblas_float_complex( real( beta ), imag( beta ) ),
-           (rocblas_float_complex**) Barray, ldb,
-           batch_count, queue );
+    tzcopy( uplo, m, n,
+            (rocblas_float_complex**) Aarray, lda,
+            (rocblas_float_complex**) Barray, ldb,
+            batch_count, queue );
 }
 
+// complex-float => complex-double
 template <>
-void tzadd(
+void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<double> const& alpha, std::complex<double>** Aarray, int64_t lda,
-    std::complex<double> const& beta,  std::complex<double>** Barray, int64_t ldb,
+    std::complex<float> const* const* Aarray, int64_t lda,
+    std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-    tzadd( uplo, m, n,
-           rocblas_double_complex( real( alpha ), imag( alpha ) ),
-           (rocblas_double_complex**) Aarray, lda,
-           rocblas_double_complex( real( beta ), imag( beta ) ),
-           (rocblas_double_complex**) Barray, ldb,
-           batch_count, queue );
+    tzcopy( uplo, m, n,
+            (rocblas_float_complex**)  Aarray, lda,
+            (rocblas_double_complex**) Barray, ldb,
+            batch_count, queue );
+}
+
+// complex-double => complex-double
+template <>
+void tzcopy(
+    lapack::Uplo uplo,
+    int64_t m, int64_t n,
+    std::complex<double> const* const* Aarray, int64_t lda,
+    std::complex<double>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    tzcopy( uplo, m, n,
+            (rocblas_double_complex**) Aarray, lda,
+            (rocblas_double_complex**) Barray, ldb,
+            batch_count, queue );
+}
+
+// complex-double => complex-float
+template <>
+void tzcopy(
+    lapack::Uplo uplo,
+    int64_t m, int64_t n,
+    std::complex<double> const* const* Aarray, int64_t lda,
+    std::complex<float>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    tzcopy( uplo, m, n,
+            (rocblas_double_complex**) Aarray, lda,
+            (rocblas_float_complex**)  Barray, ldb,
+            batch_count, queue );
 }
 
 } // namespace device

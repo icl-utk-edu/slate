@@ -19,7 +19,7 @@ make -s ${md5_files}
 
 for cu in ${cu_files}; do
     base=$(basename -- ${cu%%.*})
-    hip=src/hip/${base}.hip.cc
+    hip=src/hip/${base}.hip
     if diff ${cu}.md5 ${hip}.dep > /dev/null 2>&1; then
         #printf "%-40s up-to-date\n" "${hip}"
         :  # no-op

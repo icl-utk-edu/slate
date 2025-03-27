@@ -385,7 +385,8 @@ void genorm(
     if (batch_count == 0)
         return;
 
-    hipSetDevice( queue.device() );
+    blas_dev_call(
+        hipSetDevice( queue.device() ) );
 
     if (scope == NormScope::Matrix) {
 
@@ -467,8 +468,8 @@ void genorm(
         slate_not_implemented("The norm scope isn't yet supported.");
     }
 
-    hipError_t error = hipGetLastError();
-    slate_assert(error == hipSuccess);
+    blas_dev_call(
+        hipGetLastError() );
 }
 
 //------------------------------------------------------------------------------

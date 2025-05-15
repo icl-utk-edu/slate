@@ -71,9 +71,10 @@ abs_prefix      := ${abspath ${prefix}}
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static gpu_backend
 
+# CUDA 11 (2020), HIP 5.5 (2023) or earlier support C++17.
 CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
-NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
-HIPCCFLAGS += -std=c++14 -DTCE_HIP -fno-gpu-rdc
+NVCCFLAGS  += -O3 -std=c++17 --compiler-options '-Wall -Wno-unused-function'
+HIPCCFLAGS += -O3 -std=c++17 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
 

@@ -22,9 +22,15 @@ if (shutil.which( 'nvidia-smi' )):
 
 # If no CUDA GPUs, search for ROCm GPUs.
 if (ngpus == 0 and shutil.which( 'rocm-smi' )):
-    p = subprocess.run( ['rocm-smi', '--showid'], capture_output=True )
+    p = subprocess.run( ['rocm-smi', '--showuniqueid'], capture_output=True )
     stdout = p.stdout.decode('utf-8').splitlines()
-    ngpus = len( list( filter( lambda line: re.search( 'GPU', line ), stdout ) ) )
+    seen = {}
+    ngpus = 0
+    for line in stdout:
+        s = re.search( r'(GPU\[\d+\])', line )
+        if (s and s.group(1) not in seen):
+            seen[ s.group(1) ] = True
+            ngpus += 1
     if (ngpus > 0):
         gpu_kind = 'rocm'
 # end

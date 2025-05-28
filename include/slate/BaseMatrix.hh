@@ -374,12 +374,6 @@ public:
     {
         tileGetForReading( tile_set, HostNum, layout );
     }
-    [[deprecated( "tileGetForReading no longer obeys from_device. Will be removed 2024-10." )]]
-    void tileGetForReading(std::set<ij_tuple>& tile_set, LayoutConvert layout,
-                            int from_device)
-    {
-        tileGetForReading( tile_set, layout );
-    }
 
     void tileGetAllForReading(int device, LayoutConvert layout);
 
@@ -433,27 +427,6 @@ public:
 
     void tileUpdateAllOrigin();
 
-    /// Returns life counter of tile {i, j} of op(A).
-    [[deprecated( "Tile life has been removed. Accessor stubs will be removed 2024-12." )]]
-    int64_t tileLife(int64_t i, int64_t j) const
-    {
-        return 1;
-    }
-
-    /// Set life counter of tile {i, j} of op(A).
-    [[deprecated( "Tile life has been removed. Accessor stubs will be removed 2024-12." )]]
-    void tileLife(int64_t i, int64_t j, int64_t life)
-    {
-    }
-
-    /// Decrements life counter of workspace tile {i, j} of op(A).
-    /// Then, if life reaches 0, deletes tile on all devices.
-    /// For local, non-workspace tiles, does nothing.
-    [[deprecated( "Tile life has been removed. Accessor stubs will be removed 2024-12." )]]
-    void tileTick(int64_t i, int64_t j)
-    {
-    }
-
     /// Returns how many times the tile {i, j} is received
     /// through MPI.
     /// This function is used to track tiles that may be
@@ -485,13 +458,6 @@ public:
     //--------------------------------------------------------------------------
     void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
 
-    template <Target target>
-    [[deprecated( "Setting the Target of tileSend is deprecated. Will be removed 2024-12." )]]
-    void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0)
-    {
-        tileSend( i, j, dst_rank, tag );
-    }
-
     void tileIsend(int64_t i, int64_t j, int dst_rank,
                    int tag, MPI_Request* request);
 
@@ -508,38 +474,12 @@ public:
                    Layout layout, int tag = 0);
 
     template <Target target = Target::Host>
-    [[deprecated( "Tile life has been removed. The 6 argument tileBcast will be removed 2024-12." )]]
-    void tileBcast(int64_t i, int64_t j, BaseMatrix const& B,
-                   Layout layout, int tag, int64_t life_factor)
-    {
-        tileBcast( i, j, B, layout, tag );
-    }
-
-    template <Target target = Target::Host>
     void listBcast( BcastList& bcast_list, Layout layout, int tag = 0, bool is_shared = false );
-
-    template <Target target = Target::Host>
-    [[deprecated( "Tile life has been removed. The 5 argument listBcast will be removed 2024-12." )]]
-    void listBcast(
-        BcastList& bcast_list, Layout layout, int tag,
-        int64_t life_factor, bool is_shared = false)
-    {
-        listBcast( bcast_list, layout, tag, is_shared );
-    }
 
     // This variant takes a BcastListTag where each <i,j> tile has
     // its own message tag
     template <Target target = Target::Host>
     void listBcastMT( BcastListTag& bcast_list, Layout layout, bool is_shared = false );
-
-    template <Target target = Target::Host>
-    [[deprecated( "Tile life has been removed. The 4 argument listBcastMT will be removed 2024-12." )]]
-    void listBcastMT(
-        BcastListTag& bcast_list, Layout layout,
-        int64_t life_factor, bool is_shared = false)
-    {
-        listBcastMT( bcast_list, layout, is_shared );
-    }
 
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, Layout layout, int tag = 0);
@@ -554,20 +494,6 @@ public:
     Layout tileLayout( int64_t i, int64_t j, int device=HostNum )
     {
         return storage_->at( globalIndex(i, j, device) )->layout();
-    }
-
-    /// Sets Layout of tile(i, j, device)
-    [[deprecated( "Use tileGetFor* instead. Will be removed 2024-10." )]]
-    void tileLayout(int64_t i, int64_t j, int device, Layout layout)
-    {
-        storage_->at( globalIndex(i, j, device) )->setLayout(layout);
-    }
-
-    /// Sets Layout of tile(i, j, host)
-    [[deprecated( "Use tileGetFor* instead. Will be removed 2024-10." )]]
-    void tileLayout(int64_t i, int64_t j, Layout layout)
-    {
-        tileLayout( i, j, HostNum, layout );
     }
 
     bool tileLayoutIsConvertible( int64_t i, int64_t j, int device=HostNum );
@@ -3244,28 +3170,6 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
             }
         }
     }
-}
-
-//------------------------------------------------------------------------------
-/// Returns whether tile(i, j, device) can be safely transposed.
-/// based on its 'TileKind', buffer size, Layout, and stride.
-/// Tile instance on 'device' should exist.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] device
-///     Tile's host or device ID, defaults to host.
-///
-// todo: validate working for sub- and sliced- matrix
-template <typename scalar_t>
-[[deprecated( "SLATE now manages convertibility internally. Will be removed 2024-10." )]]
-bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
-{
-    return storage_->at( globalIndex(i, j, device) )->isTransposable();
 }
 
 //------------------------------------------------------------------------------

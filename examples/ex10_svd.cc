@@ -46,12 +46,6 @@ void test_svd()
     slate::svd( A, Sigma );
     //---------- end svd3
 
-    // traditional LAPACK API deprecated
-    #ifdef DEPRECATED
-        random_matrix( A );
-        slate::gesvd( A, Sigma );
-    #endif
-
     // todo: full SVD not yet supported?
 
     //----------------------------------------
@@ -85,12 +79,6 @@ void test_svd()
     //---------- begin svd7
     slate::svd( A, Sigma, Uempty, VH ); // only V^H
     //---------- end svd7
-
-    // traditional LAPACK API deprecated
-    #ifdef DEPRECATED
-        random_matrix( A );
-        slate::gesvd( A, Sigma, U, VH );
-    #endif
 }
 
 //------------------------------------------------------------------------------

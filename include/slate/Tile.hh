@@ -151,10 +151,6 @@ public:
     /// Returns column stride of this tile
     int64_t stride() const { return stride_; }
 
-    /// Sets column stride of this tile
-    [[deprecated( "Use setLayout to manage the Tile's layout.  Will be removed 2024-12." )]]
-    void stride(int64_t in_stride) { stride_ = in_stride; }
-
     /// Returns const pointer to data, i.e., A(0,0), where A is this tile
     scalar_t const* data() const { return data_; }
 
@@ -232,8 +228,6 @@ public:
     Layout userLayout() const { return user_layout_; }
 
     void setLayout(Layout in_layout);
-    [[deprecated( "Use setLayout instead. Will be removed 2024-10." )]]
-    void   layout(Layout in_layout) { layout_ = in_layout; }
 
     /// @return Whether the front memory buffer is contiguous
     bool isContiguous() const
@@ -734,29 +728,6 @@ void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 {
     slate_assert(! isTransposable());
     ext_data_ = new_data;
-}
-
-//------------------------------------------------------------------------------
-/// Sets the front buffer of the extended tile,
-/// and adjusts stride accordingly.
-/// NOTE: tile should be already extended, throws error otherwise.
-///
-template <typename scalar_t>
-[[deprecated( "Use setLayout instead. Will be removed 2024-10." )]]
-void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
-{
-    slate_assert(extended());
-
-    if (front) {
-        data_ = ext_data_;
-        stride_ = user_layout_ == Layout::RowMajor ?
-                  mb_ : nb_;
-    }
-    else {
-        data_ = user_data_;
-        stride_ = user_stride_;
-        layout_ = user_layout_;
-    }
 }
 
 //------------------------------------------------------------------------------

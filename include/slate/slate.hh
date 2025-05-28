@@ -962,29 +962,6 @@ void svd_vals(
     svd( A, Sigma, opts );
 }
 
-template <typename scalar_t>
-[[deprecated( "Use svd instead. To be removed 2024-07." )]]
-void gesvd(
-    Matrix<scalar_t> A,
-    std::vector< blas::real_type<scalar_t> >& Sigma,
-    Matrix<scalar_t>& U,
-    Matrix<scalar_t>& VT,
-    Options const& opts = Options())
-{
-    svd( A, Sigma, U, VT, opts );
-}
-
-/// Without U and VT, compute only singular values.
-template <typename scalar_t>
-[[deprecated( "Use svd instead. To be removed 2024-07." )]]
-void gesvd(
-    Matrix<scalar_t> A,
-    std::vector< blas::real_type<scalar_t> >& Sigma,
-    Options const& opts = Options())
-{
-    svd( A, Sigma, opts );
-}
-
 //-----------------------------------------
 // unmbr_ge2tb()
 template <typename scalar_t>
@@ -1290,18 +1267,6 @@ void steqr(
     Matrix<scalar_t>& Z,
     Options const& opts = Options());
 
-template <typename scalar_t>
-[[deprecated( "Use steqr. Will be removed 2025-06." )]]
-void steqr2(
-    Job jobz,
-    std::vector< blas::real_type<scalar_t> >& D,
-    std::vector< blas::real_type<scalar_t> >& E,
-    Matrix<scalar_t>& Z,
-    Options const& opts = Options())
-{
-    steqr( jobz, D, E, Z, opts );
-}
-
 // low-level implementation
 template <typename scalar_t>
 int64_t steqr(
@@ -1324,18 +1289,6 @@ blas::real_type<scalar_t> gecondest(
     blas::real_type<scalar_t> Anorm,
     Options const& opts = Options());
 
-template <typename scalar_t>
-[[deprecated( "Use rcond = gecondest(...) and pass Anorm by value instead. Will be removed 2024-11." )]]
-void gecondest(
-        Norm in_norm,
-        Matrix<scalar_t>& A,
-        blas::real_type<scalar_t> *Anorm,
-        blas::real_type<scalar_t> *rcond,
-        Options const& opts = Options())
-{
-    *rcond = gecondest( in_norm, A, *Anorm, opts );
-}
-
 //-----------------------------------------
 // pocondest()
 template <typename scalar_t>
@@ -1353,18 +1306,6 @@ blas::real_type<scalar_t> trcondest(
     TriangularMatrix<scalar_t>& A,
     blas::real_type<scalar_t> Anorm,
     Options const& opts = Options());
-
-template <typename scalar_t>
-[[deprecated( "Use rcond = trcondest(...) and pass Anorm. Will be removed 2024-11." )]]
-void trcondest(
-        Norm in_norm,
-        TriangularMatrix<scalar_t>& A,
-        blas::real_type<scalar_t> *rcond,
-        Options const& opts = Options())
-{
-    blas::real_type<scalar_t> Anorm = norm( in_norm, A, opts );
-    *rcond = trcondest( in_norm, A, Anorm, opts );
-}
 
 } // namespace slate
 

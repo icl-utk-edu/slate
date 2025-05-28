@@ -62,8 +62,6 @@ enum class MethodTrsm : char {
     Auto      = '*',    ///< Let SLATE decide
     A         = 'A',    ///< Matrix A is stationary, B is sent; use when B is small
     B         = 'B',    ///< Matrix B is stationary, A is sent; use when B is large
-    TrsmA [[deprecated("Use A. To be removed 2025-05.")]] = 'A',
-    TrsmB [[deprecated("Use B. To be removed 2025-05.")]] = 'B',
 };
 
 extern const char* MethodTrsm_help;
@@ -109,8 +107,6 @@ enum class MethodGemm : char {
     Auto      = '*',    ///< Let SLATE decide
     A         = 'A',    ///< Matrix A is stationary, C is sent; use when C is small
     C         = 'C',    ///< Matrix C is stationary, A is sent; use when C is large
-    GemmA [[deprecated("Use A. To be removed 2025-05.")]] = 'A',
-    GemmC [[deprecated("Use C. To be removed 2025-05.")]] = 'C',
 };
 
 extern const char* MethodGemm_help;
@@ -156,8 +152,6 @@ enum class MethodHemm : char {
     Auto      = '*',    ///< Let SLATE decide
     A         = 'A',    ///< Matrix A is stationary, C is sent; use when C is small
     C         = 'C',    ///< Matrix C is stationary, A is sent; use when C is large
-    HemmA [[deprecated("Use A. To be removed 2025-05.")]] = 'A',
-    HemmC [[deprecated("Use C. To be removed 2025-05.")]] = 'C',
 };
 
 extern const char* MethodHemm_help;
@@ -256,8 +250,6 @@ enum class MethodGels : char {
     Auto      = '*',    ///< Let SLATE decide
     QR        = 'Q',    ///< Use Householder QR factorization
     CholQR    = 'C',    ///< Use Cholesky QR factorization; use when A is well-conditioned
-    Geqrf  [[deprecated("Use QR. To be removed 2025-05.")]] = 'Q',
-    Cholqr [[deprecated("Use CholQR. To be removed 2025-05.")]] = 'C',
 };
 
 extern const char* MethodGels_help;

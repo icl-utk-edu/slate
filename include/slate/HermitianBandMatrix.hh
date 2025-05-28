@@ -56,10 +56,6 @@ public:
     friend void swap(HermitianBandMatrix<T>& A, HermitianBandMatrix<T>& B);
 
     void    gatherAll(std::set<int>& rank_set, int tag = 0);
-    [[deprecated( "Tile life has been removed. The 3 argument gatherAll will be removed 2024-12." )]]
-    void    gatherAll(std::set<int>& rank_set, int tag, int64_t life_factor) {
-        gatherAll( rank_set, tag );
-    }
 
     void    he2hbGather(HermitianMatrix<scalar_t>& A);
 };

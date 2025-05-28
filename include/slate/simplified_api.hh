@@ -248,20 +248,6 @@ int64_t lu_solve(
 }
 
 //-----------------------------------------
-// lu_solve_nopiv()
-
-// gesv_nopiv
-template <typename scalar_t>
-[[deprecated( "Use lu_solve( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
-int64_t lu_solve_nopiv(
-    Matrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
-    Options const& opts = Options())
-{
-    return gesv_nopiv( A, B, opts );
-}
-
-//-----------------------------------------
 // lu_factor()
 
 // gbtrf
@@ -280,19 +266,6 @@ int64_t lu_factor(
     Options const& opts = Options())
 {
     return getrf( A, pivots, opts );
-}
-
-//-----------------------------------------
-// lu_factor_nopiv()
-
-// getrf_nopiv
-template <typename scalar_t>
-[[deprecated( "Use lu_factor( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
-int64_t lu_factor_nopiv(
-    Matrix<scalar_t>& A,
-    Options const& opts = Options())
-{
-    return getrf_nopiv( A, opts );
 }
 
 //-----------------------------------------
@@ -316,20 +289,6 @@ void lu_solve_using_factor(
     Options const& opts = Options())
 {
     getrs(A, pivots, B, opts);
-}
-
-//-----------------------------------------
-// lu_solve_using_factor_nopiv()
-
-// getrs_nopiv
-template <typename scalar_t>
-[[deprecated( "Use lu_solve_using_factor( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
-void lu_solve_using_factor_nopiv(
-    Matrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
-    Options const& opts = Options())
-{
-    getrs_nopiv(A, B, opts);
 }
 
 //-----------------------------------------

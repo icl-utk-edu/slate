@@ -20,6 +20,8 @@
 # Get parent directory, stripping trailing /.
 dir_strip = ${patsubst %/,%,${dir ${1}}}
 
+lowercase = $(shell echo ${1} | tr '[:upper:]' '[:lower:]')
+
 #-------------------------------------------------------------------------------
 # Set defaults
 # Do all ?= before strip!
@@ -343,7 +345,7 @@ SCALAPACK_LIBRARIES ?= -lscalapack
 ifeq (${cuda},1)
     # Generate flags for which CUDA architectures to build.
     # cuda_arch_ is a local copy to modify.
-    cuda_arch_ = ${cuda_arch}
+    cuda_arch_ = $(call lowercase,${cuda_arch})
     ifneq (,${findstring kepler, ${cuda_arch_}})
         cuda_arch_ += sm_30
     endif
@@ -405,18 +407,21 @@ endif
 ifeq (${hip},1)
     # Generate flags for which HIP architectures to build.
     # hip_arch_ is a local copy to modify.
-    hip_arch_ = ${hip_arch}
-    ifneq (,${findstring mi25, ${hip_arch_}})
+    hip_arch_ = $(call lowercase,${hip_arch})
+    ifneq (,${filter mi25, ${hip_arch_}})
         hip_arch_ += gfx900
     endif
-    ifneq (,${findstring mi50, ${hip_arch_}})
+    ifneq (,${filter mi50 radeon-vii, ${hip_arch_}})
         hip_arch_ += gfx906
     endif
-    ifneq (,${findstring mi100, ${hip_arch_}})
+    ifneq (,${filter mi100, ${hip_arch_}})
         hip_arch_ += gfx908
     endif
-    ifneq (,${findstring mi200, ${hip_arch_}})
+    ifneq (,${filter mi210 mi250 mi250x, ${hip_arch_}})
         hip_arch_ += gfx90a
+    endif
+    ifneq (,${filter mi300 mi300a mi300x, ${hip_arch_}})
+        hip_arch_ += gfx942
     endif
 
     # Extract AMD gfx architectures.
@@ -425,7 +430,7 @@ ifeq (${hip},1)
         # Error if hip_arch is not empty and gfx is empty.
         ifneq (${hip_arch},)
             ${error ERROR: unknown `hip_arch=${hip_arch}`. Set hip_arch \
-                    to one or more of mi25, mi50, mi100, or valid gfxXYZ. \
+                    to one or more of mi25, mi50, mi100, mi250, mi300, etc., or valid gfxXYZ. \
                     See https://llvm.org/docs/AMDGPUUsage.html}
         endif
     endif

@@ -26,8 +26,8 @@
 namespace slate {
 
 // Version is updated by make_release.py; DO NOT EDIT.
-// Version 2024.10.29
-#define SLATE_VERSION 20241029
+// Version 2025.05.28
+#define SLATE_VERSION 20250528
 
 int version();
 const char* id();

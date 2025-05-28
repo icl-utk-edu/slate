@@ -16,7 +16,7 @@ cmake_minimum_required( VERSION 3.18 )
 
 project(
     slate
-    VERSION 2024.10.29
+    VERSION 2025.05.28
     LANGUAGES CXX Fortran
 )
 

@@ -158,7 +158,7 @@ endif
 #     bump revision
 #
 # soversion is major ABI version.
-abi_version = 1.0.0
+abi_version = 2.0.0
 soversion = ${word 1, ${subst ., ,${abi_version}}}
 
 #-------------------------------------------------------------------------------

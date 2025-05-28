@@ -175,8 +175,8 @@ def make( project, version_h, version_c ):
 
     print( '\n>> Updating version in: doxyfile.conf' )
     file_sub( 'docs/doxygen/doxyfile.conf',
-              r'(PROJECT_NUMBER *=) *"\d+\.\d+\.\d+"',
-              r'\1 "%s"' % (tag), count=1 )
+              r'(PROJECT_NUMBER *=) *\d+\.\d+\.\d+',
+              r'\1 %s' % (tag), count=1 )
 
     myrun( 'git diff' )
     myrun( 'git diff --staged' )

@@ -22,7 +22,7 @@ project(
 
 # See notes in GNUmakefile about using abi-compliance-checker.
 # soversion is major ABI version.
-set( abi_version 1.0.0 )
+set( abi_version 2.0.0 )
 string( REPLACE "." ";" abi_list "${abi_version}" )
 list( GET abi_list 0 soversion )
 

@@ -1,4 +1,11 @@
-2024.10.29
+2025.05.28 (ABI 2.0.0)
+  - Removed deprecated functions
+  - Tester prints stats with --repeat
+  - Update ScaLAPACK API to query env variables only once
+  - Update eig (heev) to verify square process grid
+  - Fixed template syntax
+
+2024.10.29 (ABI 1.0.0)
   - Fixed norm to correctly propagate NaN and Inf values.
   - Fixed matrix generators to 1-based i,j indices, to match Matlab.
   - Added new matrix generators (minij, hilb, ..., gcdmat).
@@ -8,8 +15,8 @@
   - Refactored ScaLAPACK wrappers with enums, namespace.
   - Replaced Fortran steqr2 with C++ steqr.
 
-2024.05.31
-  - Added shared library version (ABI version 1.0.0)
+2024.05.31 (ABI 1.0.0)
+  - Added shared library ABI version
   - Updated enum parameters to have `to_string`, `from_string`;
     deprecated `<enum>2str`, `str2<enum>`
   - Changed methods to enums; renamed some values and deprecated old values

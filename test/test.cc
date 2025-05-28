@@ -787,6 +787,7 @@ int run(int argc, char** argv)
 
         // run tests
         int repeat = params.repeat();
+        std::vector<double> times( repeat ), gflops( repeat );
         testsweeper::DataType last_datatype = params.datatype();
 
         if (print)
@@ -808,6 +809,11 @@ int run(int argc, char** argv)
                 int err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
                 if (err)
                     params.okay() = false;
+
+                // Collect stats.
+                times [ iter ] = params.time();
+                gflops[ iter ] = params.gflops();
+
                 if (print) {
                     params.print();
                     fflush(stdout);
@@ -817,7 +823,9 @@ int run(int argc, char** argv)
                 msg.clear();
             }
             if (repeat > 1 && print) {
-                printf("\n");
+                testsweeper::print_stats( params.time,   times  );
+                testsweeper::print_stats( params.gflops, gflops );
+                printf( "\n" );
             }
         } while (params.next());
 

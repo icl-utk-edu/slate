@@ -72,6 +72,71 @@ void test_BandMatrix_empty()
         test_assert( tileDevice_( {0, 0} ) == 0 );
 }
 
+//------------------------------------------------------------------------------
+/// m-by-n, no-data constructor, both square and rectangular tiles,
+/// using lambda functions for tileMb, tileNb, tileRank, tileDevice.
+/// Tests BandMatrix(m, n, tileMb, ...), m, n, mt, nt, op, gridinfo.
+void test_BandMatrix_lambda()
+{
+    int nb_ = nb;  // local copy to capture
+    std::function< int64_t (int64_t j) >
+    tileNb = [nb_](int64_t j)
+    {
+        return (j % 2 == 0 ? 2*nb_ : nb_);
+    };
+    const auto & tileMb = tileNb; // tileNb same as tileMB
+    auto tileRank = slate::func::process_1d_grid( slate::GridOrder::Col, p );
+    // NB. this is process_1d_grid because we want a true cyclic device distribution
+    auto tileDevice = slate::func::process_1d_grid( slate::GridOrder::Row, num_devices );
+
+    // ----------
+    slate::BandMatrix<double> A(m, n, kl, ku, tileNb, tileRank, tileDevice, mpi_comm);
+
+    // verify mt, tileMb(i), and sum tileMb(i) == m
+    int mt = A.mt();
+    int ii = 0;
+    for (int i = 0; i < mt; ++i) {
+        test_assert( A.tileMb(i) == blas::min( tileMb(i), m - ii ) );
+        ii += A.tileMb(i);
+    }
+    test_assert( ii == m );
+
+    // verify nt, tileNb(i), and sum tileNb(i) == n
+    int nt = A.nt();
+    int jj = 0;
+    for (int j = 0; j < nt; ++j) {
+        test_assert( A.tileNb(j) == blas::min( tileNb(j), n - jj ) );
+        jj += A.tileNb(j);
+    }
+    test_assert( jj == n );
+
+    test_assert(A.m() == m);
+    test_assert(A.n() == n);
+    test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
+
+    // SLATE detects the distribution.
+    GridOrder order;
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order != GridOrder::Unknown );
+    test_assert( myp == p );
+    test_assert( myq == 1 );
+    test_assert( myrow == (mpi_rank < p ? mpi_rank : -1) );
+    test_assert( mycol == (mpi_rank < p ? 0 : -1) );
+
+    auto tileMb_     = A.tileMbFunc();
+    auto tileNb_     = A.tileNbFunc();
+    auto tileRank_   = A.tileRankFunc();
+    auto tileDevice_ = A.tileDeviceFunc();
+    test_assert( tileMb_(0) == tileMb(0) );
+    test_assert( tileNb_(0) == tileNb(0) );
+    test_assert( tileRank_( {0, 0} ) == tileRank( {0, 0} ) );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == tileDevice( {0, 0} ) );
+}
+
 //==============================================================================
 // Methods
 
@@ -202,6 +267,90 @@ void test_BandMatrix_tileInsert_new()
             ii += A.tileMb(i);
         }
         jj += A.tileNb(j);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests BandMatrix(), mt, nt, op, insertLocalTiles on host.
+void test_BandMatrix_insertLocalTiles()
+{
+    auto A = slate::BandMatrix<double>(m, n, kl, ku, nb, p, q, mpi_comm);
+
+    test_assert(A.mt() == ceildiv(m, nb));
+    test_assert(A.nt() == ceildiv(n, nb));
+    test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
+    // let function insert the local tiles belonging to band
+    A.insertLocalTiles();
+
+    int jj = 0;
+
+    // Verify tiles for special case all nb == const.
+    for (int j = 0; j < A.nt(); ++j) {
+        // current global row index of digonal
+        int ii = j*A.tileMb(0);
+
+        int istart = std::max((ii - A.upperBandwidth())/A.tileNb(0), int64_t {0});
+        if ((ii - A.upperBandwidth())>A.m()) {
+            istart = A.mt();
+        }
+
+        int iend = ceildiv(ii + A.tileNb(j) + A.lowerBandwidth(), A.tileNb(0));
+        if ((ii + A.tileNb(j) + A.lowerBandwidth() )>A.m()) {
+            iend = A.mt();
+        }
+
+        for (int i = istart; i < iend; ++i) {
+            if (A.tileIsLocal(i, j)) {
+                int ib = std::min( nb, m - ii );
+                int jb = std::min( nb, n - jj );
+
+                auto T = A(i, j);
+                test_assert( T.mb() == ib );
+                test_assert( T.nb() == jb );
+                test_assert( T.op() == slate::Op::NoTrans );
+                test_assert( T.uplo() == slate::Uplo::General );
+            }
+            else {
+                // outside band/not local, tiles don't exist
+                test_assert_throw_std( A(i, j) );
+            }
+            ii += A.tileMb(i);
+        }
+        jj += A.tileNb(j);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Tests BaseBandMatrix(), mt, nt, op, tileIsInBand.
+void test_BandMatrix_tileIsInBand()
+{
+    auto A = slate::BandMatrix<double>(m, n, kl, ku, nb, p, q, mpi_comm);
+
+    test_assert(A.mt() == ceildiv(m, nb));
+    test_assert(A.nt() == ceildiv(n, nb));
+    test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
+
+    // Verify tiles for special case all nb == const.
+    for (int j = 0; j < A.nt(); ++j) {
+        // current global row index of digonal
+        int ii = j*A.tileMb(0);
+
+        int istart = std::max((ii - A.upperBandwidth())/A.tileNb(0), int64_t {0});
+        if ((ii - A.upperBandwidth())>A.m()) {
+            istart = A.mt();
+        }
+
+        int iend = ceildiv(ii + A.tileNb(j) + A.lowerBandwidth(), A.tileNb(0));
+        if ((ii + A.tileNb(j) + A.lowerBandwidth() )>A.m()) {
+            iend = A.mt();
+        }
+
+        for (int i = 0; i < A.mt(); ++i) {
+            bool in = (i >= istart) && (i < iend);
+            test_assert( A.tileIsInBand(i, j) == in );
+        }
     }
 }
 
@@ -438,21 +587,21 @@ void run_tests()
 {
     if (mpi_rank == 0)
         printf("\nConstructors\n");
-    run_test(test_BandMatrix,            "BandMatrix()",           mpi_comm);
-
-    if (mpi_rank == 0)
-        printf("\nm-by-n, no data constructors\n");
-    run_test(test_BandMatrix_empty,           "BandMatrix(m, n, ...)",                mpi_comm);
+    run_test(test_BandMatrix,                  "BandMatrix()",                   mpi_comm);
+    run_test(test_BandMatrix_empty,            "BandMatrix(m, n, ...)",          mpi_comm);
+    run_test(test_BandMatrix_lambda,           "BandMatrix(m, n, tileMb, ...)",  mpi_comm);
 
     if (mpi_rank == 0)
         printf("\nMethods\n");
-    run_test(test_BandMatrix_transpose,       "transpose",      mpi_comm);
-    run_test(test_BandMatrix_conj_transpose,  "conj_transpose", mpi_comm);
-    run_test(test_BandMatrix_swap,            "swap",           mpi_comm);
-    run_test(test_BandMatrix_tileInsert_new,  "BandMatrix::tileInsert(i, j, dev) ", mpi_comm);
-    run_test(test_BandMatrix_tileInsert_data, "BandMatrix::tileInsert(i, j, dev, data, lda)",  mpi_comm);
-    run_test(test_BandMatrix_sub,             "BandMatrix::sub",       mpi_comm);
-    run_test(test_BandMatrix_sub_trans,       "BandMatrix::sub(A^T)",  mpi_comm);
+    run_test(test_BandMatrix_transpose,        "transpose",      mpi_comm);
+    run_test(test_BandMatrix_conj_transpose,   "conj_transpose", mpi_comm);
+    run_test(test_BandMatrix_swap,             "swap",           mpi_comm);
+    run_test(test_BandMatrix_tileInsert_new,   "BandMatrix::tileInsert(i, j, dev) ", mpi_comm);
+    run_test(test_BandMatrix_tileInsert_data,  "BandMatrix::tileInsert(i, j, dev, data, lda)",  mpi_comm);
+    run_test(test_BandMatrix_insertLocalTiles, "BandMatrix::insertLocalTiles()", mpi_comm);
+    run_test(test_BandMatrix_tileIsInBand,     "BaseBandMatrix::tileIsInBand()", mpi_comm);
+    run_test(test_BandMatrix_sub,              "BandMatrix::sub",            mpi_comm);
+    run_test(test_BandMatrix_sub_trans,        "BandMatrix::sub(A^T)",       mpi_comm);
     run_test(test_TriangularBandMatrix_gatherAll, "TriangularBandMatrix::gatherAll()",  mpi_comm);
 }
 

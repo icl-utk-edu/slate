@@ -8,88 +8,15 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-
-// Required CBLACS calls
-extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my_row, int*  my_col);
-
-// Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, int* info);
-
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_pher2k
-
-extern "C" void PSGETRF(int* m, int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-extern "C" void psgetrf(int* m, int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-extern "C" void psgetrf_(int* m, int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PDGETRF(int* m, int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-extern "C" void pdgetrf(int* m, int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-extern "C" void pdgetrf_(int* m, int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PCGETRF(int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-extern "C" void pcgetrf(int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-extern "C" void pcgetrf_(int* m, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZGETRF(int* m, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-extern "C" void pzgetrf(int* m, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-extern "C" void pzgetrf_(int* m, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, int* info)
-{
-    slate_pgetrf(*m, *n, a, *ia, *ja, desca, ipiv, info);
-}
-
-// -----------------------------------------------------------------------------
-template< typename scalar_t >
-void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, int* info)
+//------------------------------------------------------------------------------
+/// SLATE ScaLAPACK wrapper sets up SLATE matrices from ScaLAPACK descriptors
+/// and calls SLATE.
+template <typename scalar_t>
+void slate_pgetrf(
+    blas_int m, blas_int n,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    blas_int* ipiv,
+    blas_int* info )
 {
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -104,15 +31,18 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
     slate::Pivots pivots;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(
+        desc_m( descA ), desc_n( descA ), A_data, desc_lld( descA ),
+        desc_mb( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    A = slate_scalapack_submatrix( Am, An, A, ia, ja, descA );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "getrf");
 
-    slate::getrf(A, pivots, {
+    slate::getrf( A, pivots, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
@@ -121,14 +51,14 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
 
     // Extract pivots from SLATE's global Pivots structure into ScaLAPACK local ipiv array
     {
-        int isrcproc0 = 0;
-        int nb = desc_MB(desca); // ScaLAPACK style fixed nb
-        int64_t l_numrows = scalapack_numroc(An, nb, myprow, isrcproc0, nprow);
+        blas_int isrcproc0 = 0;
+        blas_int nb = desc_mb( descA ); // ScaLAPACK style fixed nb
+        int64_t l_numrows = scalapack_numroc( An, nb, myprow, isrcproc0, nprow );
         // l_ipiv_rindx local ipiv row index (Scalapack 1-index)
         // for each local ipiv entry, find corresponding local-pivot and swap-pivot
-        for (int l_ipiv_rindx=1; l_ipiv_rindx <= l_numrows; ++l_ipiv_rindx) {
+        for (blas_int l_ipiv_rindx=1; l_ipiv_rindx <= l_numrows; ++l_ipiv_rindx) {
             // for ipiv index, convert to global indexing
-            int64_t g_ipiv_rindx = scalapack_indxl2g(&l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow);
+            int64_t g_ipiv_rindx = scalapack_indxl2g( &l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow );
             // assuming uniform nb from scalapack (note 1-indexing)
             // figure out pivots(tile-index, offset)
             int64_t g_ipiv_tile_indx = (g_ipiv_rindx - 1) / nb;
@@ -147,6 +77,66 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
     // todo: extract the real info from getrf
     *info = 0;
 }
+
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
+
+extern "C" {
+
+#define SCALAPACK_psgetrf BLAS_FORTRAN_NAME( psgetrf, PSGETRF )
+void SCALAPACK_psgetrf(
+    blas_int const* m, blas_int const* n,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* ipiv,
+    blas_int* info )
+{
+    slate_pgetrf(
+        *m, *n,
+        A_data, *ia, *ja, descA,
+        ipiv, info );
+}
+
+#define SCALAPACK_pdgetrf BLAS_FORTRAN_NAME( pdgetrf, PDGETRF )
+void SCALAPACK_pdgetrf(
+    blas_int const* m, blas_int const* n,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* ipiv,
+    blas_int* info )
+{
+    slate_pgetrf(
+        *m, *n,
+        A_data, *ia, *ja, descA,
+        ipiv, info );
+}
+
+#define SCALAPACK_pcgetrf BLAS_FORTRAN_NAME( pcgetrf, PCGETRF )
+void SCALAPACK_pcgetrf(
+    blas_int const* m, blas_int const* n,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* ipiv,
+    blas_int* info )
+{
+    slate_pgetrf(
+        *m, *n,
+        A_data, *ia, *ja, descA,
+        ipiv, info );
+}
+
+#define SCALAPACK_pzgetrf BLAS_FORTRAN_NAME( pzgetrf, PZGETRF )
+void SCALAPACK_pzgetrf(
+    blas_int const* m, blas_int const* n,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* ipiv,
+    blas_int* info )
+{
+    slate_pgetrf(
+        *m, *n,
+        A_data, *ia, *ja, descA,
+        ipiv, info );
+}
+
+} // extern "C"
 
 } // namespace scalapack_api
 } // namespace slate

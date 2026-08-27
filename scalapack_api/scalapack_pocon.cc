@@ -8,91 +8,22 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-
-// Required CBLACS calls
-extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my_row, int*  my_col);
-
-// Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_ppocon(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t> anorm, blas::real_type<scalar_t>* rcond, scalar_t* work, int lwork, void* irwork, int lirwork, int* info);
-
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_pher2k
-
-extern "C" void PSPOCON(const char* uplostr, int* n, float* a, int* ia, int* ja, int* desca, float* anorm, float* rcond, float* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, iwork, *liwork, info);
-}
-
-extern "C" void pspocon(const char* uplostr, int* n, float* a, int* ia, int* ja, int* desca, float* anorm, float* rcond, float* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, iwork, *liwork, info);
-}
-
-extern "C" void pspocon_(const char* uplostr, int* n, float* a, int* ia, int* ja, int* desca, float* anorm, float* rcond, float* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, iwork, *liwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PDPOCON(const char* uplostr, int* n, double* a, int* ia, int* ja, int* desca, double* anorm, double* rcond, double* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, iwork, *liwork, info);
-}
-
-extern "C" void pdpocon(const char* uplostr, int* n, double* a, int* ia, int* ja, int* desca, double* anorm, double* rcond, double* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, iwork, *liwork, info);
-}
-
-extern "C" void pdpocon_(const char* uplostr, int* n, double* a, int* ia, int* ja, int* desca, double* anorm, double* rcond, double* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, iwork, *liwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PCPOCON(const char* uplostr, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* anorm, float* rcond, std::complex<float>* work, int* lwork, float* rwork, int* lrwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, rwork, *lrwork, info);
-}
-
-extern "C" void pcpocon(const char* uplostr, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* anorm, float* rcond, std::complex<float>* work, int* lwork, float* rwork, int* lrwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, rwork, *lrwork, info);
-}
-
-extern "C" void pcpocon_(const char* uplostr, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* anorm, float* rcond, std::complex<float>* work, int* lwork, float* rwork, int* lrwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, rwork, *lrwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZPOCON(const char* uplostr, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* anorm, double* rcond, std::complex<double>* work, int* lwork, double* rwork, int* lrwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, rwork, *lrwork, info);
-}
-
-extern "C" void pzpocon(const char* uplostr, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* anorm, double* rcond, std::complex<double>* work, int* lwork, double* rwork, int* lrwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, rwork, *lrwork, info);
-}
-
-extern "C" void pzpocon_(const char* uplostr, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* anorm, double* rcond, std::complex<double>* work, int* lwork, double* rwork, int* lrwork, int* info)
-{
-    slate_ppocon(uplostr, *n, a, *ia, *ja, desca, *anorm, rcond, work, *lwork, rwork, *lrwork, info);
-}
-
-// -----------------------------------------------------------------------------
-template< typename scalar_t >
-void slate_ppocon(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t> anorm, blas::real_type<scalar_t>* rcond, scalar_t* work, int lwork, void* irwork, int lirwork, int* info)
+//------------------------------------------------------------------------------
+/// SLATE ScaLAPACK wrapper sets up SLATE matrices from ScaLAPACK descriptors
+/// and calls SLATE.
+/// If scalar_t is real,    irwork is integer.
+/// If scalar_t is complex, irwork is real.
+template <typename scalar_t>
+void slate_ppocon(
+    const char* uplo_str, blas_int n,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    blas::real_type<scalar_t> Anorm, blas::real_type<scalar_t>* rcond,
+    scalar_t* work, blas_int lwork,
+    void* irwork, blas_int lirwork,
+    blas_int* info )
 {
     Uplo uplo{};
-    from_string( std::string( 1, uplostr[0] ), &uplo );
+    from_string( std::string( 1, uplo_str[0] ), &uplo );
 
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -104,15 +35,15 @@ void slate_ppocon(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* 
     // todo: extract the real info from getrf
     *info = 0;
 
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "pocon");
 
     if (lwork == -1 || lirwork == -1) {
         *work = 0;
         if constexpr (std::is_same_v<scalar_t, blas::real_type<scalar_t>>) {
-            *(int*)irwork = 0;
+            *(blas_int*)irwork = 0;
         }
         else {
             *(blas::real_type<scalar_t>*)irwork = 0;
@@ -125,16 +56,86 @@ void slate_ppocon(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* 
     int64_t An = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+        uplo, desc_n( descA ), A_data, desc_lld( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    A = slate_scalapack_submatrix( Am, An, A, ia, ja, descA );
 
-    *rcond = slate::pocondest(slate::Norm::One, A, anorm, {
+    *rcond = slate::pocondest( slate::Norm::One, A, Anorm, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     });
 }
+
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
+
+extern "C" {
+
+#define SCALAPACK_pspocon BLAS_FORTRAN_NAME( pspocon, PSPOCON )
+void SCALAPACK_pspocon(
+    const char* uplo, blas_int const* n,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* Anorm, float* rcond,
+    float* work, blas_int const* lwork,
+    blas_int* iwork, blas_int const* liwork,
+    blas_int* info )
+{
+    slate_ppocon(
+        uplo, *n,
+        A_data, *ia, *ja, descA,
+        *Anorm, rcond, work, *lwork, iwork, *liwork, info );
+}
+
+#define SCALAPACK_pdpocon BLAS_FORTRAN_NAME( pdpocon, PDPOCON )
+void SCALAPACK_pdpocon(
+    const char* uplo, blas_int const* n,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* Anorm, double* rcond,
+    double* work, blas_int const* lwork,
+    blas_int* iwork, blas_int const* liwork,
+    blas_int* info )
+{
+    slate_ppocon(
+        uplo, *n,
+        A_data, *ia, *ja, descA,
+        *Anorm, rcond, work, *lwork, iwork, *liwork, info );
+}
+
+#define SCALAPACK_pcpocon BLAS_FORTRAN_NAME( pcpocon, PCPOCON )
+void SCALAPACK_pcpocon(
+    const char* uplo, blas_int const* n,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* Anorm, float* rcond,
+    std::complex<float>* work, blas_int const* lwork,
+    float* rwork, blas_int const* lrwork,
+    blas_int* info )
+{
+    slate_ppocon(
+        uplo, *n,
+        A_data, *ia, *ja, descA,
+        *Anorm, rcond, work, *lwork, rwork, *lrwork, info );
+}
+
+#define SCALAPACK_pzpocon BLAS_FORTRAN_NAME( pzpocon, PZPOCON )
+void SCALAPACK_pzpocon(
+    const char* uplo, blas_int const* n,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* Anorm, double* rcond,
+    std::complex<double>* work, blas_int const* lwork,
+    double* rwork, blas_int const* lrwork,
+    blas_int* info )
+{
+    slate_ppocon(
+        uplo, *n,
+        A_data, *ia, *ja, descA,
+        *Anorm, rcond, work, *lwork, rwork, *lrwork, info );
+}
+
+} // extern "C"
 
 } // namespace scalapack_api
 } // namespace slate

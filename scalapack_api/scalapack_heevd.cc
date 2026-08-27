@@ -8,99 +8,23 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-
-// Required CBLACS calls
-extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my_row, int*  my_col);
-
-// Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_pheevd(const char* jobzstr, const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* w, scalar_t* z, int iz, int jz, int* descz, scalar_t* work, int lwork, blas::real_type<scalar_t>* rwork, int lrwork, int* iwork, int liwork, int* info);
-
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_pher2k
-
-extern "C" void PSSYEVD(const char* jobzstr, const char* uplostr, int* n, float* a, int* ia, int* ja, int* desca, float* w, float* z, int* iz, int* jz, int* descz, float* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    float dummy;
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, &dummy, 1, iwork, *liwork, info);
-}
-
-extern "C" void pssyevd(const char* jobzstr, const char* uplostr, int* n, float* a, int* ia, int* ja, int* desca, float* w, float* z, int* iz, int* jz, int* descz, float* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    float dummy;
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, &dummy, 1, iwork, *liwork, info);
-}
-
-extern "C" void pssyevd_(const char* jobzstr, const char* uplostr, int* n, float* a, int* ia, int* ja, int* desca, float* w, float* z, int* iz, int* jz, int* descz, float* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    float dummy;
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, &dummy, 1, iwork, *liwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PDSYEVD(const char* jobzstr, const char* uplostr, int* n, double* a, int* ia, int* ja, int* desca, double* w, double* z, int* iz, int* jz, int* descz, double* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    double dummy;
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, &dummy, 1, iwork, *liwork, info);
-}
-
-extern "C" void pdsyevd(const char* jobzstr, const char* uplostr, int* n, double* a, int* ia, int* ja, int* desca, double* w, double* z, int* iz, int* jz, int* descz, double* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    double dummy;
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, &dummy, 1, iwork, *liwork, info);
-}
-
-extern "C" void pdsyevd_(const char* jobzstr, const char* uplostr, int* n, double* a, int* ia, int* ja, int* desca, double* w, double* z, int* iz, int* jz, int* descz, double* work, int* lwork, int* iwork, int* liwork, int* info)
-{
-    double dummy;
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, &dummy, 1, iwork, *liwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PCHEEVD(const char* jobzstr, const char* uplostr, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* w, std::complex<float>* z, int* iz, int* jz, int* descz, std::complex<float>* work, int* lwork, float* rwork, int* lrwork, int* iwork, int* liwork, int* info)
-{
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, rwork, *lrwork, iwork, *liwork, info);
-}
-
-extern "C" void pcheevd(const char* jobzstr, const char* uplostr, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* w, std::complex<float>* z, int* iz, int* jz, int* descz, std::complex<float>* work, int* lwork, float* rwork, int* lrwork, int* iwork, int* liwork, int* info)
-{
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, rwork, *lrwork, iwork, *liwork, info);
-}
-
-extern "C" void pcheevd_(const char* jobzstr, const char* uplostr, int* n, std::complex<float>* a, int* ia, int* ja, int* desca, float* w, std::complex<float>* z, int* iz, int* jz, int* descz, std::complex<float>* work, int* lwork, float* rwork, int* lrwork, int* iwork, int* liwork, int* info)
-{
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, rwork, *lrwork, iwork, *liwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZHEEVD(const char* jobzstr, const char* uplostr, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* w, std::complex<double>* z, int* iz, int* jz, int* descz, std::complex<double>* work, int* lwork, double* rwork, int* lrwork, int* iwork, int* liwork, int* info)
-{
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, rwork, *lrwork, iwork, *liwork, info);
-}
-
-extern "C" void pzheevd(const char* jobzstr, const char* uplostr, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* w, std::complex<double>* z, int* iz, int* jz, int* descz, std::complex<double>* work, int* lwork, double* rwork, int* lrwork, int* iwork, int* liwork, int* info)
-{
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, rwork, *lrwork, iwork, *liwork, info);
-}
-
-extern "C" void pzheevd_(const char* jobzstr, const char* uplostr, int* n, std::complex<double>* a, int* ia, int* ja, int* desca, double* w, std::complex<double>* z, int* iz, int* jz, int* descz, std::complex<double>* work, int* lwork, double* rwork, int* lrwork, int* iwork, int* liwork, int* info)
-{
-    slate_pheevd(jobzstr, uplostr, *n, a, *ia, *ja, desca, w, z, *iz, *jz, descz, work, *lwork, rwork, *lrwork, iwork, *liwork, info);
-}
-
-// -----------------------------------------------------------------------------
-template< typename scalar_t >
-void slate_pheevd(const char* jobzstr, const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* w, scalar_t* z, int iz, int jz, int* descz, scalar_t* work, int lwork, blas::real_type<scalar_t>* rwork, int lrwork, int* iwork, int liwork, int* info)
+//------------------------------------------------------------------------------
+/// SLATE ScaLAPACK wrapper sets up SLATE matrices from ScaLAPACK descriptors
+/// and calls SLATE.
+template <typename scalar_t>
+void slate_pheevd(
+    const char* jobz_str, const char* uplo_str, blas_int n,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    blas::real_type<scalar_t>* Lambda,
+    scalar_t* Z_data, blas_int iz, blas_int jz, blas_int const* descZ,
+    scalar_t* work, blas_int lwork, blas::real_type<scalar_t>* rwork, blas_int lrwork,
+    blas_int* iwork, blas_int liwork,
+    blas_int* info )
 {
     Uplo uplo{};
     Job jobz{};
-    from_string( std::string( 1, uplostr[0] ), &uplo );
-    from_string( std::string( 1, jobzstr[0] ), &jobz );
+    from_string( std::string( 1, uplo_str[0] ), &uplo );
+    from_string( std::string( 1, jobz_str[0] ), &jobz );
 
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -112,8 +36,8 @@ void slate_pheevd(const char* jobzstr, const char* uplostr, int n, scalar_t* a, 
     // todo: extract the real info from heevd
     *info = 0;
 
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "heevd");
 
@@ -131,14 +55,19 @@ void slate_pheevd(const char* jobzstr, const char* uplostr, int n, scalar_t* a, 
     int64_t Zn = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+        uplo, desc_n( descA ), A_data, desc_lld( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    A = slate_scalapack_submatrix( Am, An, A, ia, ja, descA );
 
     slate::Matrix<scalar_t> Z;
     if (jobz == lapack::Job::Vec) {
-        Cblacs_gridinfo(desc_CTXT(descz), &nprow, &npcol, &myprow, &mypcol);
-        Z = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descz), desc_N(descz), z, desc_LLD(descz), desc_MB(descz), desc_NB(descz), grid_order, nprow, npcol, MPI_COMM_WORLD);
-        Z = slate_scalapack_submatrix(Zm, Zn, Z, iz, jz, descz);
+        Cblacs_gridinfo( desc_ctxt( descZ ), &nprow, &npcol, &myprow, &mypcol );
+        Z = slate::Matrix<scalar_t>::fromScaLAPACK(
+        desc_m( descZ ), desc_n( descZ ), Z_data, desc_lld( descZ ),
+        desc_mb( descZ ), desc_nb( descZ ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+        Z = slate_scalapack_submatrix( Zm, Zn, Z, iz, jz, descZ );
     }
 
     std::vector< blas::real_type<scalar_t> > Lambda_( n );
@@ -151,8 +80,92 @@ void slate_pheevd(const char* jobzstr, const char* uplostr, int n, scalar_t* a, 
         {slate::Option::InnerBlocking, ib}
     });
 
-    std::copy(Lambda_.begin(), Lambda_.end(), w);
+    std::copy( Lambda_.begin(), Lambda_.end(), Lambda );
 }
+
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
+
+extern "C" {
+
+#define SCALAPACK_pssyevd BLAS_FORTRAN_NAME( pssyevd, PSSYEVD )
+void SCALAPACK_pssyevd(
+    const char* jobz_str, const char* uplo, blas_int const* n,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* Lambda,
+    float* Z_data, blas_int const* iz, blas_int const* jz, blas_int const* descZ,
+    float* work, blas_int const* lwork,
+    blas_int* iwork, blas_int const* liwork,
+    blas_int* info )
+{
+    float dummy;
+    slate_pheevd(
+        jobz_str, uplo, *n,
+        A_data, *ia, *ja, descA,
+        Lambda,
+        Z_data, *iz, *jz, descZ,
+        work, *lwork, &dummy, 1, iwork, *liwork, info );
+}
+
+#define SCALAPACK_pdsyevd BLAS_FORTRAN_NAME( pdsyevd, PDSYEVD )
+void SCALAPACK_pdsyevd(
+    const char* jobz_str, const char* uplo, blas_int const* n,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* Lambda,
+    double* Z_data, blas_int const* iz, blas_int const* jz, blas_int const* descZ,
+    double* work, blas_int const* lwork,
+    blas_int* iwork, blas_int const* liwork,
+    blas_int* info )
+{
+    double dummy;
+    slate_pheevd(
+        jobz_str, uplo, *n,
+        A_data, *ia, *ja, descA,
+        Lambda,
+        Z_data, *iz, *jz, descZ,
+        work, *lwork, &dummy, 1, iwork, *liwork, info );
+}
+
+#define SCALAPACK_pcheevd BLAS_FORTRAN_NAME( pcheevd, PCHEEVD )
+void SCALAPACK_pcheevd(
+    const char* jobz_str, const char* uplo, blas_int const* n,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* Lambda,
+    std::complex<float>* Z_data, blas_int const* iz, blas_int const* jz, blas_int const* descZ,
+    std::complex<float>* work, blas_int const* lwork,
+    float* rwork, blas_int const* lrwork,
+    blas_int* iwork, blas_int const* liwork,
+    blas_int* info )
+{
+    slate_pheevd(
+        jobz_str, uplo, *n,
+        A_data, *ia, *ja, descA,
+        Lambda,
+        Z_data, *iz, *jz, descZ,
+        work, *lwork, rwork, *lrwork, iwork, *liwork, info );
+}
+
+#define SCALAPACK_pzheevd BLAS_FORTRAN_NAME( pzheevd, PZHEEVD )
+void SCALAPACK_pzheevd(
+    const char* jobz_str, const char* uplo, blas_int const* n,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* Lambda,
+    std::complex<double>* Z_data, blas_int const* iz, blas_int const* jz, blas_int const* descZ,
+    std::complex<double>* work, blas_int const* lwork,
+    double* rwork, blas_int const* lrwork,
+    blas_int* iwork, blas_int const* liwork,
+    blas_int* info )
+{
+    slate_pheevd(
+        jobz_str, uplo, *n,
+        A_data, *ia, *ja, descA,
+        Lambda,
+        Z_data, *iz, *jz, descZ,
+        work, *lwork, rwork, *lrwork, iwork, *liwork, info );
+}
+
+} // extern "C"
 
 } // namespace scalapack_api
 } // namespace slate

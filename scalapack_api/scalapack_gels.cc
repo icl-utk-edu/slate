@@ -8,88 +8,16 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-
-// Required CBLACS calls
-extern "C" void Cblacs_gridinfo(int context, int* np_row, int* np_col, int*  my_row, int*  my_col);
-
-// Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t* work, int lwork, int* info);
-
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_pher2k
-
-extern "C" void PSGELS(const char* trans, int* m, int* n, int* nrhs, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb, float* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-extern "C" void psgels(const char* trans, int* m, int* n, int* nrhs, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb, float* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-extern "C" void psgels_(const char* trans, int* m, int* n, int* nrhs, float* a, int* ia, int* ja, int* desca, float* b, int* ib, int* jb, int* descb, float* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PDGELS(const char* trans, int* m, int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb, double* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-extern "C" void pdgels(const char* trans, int* m, int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb, double* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-extern "C" void pdgels_(const char* trans, int* m, int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, double* b, int* ib, int* jb, int* descb, double* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PCGELS(const char* trans, int* m, int* n, int* nrhs, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, std::complex<float>* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-extern "C" void pcgels(const char* trans, int* m, int* n, int* nrhs, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, std::complex<float>* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-extern "C" void pcgels_(const char* trans, int* m, int* n, int* nrhs, std::complex<float>* a, int* ia, int* ja, int* desca, std::complex<float>* b, int* ib, int* jb, int* descb, std::complex<float>* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZGELS(const char* trans, int* m, int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-extern "C" void pzgels(const char* trans, int* m, int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-extern "C" void pzgels_(const char* trans, int* m, int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* work, int* lwork, int* info)
-{
-    slate_pgels(trans, *m, *n, *nrhs, a, *ia, *ja, desca, b, *ib, *jb, descb, work, *lwork, info);
-}
-
-// -----------------------------------------------------------------------------
-template< typename scalar_t >
-void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t* work, int lwork, int* info)
+//------------------------------------------------------------------------------
+/// SLATE ScaLAPACK wrapper sets up SLATE matrices from ScaLAPACK descriptors
+/// and calls SLATE.
+template <typename scalar_t>
+void slate_pgels(
+    const char* trans_str, blas_int m, blas_int n, blas_int nrhs,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    scalar_t* B_data, blas_int ib, blas_int jb, blas_int const* descB,
+    scalar_t* work, blas_int lwork,
+    blas_int* info )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -102,7 +30,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     }
 
     Op trans{};
-    from_string( std::string( 1, transstr[0] ), &trans );
+    from_string( std::string( 1, trans_str[0] ), &trans );
 
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -120,26 +48,32 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     int64_t Bn = nrhs;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(
+        desc_m( descA ), desc_n( descA ), A_data, desc_lld( descA ),
+        desc_mb( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    A = slate_scalapack_submatrix( Am, An, A, ia, ja, descA );
 
-    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myprow, &mypcol);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), desc_NB(descb), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
+    Cblacs_gridinfo( desc_ctxt( descB ), &nprow, &npcol, &myprow, &mypcol );
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
+        desc_m( descB ), desc_n( descB ), B_data, desc_lld( descB ),
+        desc_mb( descB ), desc_nb( descB ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    B = slate_scalapack_submatrix( Bm, Bn, B, ib, jb, descB );
 
     // Apply transpose
     auto opA = A;
     if (trans == slate::Op::Trans)
-        opA = transpose(A);
+        opA = transpose( A );
     else if (trans == slate::Op::ConjTrans)
         opA = conj_transpose( A );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "gels");
 
-    slate::gels(opA, B, {
+    slate::gels( opA, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
@@ -149,6 +83,74 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     // todo: extract the real info
     *info = 0;
 }
+
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
+
+extern "C" {
+
+#define SCALAPACK_psgels BLAS_FORTRAN_NAME( psgels, PSGELS )
+void SCALAPACK_psgels(
+    const char* trans, blas_int const* m, blas_int const* n, blas_int* nrhs,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    float* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB,
+    float* work, blas_int const* lwork,
+    blas_int* info )
+{
+    slate_pgels(
+        trans, *m, *n, *nrhs,
+        A_data, *ia, *ja, descA,
+        B_data, *ib, *jb, descB,
+        work, *lwork, info );
+}
+
+#define SCALAPACK_pdgels BLAS_FORTRAN_NAME( pdgels, PDGELS )
+void SCALAPACK_pdgels(
+    const char* trans, blas_int const* m, blas_int const* n, blas_int* nrhs,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    double* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB,
+    double* work, blas_int const* lwork,
+    blas_int* info )
+{
+    slate_pgels(
+        trans, *m, *n, *nrhs,
+        A_data, *ia, *ja, descA,
+        B_data, *ib, *jb, descB,
+        work, *lwork, info );
+}
+
+#define SCALAPACK_pcgels BLAS_FORTRAN_NAME( pcgels, PCGELS )
+void SCALAPACK_pcgels(
+    const char* trans, blas_int const* m, blas_int const* n, blas_int* nrhs,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    std::complex<float>* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB,
+    std::complex<float>* work, blas_int const* lwork,
+    blas_int* info )
+{
+    slate_pgels(
+        trans, *m, *n, *nrhs,
+        A_data, *ia, *ja, descA,
+        B_data, *ib, *jb, descB,
+        work, *lwork, info );
+}
+
+#define SCALAPACK_pzgels BLAS_FORTRAN_NAME( pzgels, PZGELS )
+void SCALAPACK_pzgels(
+    const char* trans, blas_int const* m, blas_int const* n, blas_int* nrhs,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    std::complex<double>* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB,
+    std::complex<double>* work, blas_int const* lwork,
+    blas_int* info )
+{
+    slate_pgels(
+        trans, *m, *n, *nrhs,
+        A_data, *ia, *ja, descA,
+        B_data, *ib, *jb, descB,
+        work, *lwork, info );
+}
+
+} // extern "C"
 
 } // namespace scalapack_api
 } // namespace slate

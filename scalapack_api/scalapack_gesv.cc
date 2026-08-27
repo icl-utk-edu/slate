@@ -8,88 +8,16 @@
 namespace slate {
 namespace scalapack_api {
 
-// -----------------------------------------------------------------------------
-
-// Required CBLACS calls
-extern "C" void Cblacs_gridinfo(int context, int* np_row, int* np_col, int*  my_row, int*  my_col);
-
-// Type generic function calls the SLATE routine
-template< typename scalar_t >
-void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, int* info);
-
-// -----------------------------------------------------------------------------
-// C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
-// Each C interface calls the type generic slate_pher2k
-
-extern "C" void PSGESV(int* n, int* nrhs, float* a, int* ia, int* ja, int* desca, int* ipiv, float* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-extern "C" void psgesv(int* n, int* nrhs, float* a, int* ia, int* ja, int* desca, int* ipiv, float* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-extern "C" void psgesv_(int* n, int* nrhs, float* a, int* ia, int* ja, int* desca, int* ipiv, float* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PDGESV(int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, int* ipiv, double* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-extern "C" void pdgesv(int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, int* ipiv, double* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-extern "C" void pdgesv_(int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, int* ipiv, double* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PCGESV(int* n, int* nrhs, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-extern "C" void pcgesv(int* n, int* nrhs, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-extern "C" void pcgesv_(int* n, int* nrhs, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PZGESV(int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-extern "C" void pzgesv(int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-extern "C" void pzgesv_(int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* b, int* ib, int* jb, int* descb, int* info)
-{
-    slate_pgesv(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, info);
-}
-
-// -----------------------------------------------------------------------------
-template< typename scalar_t >
-void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, int* info)
+//------------------------------------------------------------------------------
+/// SLATE ScaLAPACK wrapper sets up SLATE matrices from ScaLAPACK descriptors
+/// and calls SLATE.
+template <typename scalar_t>
+void slate_pgesv(
+    blas_int n, blas_int nrhs,
+    scalar_t* A_data, blas_int ia, blas_int ja, blas_int const* descA,
+    blas_int* ipiv,
+    scalar_t* B_data, blas_int ib, blas_int jb, blas_int const* descB,
+    blas_int* info )
 {
     slate::Target target = TargetConfig::value();
     int verbose = VerboseConfig::value();
@@ -106,19 +34,25 @@ void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* 
     slate::Pivots pivots;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myprow, mypcol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
+    blas_int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo( desc_ctxt( descA ), &nprow, &npcol, &myprow, &mypcol );
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(
+        desc_m( descA ), desc_n( descA ), A_data, desc_lld( descA ),
+        desc_mb( descA ), desc_nb( descA ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    A = slate_scalapack_submatrix( Am, An, A, ia, ja, descA );
 
-    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myprow, &mypcol);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), desc_NB(descb), grid_order, nprow, npcol, MPI_COMM_WORLD);
-    B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
+    Cblacs_gridinfo( desc_ctxt( descB ), &nprow, &npcol, &myprow, &mypcol );
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
+        desc_m( descB ), desc_n( descB ), B_data, desc_lld( descB ),
+        desc_mb( descB ), desc_nb( descB ),
+        grid_order, nprow, npcol, MPI_COMM_WORLD );
+    B = slate_scalapack_submatrix( Bm, Bn, B, ib, jb, descB );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "gesv");
 
-    slate::gesv(A, pivots, B, {
+    slate::gesv( A, pivots, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
@@ -127,14 +61,14 @@ void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* 
 
     // Extract pivots from SLATE's global Pivots structure into ScaLAPACK local ipiv array
     {
-        int isrcproc0 = 0;
-        int nb = desc_MB(desca); // ScaLAPACK style fixed nb
-        int64_t l_numrows = scalapack_numroc(An, nb, myprow, isrcproc0, nprow);
+        blas_int isrcproc0 = 0;
+        blas_int nb = desc_mb( descA ); // ScaLAPACK style fixed nb
+        int64_t l_numrows = scalapack_numroc( An, nb, myprow, isrcproc0, nprow );
         // l_ipiv_rindx local ipiv row index (Scalapack 1-index)
         // for each local ipiv entry, find corresponding local-pivot and swap-pivot
-        for (int l_ipiv_rindx=1; l_ipiv_rindx <= l_numrows; ++l_ipiv_rindx) {
+        for (blas_int l_ipiv_rindx=1; l_ipiv_rindx <= l_numrows; ++l_ipiv_rindx) {
             // for ipiv index, convert to global indexing
-            int64_t g_ipiv_rindx = scalapack_indxl2g(&l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow);
+            int64_t g_ipiv_rindx = scalapack_indxl2g( &l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow );
             // assuming uniform nb from scalapack (note 1-indexing)
             // figure out pivots(tile-index, offset)
             int64_t g_ipiv_tile_indx = (g_ipiv_rindx - 1) / nb;
@@ -153,6 +87,66 @@ void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* 
     // todo: extract the real info
     *info = 0;
 }
+
+//------------------------------------------------------------------------------
+// Fortran interfaces
+// Each Fortran interface calls the type generic slate wrapper.
+
+extern "C" {
+
+#define SCALAPACK_psgesv BLAS_FORTRAN_NAME( psgesv, PSGESV )
+void SCALAPACK_psgesv(
+    blas_int const* n, blas_int* nrhs,
+    float* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* ipiv,
+    float* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB,
+    blas_int* info )
+{
+    slate_pgesv( *n, *nrhs,
+                 A_data, *ia, *ja, descA, ipiv,
+                 B_data, *ib, *jb, descB, info );
+}
+
+#define SCALAPACK_pdgesv BLAS_FORTRAN_NAME( pdgesv, PDGESV )
+void SCALAPACK_pdgesv(
+    blas_int const* n, blas_int* nrhs,
+    double* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* ipiv,
+    double* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB,
+    blas_int* info )
+{
+    slate_pgesv( *n, *nrhs,
+                 A_data, *ia, *ja, descA, ipiv,
+                 B_data, *ib, *jb, descB, info );
+}
+
+#define SCALAPACK_pcgesv BLAS_FORTRAN_NAME( pcgesv, PCGESV )
+void SCALAPACK_pcgesv(
+    blas_int const* n, blas_int* nrhs,
+    std::complex<float>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* ipiv,
+    std::complex<float>* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB,
+    blas_int* info )
+{
+    slate_pgesv( *n, *nrhs,
+                 A_data, *ia, *ja, descA, ipiv,
+                 B_data, *ib, *jb, descB, info );
+}
+
+#define SCALAPACK_pzgesv BLAS_FORTRAN_NAME( pzgesv, PZGESV )
+void SCALAPACK_pzgesv(
+    blas_int const* n, blas_int* nrhs,
+    std::complex<double>* A_data, blas_int const* ia, blas_int const* ja, blas_int const* descA,
+    blas_int* ipiv,
+    std::complex<double>* B_data, blas_int const* ib, blas_int const* jb, blas_int const* descB,
+    blas_int* info )
+{
+    slate_pgesv( *n, *nrhs,
+                 A_data, *ia, *ja, descA, ipiv,
+                 B_data, *ib, *jb, descB, info );
+}
+
+} // extern "C"
 
 } // namespace scalapack_api
 } // namespace slate

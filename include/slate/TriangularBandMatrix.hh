@@ -146,7 +146,6 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
 
 //------------------------------------------------------------------------------
 /// [explicit]
-/// todo:
 /// Conversion from general band matrix
 /// creates a shallow copy view of the original matrix.
 /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
@@ -172,7 +171,6 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
 
 //------------------------------------------------------------------------------
 /// [explicit]
-/// todo:
 /// Conversion from base triangular band matrix
 /// creates a shallow copy view of the original matrix.
 /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].

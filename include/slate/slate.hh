@@ -40,14 +40,58 @@ extern std::map< std::string, double > timers;
 //------------------------------------------------------------------------------
 // Level 2 Auxiliary
 
+/// @defgroup aux Auxiliary routines
+/// @brief Matrix addition, copy, scaling, setting, norms, etc.
+/// @{
+
 //-----------------------------------------
-// add()
+/// Matrix addition: \( B = \alpha A + \beta B \)
+///
+/// @param[in] alpha
+///     Scalar multiplier for A.
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[in] beta
+///     Scalar multiplier for B.
+///
+/// @param[in,out] B
+///     On entry, matrix B.
+///     On exit, overwritten by \( \alpha A + \beta B \).
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t>
 void add(
     scalar_t alpha, Matrix<scalar_t>& A,
     scalar_t beta,  Matrix<scalar_t>& B,
     Options const& opts = Options());
 
+//-----------------------------------------
+/// Matrix addition: \( B = \alpha A + \beta B \)
+///
+/// @param[in] alpha
+///     Scalar multiplier for A.
+///
+/// @param[in] A
+///     Trapezoid matrix A.
+///
+/// @param[in] beta
+///     Scalar multiplier for B.
+///
+/// @param[in,out] B
+///     On entry, trapezoid matrix B.
+///     On exit, overwritten by \( \alpha A + \beta B \).
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t>
 void add(
      scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -55,7 +99,19 @@ void add(
      Options const& opts = Options());
 
 //-----------------------------------------
-// copy()
+/// Matrix copy: \( B = A \)
+///
+/// @param[in] A
+///     Source matrix.
+///
+/// @param[out] B
+///     Destination matrix.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename src_matrix_type, typename dst_matrix_type>
 void copy(
     src_matrix_type& A,
@@ -63,8 +119,22 @@ void copy(
     Options const& opts = Options());
 
 //-----------------------------------------
-// scale()
-// General matrix.
+/// Matrix scaling: \( A = \text{numer} / \text{denom} \times A \)
+///
+/// @param[in] numer
+///     Numerator of scalar.
+///
+/// @param[in] denom
+///     Denominator of scalar.
+///
+/// @param[in,out] A
+///     Matrix to scale.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t>
 void scale(
     blas::real_type<scalar_t> numer,
@@ -73,6 +143,7 @@ void scale(
     Options const& opts = Options());
 
 /// General matrix, version with denom = 1.0.
+/// @ingroup aux
 template <typename scalar_t>
 void scale(
     blas::real_type<scalar_t> value,
@@ -83,7 +154,23 @@ void scale(
     scale(value, one, A, opts);
 }
 
-// BaseTrapezoid matrix.
+//-----------------------------------------
+/// Matrix scaling: \( A = \text{numer} / \text{denom} \times A \)
+///
+/// @param[in] numer
+///     Numerator of scalar.
+///
+/// @param[in] denom
+///     Denominator of scalar.
+///
+/// @param[in,out] A
+///     Trapezoid matrix to scale.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t>
 void scale(
     blas::real_type<scalar_t> numer,
@@ -92,6 +179,7 @@ void scale(
     Options const& opts = Options());
 
 /// BaseTrapezoid matrix, version with denom = 1.0.
+/// @ingroup aux
 template <typename scalar_t>
 void scale(
     blas::real_type<scalar_t> value,
@@ -103,8 +191,29 @@ void scale(
 }
 
 //-----------------------------------------
-// scale_row_col
-// General matrix.
+/// Scale rows and columns: \( A = R A C \)
+///
+/// @param[in] equed
+///     Form of equilibration:
+///     - Equed::None: no equilibration
+///     - Equed::Row: row equilibration, \( A = R A \)
+///     - Equed::Col: column equilibration, \( A = A C \)
+///     - Equed::Both: row and column equilibration, \( A = R A C \)
+///
+/// @param[in] R
+///     Row scaling factors.
+///
+/// @param[in] C
+///     Column scaling factors.
+///
+/// @param[in,out] A
+///     Matrix to scale.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t, typename scalar_t2>
 void scale_row_col(
     Equed equed,
@@ -114,7 +223,22 @@ void scale_row_col(
     Options const& opts = Options());
 
 //-----------------------------------------
-// set()
+/// Set matrix elements: \( A_{ij} = \text{diag\_value} \) if \( i=j \), else \( \text{offdiag\_value} \)
+///
+/// @param[in] offdiag_value
+///     Value to set off-diagonal elements.
+///
+/// @param[in] diag_value
+///     Value to set diagonal elements.
+///
+/// @param[out] A
+///     Matrix to set.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t>
 void set(
     scalar_t offdiag_value,
@@ -122,6 +246,8 @@ void set(
     Matrix<scalar_t>& A,
     Options const& opts = Options());
 
+/// Set all matrix elements to same value.
+/// @ingroup aux
 template <typename scalar_t>
 void set(
     scalar_t value,
@@ -131,6 +257,23 @@ void set(
     set(value, value, A, opts);
 }
 
+//-----------------------------------------
+/// Set trapezoid matrix elements: \( A_{ij} = \text{diag\_value} \) if \( i=j \), else \( \text{offdiag\_value} \)
+///
+/// @param[in] offdiag_value
+///     Value to set off-diagonal elements.
+///
+/// @param[in] diag_value
+///     Value to set diagonal elements.
+///
+/// @param[out] A
+///     Trapezoid matrix to set.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t>
 void set(
     scalar_t offdiag_value,
@@ -138,6 +281,8 @@ void set(
     BaseTrapezoidMatrix<scalar_t>& A,
     Options const& opts = Options());
 
+/// Set all trapezoid matrix elements to same value.
+/// @ingroup aux
 template <typename scalar_t>
 void set(
     scalar_t value,
@@ -147,34 +292,104 @@ void set(
     set(value, value, A, opts);
 }
 
+//-----------------------------------------
+/// Set matrix elements using a function.
+///
+/// @param[in] value
+///     Function mapping (i, j) global indices to value.
+///
+/// @param[out] A
+///     Matrix to set.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t>
 void set(
     std::function< scalar_t (int64_t i, int64_t j) > const& value,
     Matrix<scalar_t>& A,
     Options const& opts = Options());
 
+//-----------------------------------------
+/// Set trapezoid matrix elements using a function.
+///
+/// @param[in] value
+///     Function mapping (i, j) global indices to value.
+///
+/// @param[out] A
+///     Trapezoid matrix to set.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup aux
+///
 template <typename scalar_t>
 void set(
     std::function< scalar_t (int64_t i, int64_t j) > const& value,
     BaseTrapezoidMatrix<scalar_t>& A,
     Options const& opts = Options());
+
+/// @}
+
 
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
 
+/// @defgroup blas3 Level 3 BLAS and LAPACK routines
+/// @brief Matrix multiplication, triangular solve, etc.
+/// @{
+
 //-----------------------------------------
-// gerbt()
+/// General randomization of matrix (two-sided): \( A_{new} = U A V \)
+///
+/// @param[in] U
+///     Random unitary matrix (left).
+///
+/// @param[in,out] A
+///     Matrix to be randomized.
+///
+/// @param[in] V
+///     Random unitary matrix (right).
+///
+/// @ingroup blas3
+///
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t>& U,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& V);
 
+/// General randomization of matrix (one-sided): \( A_{new} = U A \)
+/// @ingroup blas3
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t>& U,
            Matrix<scalar_t>& A);
 
 //-----------------------------------------
-// gbmm()
+/// General band matrix multiply: \( C = \alpha A B + \beta C \)
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Band matrix A.
+///
+/// @param[in] B
+///     Matrix B.
+///
+/// @param[in] beta
+///     Scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void gbmm(
     scalar_t alpha, BandMatrix<scalar_t>& A,
@@ -183,7 +398,28 @@ void gbmm(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gemm()
+/// General matrix multiply: \( C = \alpha op(A) op(B) + \beta C \)
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[in] B
+///     Matrix B.
+///
+/// @param[in] beta
+///     Scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void gemm(
     scalar_t alpha, Matrix<scalar_t>& A,
@@ -192,7 +428,9 @@ void gemm(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gemmA()
+/// General matrix multiply (variant A).
+/// @see gemm
+/// @ingroup blas3
 template <typename scalar_t>
 void gemmA(
     scalar_t alpha, Matrix<scalar_t>& A,
@@ -201,7 +439,9 @@ void gemmA(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gemmC()
+/// General matrix multiply (variant C).
+/// @see gemm
+/// @ingroup blas3
 template <typename scalar_t>
 void gemmC(
     scalar_t alpha, Matrix<scalar_t>& A,
@@ -210,7 +450,32 @@ void gemmC(
     Options const& opts = Options());
 
 //-----------------------------------------
-// hbmm()
+/// Hermitian band matrix multiply: \( C = \alpha A B + \beta C \) (if side=Left)
+/// or \( C = \alpha B A + \beta C \) (if side=Right).
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Hermitian band matrix A.
+///
+/// @param[in] B
+///     Matrix B.
+///
+/// @param[in] beta
+///     Scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void hbmm(
     Side side,
@@ -220,7 +485,32 @@ void hbmm(
     Options const& opts = Options());
 
 //-----------------------------------------
-// hemm()
+/// Hermitian matrix multiply: \( C = \alpha A B + \beta C \) (if side=Left)
+/// or \( C = \alpha B A + \beta C \) (if side=Right).
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Hermitian matrix A.
+///
+/// @param[in] B
+///     Matrix B.
+///
+/// @param[in] beta
+///     Scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void hemm(
     Side side,
@@ -229,8 +519,9 @@ void hemm(
     scalar_t beta,           Matrix<scalar_t>& C,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to hemm;
-// disabled for complex
+
+/// Overload for real symmetric matrix (dispatched to Hermitian).
+/// @ingroup blas3
 template <typename scalar_t>
 void hemm(
     Side side,
@@ -245,7 +536,9 @@ void hemm(
 }
 
 //-----------------------------------------
-// hemmA()
+/// Hermitian matrix multiply (variant A).
+/// @see hemm
+/// @ingroup blas3
 template <typename scalar_t>
 void hemmA(
     Side side,
@@ -255,7 +548,9 @@ void hemmA(
     Options const& opts = Options());
 
 //-----------------------------------------
-// hemmC()
+/// Hermitian matrix multiply (variant C).
+/// @see hemm
+/// @ingroup blas3
 template <typename scalar_t>
 void hemmC(
     Side side,
@@ -265,7 +560,32 @@ void hemmC(
     Options const& opts = Options());
 
 //-----------------------------------------
-// symm()
+/// Symmetric matrix multiply: \( C = \alpha A B + \beta C \) (if side=Left)
+/// or \( C = \alpha B A + \beta C \) (if side=Right).
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Symmetric matrix A.
+///
+/// @param[in] B
+///     Matrix B.
+///
+/// @param[in] beta
+///     Scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void symm(
     Side side,
@@ -274,8 +594,8 @@ void symm(
     scalar_t beta,           Matrix<scalar_t>& C,
     Options const& opts = Options());
 
-// forward real-Hermitian matrices to symm;
-// disabled for complex
+/// Overload for real Hermitian matrix (dispatched to Symmetric).
+/// @ingroup blas3
 template <typename scalar_t>
 void symm(
     Side side,
@@ -290,7 +610,26 @@ void symm(
 }
 
 //-----------------------------------------
-// trmm()
+/// Triangular matrix multiply: \( B = \alpha op(A) B \) (if side=Left)
+/// or \( B = \alpha B op(A) \) (if side=Right).
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Triangular matrix A.
+///
+/// @param[in,out] B
+///     Matrix B.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void trmm(
     Side side,
@@ -298,8 +637,31 @@ void trmm(
                               Matrix<scalar_t>& B,
     Options const& opts = Options());
 
+
 //-----------------------------------------
-// tbsm()
+/// Triangular band solve: \( op(A) X = \alpha B \) (if side=Left)
+/// or \( X op(A) = \alpha B \) (if side=Right).
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Triangular band matrix A.
+///
+/// @param[in] pivots
+///     Pivot indices.
+///
+/// @param[in,out] B
+///     On entry, right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void tbsm(
     Side side,
@@ -307,6 +669,8 @@ void tbsm(
                                   Matrix<scalar_t>& B,
     Options const& opts = Options());
 
+/// Triangular band solve (no pivots).
+/// @ingroup blas3
 template <typename scalar_t>
 void tbsm(
     Side side,
@@ -315,7 +679,26 @@ void tbsm(
     Options const& opts = Options());
 
 //-----------------------------------------
-// trsm()
+/// Triangular solve: \( op(A) X = \alpha B \) (if side=Left)
+/// or \( X op(A) = \alpha B \) (if side=Right).
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Triangular matrix A.
+///
+/// @param[in,out] B
+///     On entry, right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void trsm(
     Side side,
@@ -324,7 +707,9 @@ void trsm(
     Options const& opts = Options());
 
 //-----------------------------------------
-// trsmA()
+/// Triangular solve (variant A).
+/// @see trsm
+/// @ingroup blas3
 template <typename scalar_t>
 void trsmA(
     Side side,
@@ -333,7 +718,9 @@ void trsmA(
     Options const& opts = Options());
 
 //-----------------------------------------
-// trsmB()
+/// Triangular solve (variant B).
+/// @see trsm
+/// @ingroup blas3
 template <typename scalar_t>
 void trsmB(
     Side side,
@@ -342,29 +729,66 @@ void trsmB(
     Options const& opts = Options());
 
 //-----------------------------------------
-// trtri()
+/// Triangular matrix inverse: \( A = A^{-1} \).
+///
+/// @param[in,out] A
+///     Triangular matrix A. On exit, overwritten by inverse.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void trtri(
     TriangularMatrix<scalar_t>& A,
     Options const& opts = Options());
 
 //-----------------------------------------
-// trtrm()
+/// Triangular matrix multiply: \( A = A * A \)? Or something similar.
+/// Note: Description assumed from context, usually implies triangular multiply.
+///
+/// @param[in,out] A
+///     Triangular matrix A.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void trtrm(
     TriangularMatrix<scalar_t>& A,
     Options const& opts = Options());
 
 //-----------------------------------------
-// herk()
+/// Hermitian rank-k update: \( C = \alpha A A^H + \beta C \).
+///
+/// @param[in] alpha
+///     Real scalar multiplier.
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[in] beta
+///     Real scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Hermitian matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void herk(
     blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
     blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to herk;
-// disabled for complex
+/// Overload for real symmetric matrix (dispatched to Hermitian).
+/// @ingroup blas3
 template <typename scalar_t>
 void herk(
     blas::real_type<scalar_t> alpha,          Matrix<scalar_t>& A,
@@ -377,15 +801,33 @@ void herk(
 }
 
 //-----------------------------------------
-// syrk()
+/// Symmetric rank-k update: \( C = \alpha A A^T + \beta C \).
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[in] beta
+///     Scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Symmetric matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void syrk(
     scalar_t alpha,          Matrix<scalar_t>& A,
     scalar_t beta,  SymmetricMatrix<scalar_t>& C,
     Options const& opts = Options());
 
-// forward real-Hermitian matrices to syrk;
-// disabled for complex
+/// Overload for real Hermitian matrix (dispatched to Symmetric).
+/// @ingroup blas3
 template <typename scalar_t>
 void syrk(
     scalar_t alpha,          Matrix<scalar_t>& A,
@@ -398,7 +840,28 @@ void syrk(
 }
 
 //-----------------------------------------
-// her2k()
+/// Hermitian rank-2k update: \( C = \alpha A B^H + \overline{\alpha} B A^H + \beta C \).
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[in] B
+///     Matrix B.
+///
+/// @param[in] beta
+///     Real scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Hermitian matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void her2k(
     scalar_t alpha,                          Matrix<scalar_t>& A,
@@ -406,8 +869,8 @@ void her2k(
     blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to her2k;
-// disabled for complex
+/// Overload for real symmetric matrix (dispatched to Hermitian).
+/// @ingroup blas3
 template <typename scalar_t>
 void her2k(
     scalar_t alpha,                           Matrix<scalar_t>& A,
@@ -420,8 +883,21 @@ void her2k(
     her2k(alpha, A, B, beta, CH, opts);
 }
 
+
 //-----------------------------------------
-// redistribute()
+/// Redistribute matrix from A to B.
+///
+/// @param[in] A
+///     Source matrix.
+///
+/// @param[out] B
+///     Destination matrix.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void redistribute(
     Matrix<scalar_t>& A,
@@ -429,7 +905,28 @@ void redistribute(
     Options const& opts = Options());
 
 //-----------------------------------------
-// syr2k()
+/// Symmetric rank-2k update: \( C = \alpha A B^T + \alpha B A^T + \beta C \).
+///
+/// @param[in] alpha
+///     Scalar multiplier.
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[in] B
+///     Matrix B.
+///
+/// @param[in] beta
+///     Scalar multiplier for C.
+///
+/// @param[in,out] C
+///     Symmetric matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup blas3
+///
 template <typename scalar_t>
 void syr2k(
     scalar_t alpha,          Matrix<scalar_t>& A,
@@ -437,8 +934,8 @@ void syr2k(
     scalar_t beta,  SymmetricMatrix<scalar_t>& C,
     Options const& opts = Options());
 
-// forward real-Hermitian matrices to syr2k;
-// disabled for complex
+/// Overload for real Hermitian matrix (dispatched to Symmetric).
+/// @ingroup blas3
 template <typename scalar_t>
 void syr2k(
     scalar_t alpha,          Matrix<scalar_t>& A,
@@ -451,11 +948,37 @@ void syr2k(
     syr2k(alpha, A, B, beta, CS, opts);
 }
 
+/// @}
+
+
 //------------------------------------------------------------------------------
 // Norms
 
+/// @defgroup norm Matrix norms
+/// @brief Matrix norm computations (One, Inf, Fro, Max, etc.)
+/// @{
+
 //-----------------------------------------
-// norm()
+/// Compute matrix norm.
+///
+/// @param[in] norm
+///     Type of norm:
+///     - Norm::One: max column sum
+///     - Norm::Two: max singular value (not supported yet?)
+///     - Norm::Inf: max row sum
+///     - Norm::Fro: Frobenius norm
+///     - Norm::Max: max absolute element
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return The computed norm.
+///
+/// @ingroup norm
+///
 template <typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
 norm(
@@ -463,8 +986,8 @@ norm(
     matrix_type& A,
     Options const& opts = Options());
 
-//-----------------------------------------
-// norm for triangular case
+/// Compute triangular matrix norm.
+/// @ingroup norm
 template <typename scalar_t>
 blas::real_type<scalar_t>
 norm(
@@ -476,8 +999,23 @@ norm(
 }
 
 //-----------------------------------------
-// colNorms()
-// all cols max norm
+/// Compute column norms (e.g. max element in each column).
+///
+/// @param[in] norm
+///     Type of norm.
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[out] values
+///     Array of size n, where n is number of columns.
+///     On exit, contains norm of each column.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup norm
+///
 template <typename matrix_type>
 void colNorms(
     Norm norm,
@@ -485,14 +1023,35 @@ void colNorms(
     blas::real_type<typename matrix_type::value_type>* values,
     Options const& opts = Options());
 
+/// @}
+
+
 //------------------------------------------------------------------------------
 // Linear systems
 
-//-----------------------------------------
-// LU
+/// @defgroup lu LU factorization and solve
+/// @brief LU factorization, solve, inverse, condition number
+/// @{
 
 //-----------------------------------------
-// gbsv()
+/// Solve linear system \( A X = B \) using LU factorization (band matrix).
+///
+/// @param[in,out] A
+///     Band matrix A. On exit, overwritten by LU factors.
+///
+/// @param[out] pivots
+///     Pivot indices.
+///
+/// @param[in,out] B
+///     Right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code (0 = success).
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 int64_t gbsv(
     BandMatrix<scalar_t>& A, Pivots& pivots,
@@ -500,7 +1059,24 @@ int64_t gbsv(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gesv()
+/// Solve linear system \( A X = B \) using LU factorization.
+///
+/// @param[in,out] A
+///     General matrix A. On exit, overwritten by LU factors.
+///
+/// @param[out] pivots
+///     Pivot indices.
+///
+/// @param[in,out] B
+///     Right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 int64_t gesv(
     Matrix<scalar_t>& A, Pivots& pivots,
@@ -508,8 +1084,9 @@ int64_t gesv(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gesv_nopiv()
-// todo: deprecate, use gesv( ..., { MethodLU: NoPiv } )
+/// Solve linear system \( A X = B \) using LU factorization without pivoting.
+/// @deprecated Use gesv( ..., { MethodLU: NoPiv } )
+/// @ingroup lu
 template <typename scalar_t>
 int64_t gesv_nopiv(
     Matrix<scalar_t>& A,
@@ -517,7 +1094,30 @@ int64_t gesv_nopiv(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gesv_mixed()
+/// Solve linear system \( A X = B \) using mixed-precision iterative refinement.
+///
+/// @param[in,out] A
+///     General matrix A.
+///
+/// @param[out] pivots
+///     Pivot indices.
+///
+/// @param[in,out] B
+///     Right-hand side B.
+///
+/// @param[out] X
+///     Solution X.
+///
+/// @param[out] iter
+///     Number of iterations performed.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 int64_t gesv_mixed(
     Matrix<scalar_t>& A, Pivots& pivots,
@@ -526,6 +1126,8 @@ int64_t gesv_mixed(
     int& iter,
     Options const& opts = Options());
 
+/// Mixed-precision solve (explicit types).
+/// @ingroup lu
 template <typename scalar_hi, typename scalar_lo>
 int64_t gesv_mixed(
     Matrix<scalar_hi>& A, Pivots& pivots,
@@ -535,7 +1137,30 @@ int64_t gesv_mixed(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gesv_mixed_gmres()
+/// Solve linear system \( A X = B \) using mixed-precision GMRES.
+///
+/// @param[in,out] A
+///     General matrix A.
+///
+/// @param[out] pivots
+///     Pivot indices.
+///
+/// @param[in,out] B
+///     Right-hand side B.
+///
+/// @param[out] X
+///     Solution X.
+///
+/// @param[out] iter
+///     Number of iterations.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 int64_t gesv_mixed_gmres(
     Matrix<scalar_t>& A, Pivots& pivots,
@@ -544,6 +1169,8 @@ int64_t gesv_mixed_gmres(
     int& iter,
     Options const& opts = Options());
 
+/// Mixed-precision GMRES solve (explicit types).
+/// @ingroup lu
 template <typename scalar_hi, typename scalar_lo>
 int64_t gesv_mixed_gmres(
     Matrix<scalar_hi>& A, Pivots& pivots,
@@ -553,7 +1180,25 @@ int64_t gesv_mixed_gmres(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gesv_rbt
+/// Solve linear system using random butterfly transform (RBT).
+///
+/// @param[in,out] A
+///     General matrix A.
+///
+/// @param[in,out] B
+///     Right-hand side B.
+///
+/// @param[out] X
+///     Solution X.
+///
+/// @param[out] iter
+///     Number of iterations.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup lu
+///
 template<typename scalar_t>
 void gesv_rbt(
     Matrix<scalar_t>& A,
@@ -562,36 +1207,105 @@ void gesv_rbt(
     int& iter,
     Options const& opts = Options());
 
+
 //-----------------------------------------
-// gbtrf()
+/// LU factorization (band matrix): \( A = L U \).
+///
+/// @param[in,out] A
+///     Band matrix A. On exit, overwritten by LU factors.
+///
+/// @param[out] pivots
+///     Pivot indices.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 int64_t gbtrf(
     BandMatrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 
 //-----------------------------------------
-// getrf()
+/// LU factorization (general matrix): \( A = P L U \).
+///
+/// @param[in,out] A
+///     General matrix A. On exit, overwritten by LU factors.
+///
+/// @param[out] pivots
+///     Pivot indices representing permutation P.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 int64_t getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 
 //-----------------------------------------
-// getrf_nopiv()
+/// LU factorization without pivoting.
+///
+/// @param[in,out] A
+///     General matrix A. On exit, overwritten by LU factors.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 int64_t getrf_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts = Options());
 
 //-----------------------------------------
-// getrf_tntpiv()
+/// LU factorization with tournament pivoting.
+///
+/// @param[in,out] A
+///     General matrix A. On exit, overwritten by LU factors.
+///
+/// @param[out] pivots
+///     Pivot indices.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 int64_t getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 
 //-----------------------------------------
-// gbtrs()
+/// Solve using partial LU factorization (band matrix).
+///
+/// @param[in] A
+///     Band matrix with LU factors.
+///
+/// @param[in] pivots
+///     Pivot indices.
+///
+/// @param[in,out] B
+///     Right-hand side. On exit, solution.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 void gbtrs(
     BandMatrix<scalar_t>& A, Pivots& pivots,
@@ -599,7 +1313,22 @@ void gbtrs(
     Options const& opts = Options());
 
 //-----------------------------------------
-// getrs()
+/// Solve using partial LU factorization (general matrix).
+///
+/// @param[in] A
+///     General matrix with LU factors.
+///
+/// @param[in] pivots
+///     Pivot indices.
+///
+/// @param[in,out] B
+///     Right-hand side. On exit, solution.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 void getrs(
     Matrix<scalar_t>& A, Pivots& pivots,
@@ -607,8 +1336,9 @@ void getrs(
     Options const& opts = Options());
 
 //-----------------------------------------
-// getrs_nopiv()
-// todo: deprecate, use getrs( ..., { MethodLU: NoPiv } )
+/// Solve using LU factorization without pivoting.
+/// @deprecated Use getrs( ..., { MethodLU: NoPiv } )
+/// @ingroup lu
 template <typename scalar_t>
 void getrs_nopiv(
     Matrix<scalar_t>& A,
@@ -616,25 +1346,55 @@ void getrs_nopiv(
     Options const& opts = Options());
 
 //-----------------------------------------
-// getri()
-// In-place
+/// Compute matrix inverse using LU factorization (in-place).
+///
+/// @param[in,out] A
+///     Matrix with LU factors. On exit, overwritten by inverse.
+///
+/// @param[in] pivots
+///     Pivot indices.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup lu
+///
 template <typename scalar_t>
 void getri(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 
-// Out-of-place
+/// Compute matrix inverse using LU factorization (out-of-place).
+/// @ingroup lu
 template <typename scalar_t>
 void getri(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
     Options const& opts = Options());
 
-//-----------------------------------------
-// Cholesky
+/// @}
+
+
+/// @defgroup chol Cholesky factorization and solve
+/// @brief Cholesky factorization, solve, inverse, condition number
+/// @{
 
 //-----------------------------------------
-// pbsv()
+/// Solve linear system \( A X = B \) using Cholesky (Hermitian band).
+///
+/// @param[in,out] A
+///     Hermitian band matrix A. On exit, overwritten by factor.
+///
+/// @param[in,out] B
+///     Right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code (0 = success).
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 int64_t pbsv(
     HermitianBandMatrix<scalar_t>& A,
@@ -642,15 +1402,29 @@ int64_t pbsv(
     Options const& opts = Options());
 
 //-----------------------------------------
-// posv()
+/// Solve linear system \( A X = B \) using Cholesky (Hermitian).
+///
+/// @param[in,out] A
+///     Hermitian matrix A. On exit, overwritten by factor.
+///
+/// @param[in,out] B
+///     Right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code (0 = success).
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 int64_t posv(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to potrf;
-// disabled for complex
+/// Overload for real symmetric matrix.
+/// @ingroup chol
 template <typename scalar_t>
 int64_t posv(
     SymmetricMatrix<scalar_t>& A,
@@ -663,7 +1437,27 @@ int64_t posv(
 }
 
 //-----------------------------------------
-// posv_mixed()
+/// Solve linear system using mixed-precision Cholesky iterative refinement.
+///
+/// @param[in,out] A
+///     Hermitian matrix A.
+///
+/// @param[in,out] B
+///     Right-hand side B.
+///
+/// @param[out] X
+///     Solution X.
+///
+/// @param[out] iter
+///     Number of iterations.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 int64_t posv_mixed(
     HermitianMatrix<scalar_t>& A,
@@ -672,6 +1466,8 @@ int64_t posv_mixed(
     int& iter,
     Options const& opts = Options());
 
+/// Mixed-precision Cholesky solve (explicit types).
+/// @ingroup chol
 template <typename scalar_hi, typename scalar_lo>
 int64_t posv_mixed(
     HermitianMatrix<scalar_hi>& A,
@@ -683,7 +1479,27 @@ int64_t posv_mixed(
 // todo: forward real-symmetric matrices to posv_mixed?
 
 //-----------------------------------------
-// posv_mixed_gmres()
+/// Solve linear system using mixed-precision Cholesky GMRES.
+///
+/// @param[in,out] A
+///     Hermitian matrix A.
+///
+/// @param[in,out] B
+///     Right-hand side B.
+///
+/// @param[out] X
+///     Solution X.
+///
+/// @param[out] iter
+///     Number of iterations.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 int64_t posv_mixed_gmres(
     HermitianMatrix<scalar_t>& A,
@@ -692,6 +1508,8 @@ int64_t posv_mixed_gmres(
     int& iter,
     Options const& opts = Options());
 
+/// Mixed-precision Cholesky GMRES solve (explicit types).
+/// @ingroup chol
 template <typename scalar_hi, typename scalar_lo>
 int64_t posv_mixed_gmres(
     HermitianMatrix<scalar_hi>& A,
@@ -703,21 +1521,43 @@ int64_t posv_mixed_gmres(
 // todo: forward real-symmetric matrices to posv_mixed_gmres?
 
 //-----------------------------------------
-// pbtrf()
+/// Cholesky factorization (Hermitian band): \( A = L L^H \).
+///
+/// @param[in,out] A
+///     Hermitian band matrix A. On exit, overwritten by factor.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 int64_t pbtrf(
     HermitianBandMatrix<scalar_t>& A,
     Options const& opts = Options());
 
 //-----------------------------------------
-// potrf()
+/// Cholesky factorization (Hermitian): \( A = L L^H \).
+///
+/// @param[in,out] A
+///     Hermitian matrix A. On exit, overwritten by factor.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 int64_t potrf(
     HermitianMatrix<scalar_t>& A,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to potrf;
-// disabled for complex
+/// Overload for real symmetric matrix.
+/// @ingroup chol
 template <typename scalar_t>
 int64_t potrf(
     SymmetricMatrix<scalar_t>& A,
@@ -729,7 +1569,19 @@ int64_t potrf(
 }
 
 //-----------------------------------------
-// pbtrs()
+/// Solve using Cholesky factorization (Hermitian band).
+///
+/// @param[in] A
+///     Hermitian band matrix with factor.
+///
+/// @param[in,out] B
+///     Right-hand side. On exit, solution.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 void pbtrs(
     HermitianBandMatrix<scalar_t>& A,
@@ -737,15 +1589,27 @@ void pbtrs(
     Options const& opts = Options());
 
 //-----------------------------------------
-// potrs()
+/// Solve using Cholesky factorization (Hermitian).
+///
+/// @param[in] A
+///     Hermitian matrix with factor.
+///
+/// @param[in,out] B
+///     Right-hand side. On exit, solution.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 void potrs(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options());
 
-// forward real-symmetric matrices to potrs;
-// disabled for complex
+/// Overload for real symmetric matrix.
+/// @ingroup chol
 template <typename scalar_t>
 void potrs(
     SymmetricMatrix<scalar_t>& A,
@@ -758,21 +1622,63 @@ void potrs(
 }
 
 //-----------------------------------------
-// potri()
+/// Compute matrix inverse using Cholesky factorization (in-place).
+///
+/// @param[in,out] A
+///     Matrix with factor. On exit, overwritten by inverse.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup chol
+///
 template <typename scalar_t>
 void potri(
     HermitianMatrix<scalar_t>& A,
     Options const& opts = Options());
 
+/// @}
+
+
 // todo:
 // forward real-symmetric matrices to potrs;
 // disabled for complex
 
-//-----------------------------------------
+//------------------------------------------------------------------------------
 // Symmetric indefinite -- block Aasen's
 
+/// @defgroup sysv Symmetric/Hermitian indefinite factorization and solve
+/// @brief Aasen's algorithm for indefinite systems
+/// @{
+
 //-----------------------------------------
-// hesv()
+/// Solve linear system \( A X = B \) using Aasen's algorithm (Hermitian).
+///
+/// @param[in,out] A
+///     Hermitian matrix A. On exit, overwritten by factorization.
+///
+/// @param[out] pivots
+///     Pivot indices.
+///
+/// @param[out] T
+///     Band matrix factor T.
+///
+/// @param[out] pivots2
+///     Secondary pivot indices.
+///
+/// @param[out] H
+///     Auxiliary matrix H.
+///
+/// @param[in,out] B
+///     Right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup sysv
+///
 template <typename scalar_t>
 int64_t hesv(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
@@ -781,10 +1687,8 @@ int64_t hesv(
              Matrix<scalar_t>& B,
     Options const& opts = Options());
 
-//-----------------------------------------
-// sysv()
-// forward real-symmetric matrices to hesv;
-// disabled for complex
+/// Overload for real symmetric matrix.
+/// @ingroup sysv
 template <typename scalar_t>
 int64_t sysv(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
@@ -799,7 +1703,30 @@ int64_t sysv(
 }
 
 //-----------------------------------------
-// hetrf()
+/// Indefinite factorization (Hermitian): Aasen's algorithm.
+///
+/// @param[in,out] A
+///     Hermitian matrix A. On exit, overwritten by factorization.
+///
+/// @param[out] pivots
+///     Pivot indices.
+///
+/// @param[out] T
+///     Band matrix factor T.
+///
+/// @param[out] pivots2
+///     Secondary pivot indices.
+///
+/// @param[out] H
+///     Auxiliary matrix H.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Info code.
+///
+/// @ingroup sysv
+///
 template <typename scalar_t>
 int64_t hetrf(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
@@ -807,10 +1734,8 @@ int64_t hetrf(
              Matrix<scalar_t>& H,
     Options const& opts = Options());
 
-//-----------------------------------------
-// sytrf()
-// forward real-symmetric matrices to hetrf;
-// disabled for complex
+/// Overload for real symmetric matrix.
+/// @ingroup sysv
 template <typename scalar_t>
 int64_t sytrf(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
@@ -824,7 +1749,28 @@ int64_t sytrf(
 }
 
 //-----------------------------------------
-// hetrs()
+/// Solve using indefinite factorization (Hermitian).
+///
+/// @param[in] A
+///     Hermitian matrix with factorization.
+///
+/// @param[in] pivots
+///     Pivot indices.
+///
+/// @param[in] T
+///     Band matrix factor T.
+///
+/// @param[in] pivots2
+///     Secondary pivot indices.
+///
+/// @param[in,out] B
+///     Right-hand side. On exit, solution.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup sysv
+///
 template <typename scalar_t>
 void hetrs(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
@@ -832,10 +1778,8 @@ void hetrs(
              Matrix<scalar_t>& B,
     Options const& opts = Options());
 
-//-----------------------------------------
-// sytrs()
-// forward real-symmetric matrices to hetrs;
-// disabled for complex
+/// Overload for real symmetric matrix.
+/// @ingroup sysv
 template <typename scalar_t>
 void sytrs(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
@@ -848,53 +1792,144 @@ void sytrs(
     hetrs(AH, pivots, T, pivots2, B, opts);
 }
 
+/// @}
+
+
 //------------------------------------------------------------------------------
 // QR
 
-//-----------------------------------------
-// auxiliary type for T factors
+/// Vector of matrices for representing triangular factors T in QR/LQ.
 template <typename scalar_t>
 using TriangularFactors = std::vector< Matrix<scalar_t> >;
 
-//-----------------------------------------
+//------------------------------------------------------------------------------
 // Least squares
 
-//-----------------------------------------
-// gels()
+/// @defgroup gels Least squares
+/// @brief Solve over- or under-determined systems
+/// @{
 
-// Using QR
+//-----------------------------------------
+/// Solve least squares using QR factorization: minimize \( \| B - A X \|_2 \).
+///
+/// @param[in,out] A
+///     General matrix A. On exit, overwritten by QR factors.
+///
+/// @param[out] T
+///     Triangular factors.
+///
+/// @param[in,out] BX
+///     Right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup gels
+///
 template <typename scalar_t>
 void gels_qr(
     Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& BX,
     Options const& opts = Options());
 
-// Using CholeskyQR
+//-----------------------------------------
+/// Solve least squares using CholeskyQR: minimize \( \| B - A X \|_2 \).
+/// A must be tall and skinny.
+///
+/// @param[in,out] A
+///     General matrix A.
+///
+/// @param[out] R
+///     Upper triangular factor R.
+///
+/// @param[in,out] BX
+///     Right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup gels
+///
 template <typename scalar_t>
 void gels_cholqr(
     Matrix<scalar_t>& A, Matrix<scalar_t>& R,
     Matrix<scalar_t>& BX,
     Options const& opts = Options());
 
-// Routine selection
+//-----------------------------------------
+/// Solve least squares problem (driver).
+/// Dispatches to QR or CholeskyQR based on options.
+///
+/// @param[in,out] A
+///     General matrix A.
+///
+/// @param[in,out] BX
+///     Right-hand side B. On exit, solution X.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup gels
+///
 template <typename scalar_t>
 void gels(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& BX,
     Options const& opts = Options());
 
-//-----------------------------------------
+/// @}
+
+//------------------------------------------------------------------------------
 // QR
 
+/// @defgroup qr QR factorization
+/// @brief QR factorization and multiplication by Q
+/// @{
+
 //-----------------------------------------
-// geqrf()
+/// QR factorization: \( A = Q R \).
+///
+/// @param[in,out] A
+///     General matrix A. On exit, overwritten by Householder vectors.
+///
+/// @param[out] T
+///     Triangular factors T.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup qr
+///
 template <typename scalar_t>
 void geqrf(
     Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
     Options const& opts = Options());
 
 //-----------------------------------------
-// unmqr()
+/// Multiply by Q from QR factorization.
+/// \( C = Q C \) or \( C = Q^H C \) (if side=Left)
+/// \( C = C Q \) or \( C = C Q^H \) (if side=Right)
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] op
+///     Op::NoTrans or Op::ConjTrans (or Op::Trans for real).
+///
+/// @param[in] A
+///     Matrix with Householder vectors.
+///
+/// @param[in] T
+///     Triangular factors.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup qr
+///
 template <typename scalar_t>
 void unmqr(
     Side side, Op op,
@@ -903,25 +1938,77 @@ void unmqr(
     Options const& opts = Options());
 
 //-----------------------------------------
-// cholQR
+/// CholeskyQR factorization: \( A = Q R \).
+/// A must be tall and skinny.
+///
+/// @param[in,out] A
+///     General matrix A. On exit, overwritten by Q.
+///
+/// @param[out] R
+///     Upper triangular factor R.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup qr
+///
 template <typename scalar_t>
 void cholqr(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& R,
     Options const& opts = Options());
 
-//-----------------------------------------
+/// @}
+
+//------------------------------------------------------------------------------
 // LQ
 
+/// @defgroup lq LQ factorization
+/// @brief LQ factorization and multiplication by Q
+/// @{
+
 //-----------------------------------------
-// gelqf()
+/// LQ factorization: \( A = L Q \).
+///
+/// @param[in,out] A
+///     General matrix A. On exit, overwritten by Householder vectors.
+///
+/// @param[out] T
+///     Triangular factors T.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup lq
+///
 template <typename scalar_t>
 void gelqf(
     Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
     Options const& opts = Options());
 
 //-----------------------------------------
-// unmlq()
+/// Multiply by Q from LQ factorization.
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] op
+///     Op::NoTrans or Op::ConjTrans.
+///
+/// @param[in] A
+///     Matrix with Householder vectors.
+///
+/// @param[in] T
+///     Triangular factors.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup lq
+///
 template <typename scalar_t>
 void unmlq(
     Side side, Op op,
@@ -929,9 +2016,36 @@ void unmlq(
     Matrix<scalar_t>& C,
     Options const& opts = Options());
 
+/// @}
+
+
 //------------------------------------------------------------------------------
 // SVD
 
+/// @defgroup svd Singular Value Decomposition (SVD)
+/// @brief SVD factorization
+/// @{
+
+//-----------------------------------------
+/// Singular Value Decomposition: \( A = U \Sigma V^H \).
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[out] Sigma
+///     Vector of singular values.
+///
+/// @param[out] U
+///     Matrix U.
+///
+/// @param[out] VT
+///     Matrix \( V^H \).
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup svd
+///
 template <typename scalar_t>
 void svd(
     Matrix<scalar_t> A,
@@ -941,6 +2055,7 @@ void svd(
     Options const& opts = Options());
 
 /// Without U and VT, compute only singular values. Same as svd_vals.
+/// @ingroup svd
 template <typename scalar_t>
 void svd(
     Matrix<scalar_t> A,
@@ -953,6 +2068,7 @@ void svd(
 }
 
 /// Compute only singular values. Same as svd without U and VT.
+/// @ingroup svd
 template <typename scalar_t>
 void svd_vals(
     Matrix<scalar_t> A,
@@ -963,7 +2079,28 @@ void svd_vals(
 }
 
 //-----------------------------------------
-// unmbr_ge2tb()
+/// Multiply by Q from GE2TB reduction (Bidiagonal reduction part 1).
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] op
+///     Op::NoTrans or Op::ConjTrans.
+///
+/// @param[in] A
+///     Matrix with reduction factors.
+///
+/// @param[in] T
+///     Triangular factors.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup svd
+///
 template <typename scalar_t>
 void unmbr_ge2tb(
     Side side, Op op,
@@ -973,7 +2110,22 @@ void unmbr_ge2tb(
     Options const& opts = Options());
 
 //-----------------------------------------
-// ge2tb()
+/// Reduction from general to triangular-band form (SVD step 1).
+///
+/// @param[in,out] A
+///     General matrix A. On exit, reduced to triangular-band.
+///
+/// @param[out] TU
+///     Triangular factors for U.
+///
+/// @param[out] TV
+///     Triangular factors for V.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup svd
+///
 template <typename scalar_t>
 void ge2tb(
     Matrix<scalar_t>& A,
@@ -982,8 +2134,22 @@ void ge2tb(
     Options const& opts = Options());
 
 //-----------------------------------------
-// Bulge Chasing: TriangularBand to Bi-diagonal
-// tb2bd()
+/// Bulge Chasing: TriangularBand to Bi-diagonal (SVD step 2).
+///
+/// @param[in,out] A
+///     Triangular band matrix. On exit, bidiagonal.
+///
+/// @param[out] U
+///     Matrix U.
+///
+/// @param[out] V
+///     Matrix V.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup svd
+///
 template <typename scalar_t>
 void tb2bd(
     TriangularBandMatrix<scalar_t>& A,
@@ -992,8 +2158,31 @@ void tb2bd(
     Options const& opts = Options());
 
 //-----------------------------------------
-// Bi-diagonal SVD
-// bdsqr()
+/// Bi-diagonal SVD (SVD step 3).
+///
+/// @param[in] jobu
+///     Job::NoVec or Job::Vec (compute U).
+///
+/// @param[in] jobvt
+///     Job::NoVec or Job::Vec (compute VT).
+///
+/// @param[in,out] D
+///     Diagonal elements.
+///
+/// @param[in,out] E
+///     Off-diagonal elements.
+///
+/// @param[out] U
+///     Matrix U.
+///
+/// @param[out] VT
+///     Matrix VT.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup svd
+///
 template <typename scalar_t>
 void bdsqr(
     Job jobu, Job jobvt,
@@ -1003,9 +2192,34 @@ void bdsqr(
     Matrix<scalar_t>& VT,
     Options const& opts = Options());
 
+/// @}
+
+
 //------------------------------------------------------------------------------
 // Symmetric/Hermitian eigenvalues
 
+/// @defgroup heev Symmetric/Hermitian eigenvalue problems
+/// @brief Compute eigenvalues and eigenvectors
+/// @{
+
+//-----------------------------------------
+/// Compute eigenvalues and eigenvectors (Hermitian matrix).
+/// \( A Z = Z \Lambda \).
+///
+/// @param[in,out] A
+///     Hermitian matrix A. On exit, overwritten.
+///
+/// @param[out] Lambda
+///     Eigenvalues.
+///
+/// @param[out] Z
+///     Eigenvectors.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup heev
+///
 template <typename scalar_t>
 void heev(
     HermitianMatrix<scalar_t>& A,
@@ -1014,6 +2228,7 @@ void heev(
     Options const& opts = Options());
 
 /// Without Z, compute only eigenvalues.
+/// @ingroup heev
 template <typename scalar_t>
 void heev(
     HermitianMatrix<scalar_t>& A,
@@ -1025,8 +2240,8 @@ void heev(
 }
 
 //-----------------------------------------
-// forward real-symmetric matrices to heev;
-// disabled for complex
+/// Overload for real symmetric matrix (dispatched to heev).
+/// @ingroup heev
 template <typename scalar_t>
 void syev(
     SymmetricMatrix<scalar_t>& A,
@@ -1040,6 +2255,7 @@ void syev(
 }
 
 /// Without Z, compute only eigenvalues.
+/// @ingroup heev
 template <typename scalar_t>
 void syev(
     SymmetricMatrix<scalar_t>& A,
@@ -1052,9 +2268,40 @@ void syev(
     heev( AH, Lambda, Z, opts );
 }
 
+/// @}
+
 //------------------------------------------------------------------------------
 // Generalized symmetric/Hermitian eigenvalues
 
+/// @defgroup hegv Generalized symmetric/Hermitian eigenvalue problems
+/// @brief Solve \( A v = \lambda B v \) and related problems
+/// @{
+
+//-----------------------------------------
+/// Compute eigenvalues and eigenvectors of generalized Hermitian eigenproblem.
+///
+/// @param[in] itype
+///     1: \( A x = \lambda B x \)
+///     2: \( A B x = \lambda x \)
+///     3: \( B A x = \lambda x \)
+///
+/// @param[in,out] A
+///     Hermitian matrix A.
+///
+/// @param[in,out] B
+///     Hermitian positive definite matrix B.
+///
+/// @param[out] Lambda
+///     Eigenvalues.
+///
+/// @param[out] Z
+///     Eigenvectors.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup hegv
+///
 template <typename scalar_t>
 void hegv(
     int64_t itype,
@@ -1064,7 +2311,8 @@ void hegv(
     Matrix<scalar_t>& Z,
     Options const& opts = Options());
 
-// Without Z, compute only eigenvalues.
+/// Without Z, compute only eigenvalues.
+/// @ingroup hegv
 template <typename scalar_t>
 void hegv(
     int64_t itype,
@@ -1078,8 +2326,8 @@ void hegv(
 }
 
 //-----------------------------------------
-// forward real-symmetric matrices to hegv;
-// disabled for complex
+/// Overload for real symmetric matrix (dispatched to hegv).
+/// @ingroup hegv
 template <typename scalar_t>
 void sygv(
     int64_t itype,
@@ -1096,6 +2344,7 @@ void sygv(
 }
 
 /// Without Z, compute only eigenvalues.
+/// @ingroup hegv
 template <typename scalar_t>
 void sygv(
     int64_t itype,
@@ -1110,7 +2359,22 @@ void sygv(
 }
 
 //-----------------------------------------
-// hegst()
+/// Reduce generalized Hermitian eigenproblem to standard form.
+///
+/// @param[in] itype
+///     Problem type.
+///
+/// @param[in,out] A
+///     Hermitian matrix A. On exit, reduced matrix.
+///
+/// @param[in,out] B
+///     Hermitian positive definite matrix B.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup hegv
+///
 template <typename scalar_t>
 void hegst(
     int64_t itype,
@@ -1119,9 +2383,8 @@ void hegst(
     Options const& opts = Options());
 
 //-----------------------------------------
-// sygst()
-// forward real-symmetric matrices to hegst;
-// disabled for complex
+/// Overload for real symmetric matrix (dispatched to hegst).
+/// @ingroup hegv
 template <typename scalar_t>
 void sygst(
     int64_t itype,
@@ -1135,12 +2398,30 @@ void sygst(
     hegst( itype, AH, BH, opts );
 }
 
+/// @}
+
+
 //------------------------------------------------------------------------------
 // Symmetric/Hermitian eigenvalue reductions
-// Reduction to band (he2hb), then tridiagonal (hb2st).
+
+/// @defgroup he_reduction Symmetric/Hermitian reductions
+/// @brief Reduction to band and tridiagonal forms
+/// @{
 
 //-----------------------------------------
-// he2hb()
+/// Reduce Hermitian matrix to band form.
+///
+/// @param[in,out] A
+///     Hermitian matrix A. On exit, reduced to band form.
+///
+/// @param[out] T
+///     Triangular factors.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup he_reduction
+///
 template <typename scalar_t>
 void he2hb(
     HermitianMatrix<scalar_t>& A,
@@ -1148,7 +2429,28 @@ void he2hb(
     Options const& opts = Options());
 
 //-----------------------------------------
-// unmtr_he2hb()
+/// Multiply by Q from HE2HB reduction.
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] op
+///     Op::NoTrans or Op::ConjTrans.
+///
+/// @param[in] A
+///     Matrix with reduction factors.
+///
+/// @param[in] T
+///     Triangular factors.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup he_reduction
+///
 template <typename scalar_t>
 void unmtr_he2hb(
     Side side, Op op,
@@ -1158,7 +2460,19 @@ void unmtr_he2hb(
     Options const& opts = Options());
 
 //-----------------------------------------
-// hb2st()
+/// Reduce Hermitian band matrix to real symmetric tridiagonal form.
+///
+/// @param[in,out] A
+///     Hermitian band matrix A.
+///
+/// @param[out] V
+///     Matrix V with Householder vectors.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup he_reduction
+///
 template <typename scalar_t>
 void hb2st(
     HermitianBandMatrix<scalar_t>& A,
@@ -1166,7 +2480,25 @@ void hb2st(
     Options const& opts = Options());
 
 //-----------------------------------------
-// unmtr_hb2st()
+/// Multiply by Q from HB2ST reduction.
+///
+/// @param[in] side
+///     Side::Left or Side::Right.
+///
+/// @param[in] op
+///     Op::NoTrans or Op::ConjTrans.
+///
+/// @param[in] V
+///     Matrix with Householder vectors.
+///
+/// @param[in,out] C
+///     Matrix C.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup he_reduction
+///
 template <typename scalar_t>
 void unmtr_hb2st(
     Side side, Op op,
@@ -1174,15 +2506,39 @@ void unmtr_hb2st(
     Matrix<scalar_t>& C,
     Options const& opts = Options());
 
+/// @}
+
 //------------------------------------------------------------------------------
 // Tridiagonal Symmetric eigenvalue solvers
 
+/// @defgroup heev_tridiag Tridiagonal eigenvalue solvers
+/// @brief Divide and conquer, QR, etc.
+/// @{
+
+//-----------------------------------------
+/// Solve tridiagonal eigenvalue problem using divide and conquer.
+///
+/// @param[in,out] D
+///     Diagonal elements.
+///
+/// @param[in,out] E
+///     Off-diagonal elements.
+///
+/// @param[out] Q
+///     Eigenvectors.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @ingroup heev_tridiag
+///
 template <typename real_t>
 void stedc(
     std::vector<real_t>& D, std::vector<real_t>& E,
     Matrix<real_t>& Q,
     Options const& opts = Options());
 
+// Internal routines for stedc...
 template <typename real_t>
 void stedc_deflate(
     int64_t n,
@@ -1241,7 +2597,11 @@ void stedc_z_vector(
     Options const& opts = Options());
 
 //-----------------------------------------
-// unmbr_tb2bd()
+/// Multiply by Q from TB2BD reduction (Bidiagonal reduction part 2?).
+/// Actually this seems to be related to SVD but placed here?
+/// It says unmbr_tb2bd.
+///
+/// @ingroup svd
 template <typename scalar_t>
 void unmbr_tb2bd(
     Side side, Op op,
@@ -1250,7 +2610,15 @@ void unmbr_tb2bd(
     Options const& opts = Options());
 
 //-----------------------------------------
-// sterf()
+/// Solve tridiagonal eigenvalue problem using QR / Pal-Walker-Kahan variant (sterf).
+/// Computes eigenvalues only.
+///
+/// @param[in,out] D Diagonal.
+/// @param[in,out] E Off-diagonal.
+/// @param[in] opts Options.
+///
+/// @ingroup heev_tridiag
+///
 template <typename scalar_t>
 void sterf(
     std::vector< scalar_t >& D,
@@ -1258,7 +2626,17 @@ void sterf(
     Options const& opts = Options());
 
 //-----------------------------------------
-// steqr()
+/// Solve tridiagonal eigenvalue problem using QR (steqr).
+/// Computes eigenvalues and optionally eigenvectors.
+///
+/// @param[in] jobz Job::NoVec or Job::Vec.
+/// @param[in,out] D Diagonal.
+/// @param[in,out] E Off-diagonal.
+/// @param[out] Z Eigenvectors.
+/// @param[in] opts Options.
+///
+/// @ingroup heev_tridiag
+///
 template <typename scalar_t>
 void steqr(
     Job jobz,
@@ -1277,11 +2655,34 @@ int64_t steqr(
     int64_t nrows,
     blas::real_type<scalar_t>* work, int64_t lwork );
 
+/// @}
+
 //------------------------------------------------------------------------------
 // Condition number estimate
 
+/// @defgroup cond Condition number estimate
+/// @brief Estimate condition numbers
+/// @{
+
 //-----------------------------------------
-// gecondest()
+/// Estimate condition number of general matrix.
+///
+/// @param[in] in_norm
+///     Norm to use.
+///
+/// @param[in] A
+///     Matrix A.
+///
+/// @param[in] Anorm
+///     Norm of A.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Reciprocal condition number estimate.
+///
+/// @ingroup cond
+///
 template <typename scalar_t>
 blas::real_type<scalar_t> gecondest(
     Norm in_norm,
@@ -1290,7 +2691,24 @@ blas::real_type<scalar_t> gecondest(
     Options const& opts = Options());
 
 //-----------------------------------------
-// pocondest()
+/// Estimate condition number of Hermitian positive definite matrix.
+///
+/// @param[in] in_norm
+///     Norm to use.
+///
+/// @param[in] A
+///     Hermitian matrix A.
+///
+/// @param[in] Anorm
+///     Norm of A.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Reciprocal condition number estimate.
+///
+/// @ingroup cond
+///
 template <typename scalar_t>
 blas::real_type<scalar_t> pocondest(
     Norm in_norm,
@@ -1299,13 +2717,33 @@ blas::real_type<scalar_t> pocondest(
     Options const& opts = Options());
 
 //-----------------------------------------
-// trcondest()
+/// Estimate condition number of triangular matrix.
+///
+/// @param[in] in_norm
+///     Norm to use.
+///
+/// @param[in] A
+///     Triangular matrix A.
+///
+/// @param[in] Anorm
+///     Norm of A.
+///
+/// @param[in] opts
+///     Additional options.
+///
+/// @return Reciprocal condition number estimate.
+///
+/// @ingroup cond
+///
 template <typename scalar_t>
 blas::real_type<scalar_t> trcondest(
     Norm in_norm,
     TriangularMatrix<scalar_t>& A,
     blas::real_type<scalar_t> Anorm,
     Options const& opts = Options());
+
+/// @}
+
 
 } // namespace slate
 

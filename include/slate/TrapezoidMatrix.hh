@@ -282,10 +282,9 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
 
 //------------------------------------------------------------------------------
 /// [static]
-/// TODO
-/// Named constructor returns a new Matrix from ScaLAPACK layout.
-/// Construct matrix by wrapping existing memory of an n-by-n lower
-/// or upper trapezoid ScaLAPACK-style matrix.
+/// Named constructor returns a new Matrix from data in GPU device memory.
+/// Construct matrix by wrapping existing memory of an m-by-n lower
+/// or upper trapezoid matrix.
 /// @see BaseTrapezoidMatrix
 ///
 /// @param[in] uplo
@@ -297,16 +296,19 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
 ///     - Unit:    A has unit diagonal; diagonal elements are not referenced
 ///                and are assumed to be one.
 ///
+/// @param[in] m
+///     Number of rows of the matrix. m >= 0.
+///
 /// @param[in] n
-///     Number of rows and columns of the matrix. n >= 0.
+///     Number of columns of the matrix. n >= 0.
 ///
 /// @param[in,out] Aarray
-///     TODO
-///     The local portion of the 2D block cyclic distribution of
-///     the n-by-n matrix A, with local leading dimension lda.
+///     Array of pointers to device memory.
+///     Aarray[ d ] is the local portion of the 2D block cyclic distribution of
+///     the m-by-n matrix A on device d, with local leading dimension lda.
 ///
 /// @param[in] num_devices
-///     TODO
+///     Dimension of Aarray.
 ///
 /// @param[in] lda
 ///     Local leading dimension of the array A. lda >= local number of rows.

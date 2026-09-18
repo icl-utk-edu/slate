@@ -252,10 +252,9 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromScaLAPACK(
 
 //------------------------------------------------------------------------------
 /// [static]
-/// TODO
-/// Named constructor returns a new Matrix from ScaLAPACK layout.
+/// Named constructor returns a new Matrix from data in GPU device memory.
 /// Construct matrix by wrapping existing memory of an n-by-n lower
-/// or upper Hermitian ScaLAPACK-style matrix.
+/// or upper Hermitian matrix.
 /// @see BaseTrapezoidMatrix
 ///
 /// @param[in] uplo
@@ -266,12 +265,12 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromScaLAPACK(
 ///     Number of rows and columns of the matrix. n >= 0.
 ///
 /// @param[in,out] Aarray
-///     TODO
-///     The local portion of the 2D block cyclic distribution of
-///     the n-by-n matrix A, with local leading dimension lda.
+///     Array of pointers to device memory.
+///     Aarray[ d ] is the local portion of the 2D block cyclic distribution of
+///     the n-by-n matrix A on device d, with local leading dimension lda.
 ///
 /// @param[in] num_devices
-///     TODO
+///     Dimension of Aarray.
 ///
 /// @param[in] lda
 ///     Local leading dimension of the array A. lda >= local number of rows.

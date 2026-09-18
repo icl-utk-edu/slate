@@ -81,19 +81,31 @@ using Options = std::map<Option, OptionValue>;
 using Value   = OptionValue; ///< @deprecated
 
 //------------------------------------------------------------------------------
+/// Pivot in a matrix, stored as {tile index, offset in tile}.
 class Pivot {
 public:
+    /// Default constructor.
     Pivot()
     {}
 
+    /// Constructor.
+    /// @param[in] tile_index
+    ///     Global tile index.
+    ///
+    /// @param[in] element_offset
+    ///     Offset within the tile.
     Pivot(int64_t tile_index,
           int64_t element_offset)
         : tile_index_(tile_index),
           element_offset_(element_offset)
     {}
 
+    /// Returns tile index.
     int64_t tileIndex() const { return tile_index_; }
+
+    /// Returns element offset.
     int64_t elementOffset() const { return element_offset_; }
+
 
 private:
     int64_t tile_index_;     ///< tile index in the panel submatrix
@@ -118,7 +130,7 @@ using Pivots = std::vector< std::vector<Pivot> >;
 
 //------------------------------------------------------------------------------
 /// Gives mpi_type based on actual scalar_t.
-//  Constants are initialized in src/core/types.cc
+/// Constants are initialized in src/core/types.cc
 template <typename scalar_t>
 class mpi_type {};
 
@@ -176,6 +188,9 @@ public:
 
 //------------------------------------------------------------------------------
 /// True if T is std::complex<T2> for some type T2.
+///
+/// @tparam T
+///     Type to check.
 template <typename T>
 struct is_complex:
     std::integral_constant<bool, false>
@@ -237,7 +252,10 @@ inline double get_option<double>( Options opts, Option option, double defval )
 }
 
 //------------------------------------------------------------------------------
-// Dispatch type mapping Option enum to corresponding types
+/// Dispatch type mapping Option enum to corresponding types.
+///
+/// @tparam option
+///     Option to get type for.
 template <slate::Option option> struct OptValueType {};
 template<> struct OptValueType<Option::ChunkSize>          { using T = int64_t; };
 template<> struct OptValueType<Option::Lookahead>          { using T = int64_t; };

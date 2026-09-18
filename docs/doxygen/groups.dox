@@ -327,5 +327,8 @@
     @{
         @defgroup func Constructor functions
         @brief Useful functions for SLATE's "lambda" constructors
+
+        @defgroup print Printing
+        @brief Pretty printing of scalars, matrices, and tiles
     @}
 **/

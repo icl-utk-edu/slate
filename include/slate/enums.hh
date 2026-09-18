@@ -18,18 +18,50 @@
 
 namespace slate {
 
+//------------------------------------------------------------------------------
+// Imports from BLAS and LAPACK
+//------------------------------------------------------------------------------
+
+/// Operation: NoTrans, Trans, ConjTrans.
+/// @ingroup enum
 using blas::Op;
+
+/// Uplo: Upper, Lower, General.
+/// @ingroup enum
 using blas::Uplo;
+
+/// Diagonal: NonUnit, Unit.
+/// @ingroup enum
 using blas::Diag;
+
+/// Side: Left, Right.
+/// @ingroup enum
 using blas::Side;
+
+/// Layout: ColMajor, RowMajor.
+/// @ingroup enum
 using blas::Layout;
 
+/// Equilibrated: No, Row, Col, Both.
+/// @ingroup enum
 using lapack::Equed;
+
+/// Row or Column: Row, Col.
+/// @ingroup enum
 using lapack::RowCol;
+
+/// Norm: One, Two, Inf, Fro, Max, RealOne, RealInf, RealMax.
+/// @ingroup enum
 using lapack::Norm;
+
+/// Direction: Forward, Backward.
+/// @ingroup enum
 using lapack::Direction;
 
+/// Job: NoVec, Vec, UpdateVec, AllVec, SomeVec, OverwriteVec.
+/// @ingroup enum
 using lapack::Job;
+
 
 //------------------------------------------------------------------------------
 /// Location and method of computation.

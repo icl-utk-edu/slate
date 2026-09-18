@@ -105,7 +105,6 @@ HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
 
 //------------------------------------------------------------------------------
 /// [explicit]
-/// todo:
 /// Conversion from general band matrix
 /// creates a shallow copy view of the original matrix.
 /// Uses only square portion, Aorig[ 0:min(mt,nt)-1, 0:min(mt,nt)-1 ].
@@ -117,6 +116,9 @@ HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
 /// @param[in,out] orig
 ///     Original matrix.
 ///
+/// @param[in] slice
+///     Slice of the matrix.
+///
 template <typename scalar_t>
 HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
     Uplo uplo, BandMatrix<scalar_t>& orig)
@@ -125,7 +127,6 @@ HermitianBandMatrix<scalar_t>::HermitianBandMatrix(
 
 //------------------------------------------------------------------------------
 /// [explicit]
-/// todo:
 /// Conversion from Hermitian matrix
 /// creates a shallow copy view of the original matrix.
 ///

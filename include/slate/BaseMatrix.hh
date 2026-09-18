@@ -147,6 +147,19 @@ public:
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
 
+    //--------------------------------------------------------------------------
+    /// Returns the tile at block row i and block column j.
+    ///
+    /// @param[in] i
+    ///     Block row index. 0 <= i < mt.
+    ///
+    /// @param[in] j
+    ///     Block column index. 0 <= j < nt.
+    ///
+    /// @param[in] device
+    ///     Device ID to get the tile from. Default is HostNum.
+    ///
+    /// @return The tile at (i, j).
     Tile<scalar_t> operator()( int64_t i, int64_t j, int device=HostNum );
 
     /// Alias of operator().
@@ -158,6 +171,23 @@ public:
     /// Returns number of devices (per MPI process) to distribute matrix to.
     int num_devices() const { return MatrixStorage<scalar_t>::num_devices(); }
 
+    //--------------------------------------------------------------------------
+    /// Returns grid information.
+    ///
+    /// @param[out] order
+    ///     Grid order (ColMajor or RowMajor).
+    ///
+    /// @param[out] nprow
+    ///     Number of process rows.
+    ///
+    /// @param[out] npcol
+    ///     Number of process columns.
+    ///
+    /// @param[out] myrow
+    ///     My process row.
+    ///
+    /// @param[out] mycol
+    ///     My process column.
     void gridinfo( GridOrder* order, int* nprow, int* npcol,
                    int* myrow, int* mycol );
 
@@ -189,7 +219,10 @@ public:
         return storage_->tileDevice;
     }
 
+    /// Returns number of rows in op(A).
     int64_t m() const;
+
+    /// Returns number of columns in op(A).
     int64_t n() const;
 
     /// Returns number of block rows in op(A).
@@ -201,7 +234,17 @@ public:
     /// Returns transposition operation op(A) as NoTrans, Trans, or ConjTrans.
     Op op() const { return op_; }
 
-    /// returns true if tile exists on specified device
+    //--------------------------------------------------------------------------
+    /// Returns true if tile exists on specified device.
+    ///
+    /// @param[in] i
+    ///     Block row index.
+    ///
+    /// @param[in] j
+    ///     Block column index.
+    ///
+    /// @param[in] device
+    ///     Device ID to check. Default is HostNum.
     bool tileExists( int64_t i, int64_t j, int device=HostNum )
     {
         return storage_->tileExists( globalIndex( i, j, device ) );
@@ -234,14 +277,50 @@ public:
     /// Tile origin
     Target origin() const { return origin_; }
 
+    /// Returns number of rows in block row i.
     int64_t tileMb(int64_t i) const;
+
+    /// Returns number of columns in block column j.
     int64_t tileNb(int64_t j) const;
 private:
     int64_t tileMbInternal(int64_t i) const;
     int64_t tileNbInternal(int64_t j) const;
 
 public:
+    //--------------------------------------------------------------------------
+    /// Insert a tile at (i, j) on the specified device.
+    ///
+    /// @param[in] i
+    ///     Block row index.
+    ///
+    /// @param[in] j
+    ///     Block column index.
+    ///
+    /// @param[in] device
+    ///     Device ID to insert the tile on. Default is HostNum.
+    ///
+    /// @return The inserted tile.
     Tile<scalar_t> tileInsert( int64_t i, int64_t j, int device=HostNum );
+
+    //--------------------------------------------------------------------------
+    /// Insert a tile at (i, j) on the specified device, wrapping existing data.
+    ///
+    /// @param[in] i
+    ///     Block row index.
+    ///
+    /// @param[in] j
+    ///     Block column index.
+    ///
+    /// @param[in] device
+    ///     Device ID to insert the tile on.
+    ///
+    /// @param[in] A
+    ///     Pointer to the data.
+    ///
+    /// @param[in] ld
+    ///     Leading dimension of the data.
+    ///
+    /// @return The inserted tile.
     Tile<scalar_t> tileInsert( int64_t i, int64_t j, int device,
                                 scalar_t* A, int64_t ld );
 
@@ -252,7 +331,24 @@ public:
         return tileInsert( i, j, HostNum, A, ld );
     }
 
+    //--------------------------------------------------------------------------
+    /// Insert a workspace tile at (i, j) on the specified device.
+    ///
+    /// @param[in] i
+    ///     Block row index.
+    ///
+    /// @param[in] j
+    ///     Block column index.
+    ///
+    /// @param[in] device
+    ///     Device ID to insert the tile on.
+    ///
+    /// @param[in] layout
+    ///     Layout of the workspace tile (ColMajor or RowMajor).
+    ///
+    /// @return The inserted tile.
     Tile<scalar_t> tileInsertWorkspace(int64_t i, int64_t j, int device, Layout layout);
+
 
     Tile<scalar_t> tileInsertWorkspace(int64_t i, int64_t j, int device)
     {

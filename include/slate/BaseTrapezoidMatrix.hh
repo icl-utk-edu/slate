@@ -283,9 +283,9 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///     Number of columns of the matrix. n >= 0.
 ///
 /// @param[in,out] Aarray
-///     TODO
-///     The local portion of the 2D block cyclic distribution of
-///     the m-by-n matrix A, with local leading dimension lda.
+///     Array of pointers to device memory.
+///     Aarray[ d ] is the local portion of the 2D block cyclic distribution of
+///     the m-by-n matrix A on device d, with local leading dimension lda.
 ///
 /// @param[in] num_devices
 ///     Dimension of Aarray.

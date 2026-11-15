@@ -354,11 +354,16 @@ public:
 };
 
 //------------------------------------------------------------------------------
+// Define roundup if sys/param.h hasn't already defined it.
+#ifndef roundup
+
 template< typename T >
 inline T roundup(T x, T y)
 {
     return T((x + y - 1) / y)*y;
 }
+
+#endif
 
 //------------------------------------------------------------------------------
 // Level 3 BLAS
